@@ -39,8 +39,13 @@ export type PricingResult = {
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
-export function calcPricing(lengthMm: number, priceLevel: "A" | "B" | "C" | "D" | "E" = "E"): PricingResult {
-  const c = PRICING_CONFIG;
+export function calcPricing(
+  lengthMm: number,
+  priceLevel: "A" | "B" | "C" | "D" | "E" = "E",
+  config: { [K in keyof typeof PRICING_CONFIG]: number } = PRICING_CONFIG,
+  discountRates: Record<"A" | "B" | "C" | "D" | "E", number> = LEVEL_DISCOUNT,
+): PricingResult {
+  const c = config;
   const theoretical = (lengthMm / 1000) * c.meterWeight;
   const actual = theoretical / c.utilization;
   const waste = actual - theoretical;
@@ -53,7 +58,7 @@ export function calcPricing(lengthMm: number, priceLevel: "A" | "B" | "C" | "D" 
   const retailTax = retail * c.taxRate;
   const level1 = retail * c.level1Rate;
   const level2 = retail * c.level2Rate;
-  const dealerPrice = retail * LEVEL_DISCOUNT[priceLevel];
+  const dealerPrice = retail * discountRates[priceLevel];
 
   return {
     lengthMm: round2(lengthMm),

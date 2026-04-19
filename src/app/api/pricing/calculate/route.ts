@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { calcPricing, LEVEL_DISCOUNT } from "@/lib/pricing";
+import { calcPricing } from "@/lib/pricing";
+import { loadSettings } from "@/lib/settings";
 import { ok, fail } from "@/lib/api";
 
 export async function GET(req: NextRequest) {
@@ -12,6 +13,8 @@ export async function GET(req: NextRequest) {
   if (!lengthMm || lengthMm <= 0) return fail("lengthMm 必填且大于 0");
 
   const role = session.user.role;
+  const settings = await loadSettings();
+
   let level: "A" | "B" | "C" | "D" | "E" = "E";
   if (role === "DEALER" && session.user.dealerId) {
     const d = await prisma.dealer.findUnique({
@@ -26,8 +29,8 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const full = calcPricing(lengthMm, level);
-  const discountPercent = Math.round(LEVEL_DISCOUNT[level] * 100);
+  const full = calcPricing(lengthMm, level, settings.pricingConfig, settings.discountRates);
+  const discountPercent = Math.round(settings.discountRates[level] * 100);
 
   if (role === "DEALER") {
     return ok({
@@ -38,6 +41,5 @@ export async function GET(req: NextRequest) {
       dealerPrice: full.dealerPrice,
     });
   }
-
   return ok({ ...full, priceLevel: level, discountPercent });
 }

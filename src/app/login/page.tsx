@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,13 +17,12 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     const res = await signIn("credentials", { email, password, redirect: false });
-    setLoading(false);
-    if (res?.error) {
+    if (res?.error || !res?.ok) {
+      setLoading(false);
       setError("邮箱或密码错误");
       return;
     }
-    router.push("/");
-    router.refresh();
+    window.location.href = "/";
   }
 
   function fill(kind: "admin" | "ops" | "dealer") {

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMoney } from "@/lib/utils";
-import { SURFACE_OPTIONS, PROCESSING_OPTIONS, surfaceLabel, processingLabel, genCustomSku, genCustomProductName } from "@/lib/options";
+import { surfaceLabel, processingLabel, genCustomSku, genCustomProductName } from "@/lib/options";
 import { addToCart, getCart, cartTotal, type CartItem } from "@/lib/cart";
 
 type Result = {
@@ -22,8 +22,10 @@ type Result = {
 export default function QuotePage() {
   const router = useRouter();
   const [lengthMm, setLengthMm] = useState<number>(600);
-  const [surface, setSurface] = useState<string>(SURFACE_OPTIONS[0].code);
-  const [processing, setProcessing] = useState<string>(PROCESSING_OPTIONS[0].code);
+  const [surfaceOpts, setSurfaceOpts] = useState<{ code: string; label: string }[]>([]);
+  const [processingOpts, setProcessingOpts] = useState<{ code: string; label: string }[]>([]);
+  const [surface, setSurface] = useState<string>("");
+  const [processing, setProcessing] = useState<string>("");
   const [quantity, setQuantity] = useState<number>(10);
   const [remark, setRemark] = useState<string>("");
   const [result, setResult] = useState<Result | null>(null);
@@ -57,7 +59,18 @@ export default function QuotePage() {
     }
   }
 
-  useEffect(() => { calc(lengthMm); /* eslint-disable-next-line */ }, []);
+  useEffect(() => {
+    calc(lengthMm);
+    fetch("/api/settings").then((r) => r.json()).then((j) => {
+      if (j.code === 0) {
+        setSurfaceOpts(j.data.surfaceOptions ?? []);
+        setProcessingOpts(j.data.processingOptions ?? []);
+        if (j.data.surfaceOptions?.[0]) setSurface(j.data.surfaceOptions[0].code);
+        if (j.data.processingOptions?.[0]) setProcessing(j.data.processingOptions[0].code);
+      }
+    });
+    /* eslint-disable-next-line */
+  }, []);
 
   function handleAddToCart() {
     if (!result) return;
@@ -119,7 +132,7 @@ export default function QuotePage() {
             <div className="space-y-2">
               <Label>表面处理</Label>
               <div className="grid grid-cols-2 gap-2">
-                {SURFACE_OPTIONS.map((s) => (
+                {surfaceOpts.map((s) => (
                   <button
                     key={s.code}
                     type="button"
@@ -135,7 +148,7 @@ export default function QuotePage() {
             <div className="space-y-2">
               <Label>加工工艺</Label>
               <div className="grid grid-cols-2 gap-2">
-                {PROCESSING_OPTIONS.map((p) => (
+                {processingOpts.map((p) => (
                   <button
                     key={p.code}
                     type="button"
@@ -175,8 +188,8 @@ export default function QuotePage() {
               <>
                 <div className="text-sm space-y-1">
                   <div className="flex justify-between"><span className="text-muted-foreground">长度</span><span>{result.lengthMm} mm</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">表面处理</span><span>{surfaceLabel(surface)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">加工工艺</span><span>{processingLabel(processing)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">表面处理</span><span>{surfaceOpts.find(s => s.code === surface)?.label ?? surfaceLabel(surface)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">加工工艺</span><span>{processingOpts.find(p => p.code === processing)?.label ?? processingLabel(processing)}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">数量</span><span>{quantity} 根</span></div>
                 </div>
 

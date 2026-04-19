@@ -151,6 +151,13 @@ model SalesOrder {
   lines  SalesOrderLine[]
 }
 
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}
+
 model SalesOrderLine {
   id               String   @id @default(cuid())
   orderNo          String
