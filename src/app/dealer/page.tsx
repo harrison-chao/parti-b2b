@@ -46,9 +46,9 @@ export default async function DealerHomePage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Link href="/dealer/quote"><Card className="hover:shadow-md transition cursor-pointer"><CardContent className="p-6"><div className="font-semibold">📐 报价计算器</div><p className="text-sm text-muted-foreground mt-1">标准规格 & 非标长度实时报价</p></CardContent></Card></Link>
-        <Link href="/dealer/catalog"><Card className="hover:shadow-md transition cursor-pointer"><CardContent className="p-6"><div className="font-semibold">📦 产品目录</div><p className="text-sm text-muted-foreground mt-1">浏览全部标准规格产品</p></CardContent></Card></Link>
-        <Link href="/dealer/orders/new"><Card className="hover:shadow-md transition cursor-pointer"><CardContent className="p-6"><div className="font-semibold">🛒 创建订单</div><p className="text-sm text-muted-foreground mt-1">下单采购，提交审核</p></CardContent></Card></Link>
+        <Link href="/dealer/quote"><Card className="hover:shadow-md transition cursor-pointer"><CardContent className="p-6"><div className="font-semibold">📐 报价计算器</div><p className="text-sm text-muted-foreground mt-1">定制长度实时报价，直接加入订单草稿</p></CardContent></Card></Link>
+        <Link href="/dealer/orders/new"><Card className="hover:shadow-md transition cursor-pointer"><CardContent className="p-6"><div className="font-semibold">🛒 订单草稿</div><p className="text-sm text-muted-foreground mt-1">查看购物车，提交审核</p></CardContent></Card></Link>
+        <Link href="/dealer/orders"><Card className="hover:shadow-md transition cursor-pointer"><CardContent className="p-6"><div className="font-semibold">📋 我的订单</div><p className="text-sm text-muted-foreground mt-1">订单列表与状态跟踪</p></CardContent></Card></Link>
       </div>
 
       <Card>

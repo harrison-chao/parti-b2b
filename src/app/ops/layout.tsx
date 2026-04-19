@@ -14,6 +14,7 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
           { href: "/ops", label: "驾驶舱" },
           { href: "/ops/orders", label: "销售订单" },
           { href: "/ops/dealers", label: "经销商" },
+          { href: "/ops/pricing", label: "报价成本" },
         ]}
       />
       <main className="container py-6">{children}</main>

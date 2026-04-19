@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { calcPricing } from "@/lib/pricing";
+import { calcPricing, LEVEL_DISCOUNT } from "@/lib/pricing";
 import { ok, fail } from "@/lib/api";
 
 export async function GET(req: NextRequest) {
@@ -11,11 +11,33 @@ export async function GET(req: NextRequest) {
   const lengthMm = parseFloat(url.searchParams.get("lengthMm") ?? "0");
   if (!lengthMm || lengthMm <= 0) return fail("lengthMm 必填且大于 0");
 
+  const role = session.user.role;
   let level: "A" | "B" | "C" | "D" | "E" = "E";
-  const dealerId = session.user.dealerId;
-  if (dealerId) {
-    const d = await prisma.dealer.findUnique({ where: { id: dealerId }, select: { priceLevel: true } });
+  if (role === "DEALER" && session.user.dealerId) {
+    const d = await prisma.dealer.findUnique({
+      where: { id: session.user.dealerId },
+      select: { priceLevel: true },
+    });
     if (d) level = d.priceLevel;
+  } else {
+    const qLevel = url.searchParams.get("level");
+    if (qLevel && ["A", "B", "C", "D", "E"].includes(qLevel)) {
+      level = qLevel as typeof level;
+    }
   }
-  return ok({ ...calcPricing(lengthMm, level), priceLevel: level });
+
+  const full = calcPricing(lengthMm, level);
+  const discountPercent = Math.round(LEVEL_DISCOUNT[level] * 100);
+
+  if (role === "DEALER") {
+    return ok({
+      lengthMm: full.lengthMm,
+      actualWeight: full.actualWeight,
+      priceLevel: level,
+      discountPercent,
+      dealerPrice: full.dealerPrice,
+    });
+  }
+
+  return ok({ ...full, priceLevel: level, discountPercent });
 }

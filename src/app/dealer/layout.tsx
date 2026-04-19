@@ -13,7 +13,7 @@ export default async function DealerLayout({ children }: { children: React.React
         items={[
           { href: "/dealer", label: "工作台" },
           { href: "/dealer/quote", label: "报价计算器" },
-          { href: "/dealer/catalog", label: "产品目录" },
+          { href: "/dealer/orders/new", label: "订单草稿" },
           { href: "/dealer/orders", label: "我的订单" },
         ]}
       />

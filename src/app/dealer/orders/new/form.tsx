@@ -1,5 +1,6 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,32 +8,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMoney } from "@/lib/utils";
-
-type Product = {
-  sku: string;
-  productName: string;
-  series: string;
-  lengthMm: number;
-  lengthInch: number;
-  retailPrice: number;
-  dealerPrice: number;
-};
+import { surfaceLabel, processingLabel } from "@/lib/options";
+import { getCart, removeFromCart, updateCartItem, clearCart, type CartItem } from "@/lib/cart";
 
 type Address = { id: string; receiverName: string; receiverPhone: string; fullAddress: string; isDefault: boolean };
 
-type Line = { sku: string; productName: string; unitPrice: number; quantity: number; surfaceTreatment?: string; preprocessing?: string };
-
-export function NewOrderForm({
+export function CheckoutForm({
   dealer,
   addresses,
-  products,
 }: {
   dealer: { id: string; companyName: string; priceLevel: string; paymentMethod: string; creditBalance: number };
   addresses: Address[];
-  products: Product[];
 }) {
   const router = useRouter();
-  const [lines, setLines] = useState<Line[]>([]);
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [addrId, setAddrId] = useState<string>(addresses[0]?.id ?? "");
   const [newAddr, setNewAddr] = useState({ receiverName: "", receiverPhone: "", receiverAddress: "" });
   const [useNewAddr, setUseNewAddr] = useState(addresses.length === 0);
@@ -45,30 +35,32 @@ export function NewOrderForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  function addLine(p: Product) {
-    setLines((ls) => {
-      const existing = ls.findIndex((l) => l.sku === p.sku);
-      if (existing >= 0) {
-        const copy = [...ls];
-        copy[existing] = { ...copy[existing], quantity: copy[existing].quantity + 1 };
-        return copy;
-      }
-      return [...ls, { sku: p.sku, productName: p.productName, unitPrice: p.dealerPrice, quantity: 1 }];
-    });
+  function reload() {
+    setItems(getCart());
   }
-  function updateLine(idx: number, patch: Partial<Line>) {
-    setLines((ls) => ls.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  useEffect(() => {
+    reload();
+    setLoaded(true);
+    const h = () => reload();
+    window.addEventListener("cart-change", h);
+    return () => window.removeEventListener("cart-change", h);
+  }, []);
+
+  function updateQty(id: string, qty: number) {
+    updateCartItem(id, { quantity: Math.max(1, qty) });
+    reload();
   }
-  function removeLine(idx: number) {
-    setLines((ls) => ls.filter((_, i) => i !== idx));
+  function remove(id: string) {
+    removeFromCart(id);
+    reload();
   }
 
-  const total = useMemo(() => lines.reduce((s, l) => s + l.quantity * l.unitPrice, 0), [lines]);
+  const total = useMemo(() => items.reduce((s, i) => s + i.unitPrice * i.quantity, 0), [items]);
   const creditInsufficient = dealer.paymentMethod === "CREDIT" && total > dealer.creditBalance;
 
   async function submit(submitAfter: boolean) {
     setError("");
-    if (lines.length === 0) return setError("请至少添加一个产品");
+    if (items.length === 0) return setError("草稿为空，请先在报价计算器添加产品");
     let receiverName = "", receiverPhone = "", receiverAddress = "";
     if (useNewAddr) {
       if (!newAddr.receiverName || !newAddr.receiverPhone || !newAddr.receiverAddress) return setError("请填写完整收货信息");
@@ -93,10 +85,14 @@ export function NewOrderForm({
           targetDeliveryDate: targetDate,
           receiverName, receiverPhone, receiverAddress,
           remark,
-          lines: lines.map((l) => ({
-            sku: l.sku, productName: l.productName,
-            surfaceTreatment: l.surfaceTreatment, preprocessing: l.preprocessing,
-            quantity: l.quantity, unitPrice: l.unitPrice,
+          lines: items.map((i) => ({
+            sku: i.sku,
+            productName: i.productName,
+            surfaceTreatment: i.surfaceTreatment,
+            preprocessing: `${i.preprocessing}${i.remark ? " / " + i.remark : ""}`,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            isCustom: true,
           })),
         }),
       });
@@ -106,69 +102,70 @@ export function NewOrderForm({
       if (submitAfter) {
         await fetch(`/api/orders/${orderNo}/submit`, { method: "POST" });
       }
+      clearCart();
       router.push(`/dealer/orders/${orderNo}`);
     } finally {
       setSubmitting(false);
     }
   }
 
+  if (!loaded) return null;
+
+  if (items.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-16 text-center space-y-4">
+          <p className="text-muted-foreground">订单草稿为空</p>
+          <Link href="/dealer/quote"><Button>前往报价计算器添加产品</Button></Link>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">创建订单</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">订单草稿 · 结算</h1>
+        <Link href="/dealer/quote"><Button variant="outline" size="sm">继续添加产品</Button></Link>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <Card>
-            <CardHeader><CardTitle>选择产品</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-                {products.map((p) => (
-                  <button
-                    key={p.sku}
-                    onClick={() => addLine(p)}
-                    className="text-left border rounded p-3 hover:bg-slate-50 hover:border-slate-400 transition"
-                  >
-                    <div className="font-medium text-sm">{p.productName}</div>
-                    <div className="text-xs text-muted-foreground font-mono">{p.sku}</div>
-                    <div className="text-sm text-emerald-700 font-semibold mt-1">{formatMoney(p.dealerPrice)} / 根</div>
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader><CardTitle>订单明细</CardTitle></CardHeader>
-            <CardContent>
-              {lines.length === 0 ? (
-                <p className="text-muted-foreground text-sm py-4">请从上方选择产品</p>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead className="border-b"><tr className="text-left">
-                    <th className="pb-2">产品</th><th className="pb-2">加工</th><th className="pb-2 w-24">数量</th>
-                    <th className="pb-2 w-24 text-right">单价</th><th className="pb-2 w-24 text-right">小计</th><th></th>
-                  </tr></thead>
-                  <tbody>
-                    {lines.map((l, i) => (
-                      <tr key={i} className="border-b">
-                        <td className="py-2">
-                          <div className="text-sm font-medium">{l.productName}</div>
-                          <div className="text-xs text-muted-foreground font-mono">{l.sku}</div>
-                        </td>
-                        <td className="py-2">
-                          <Input className="h-8 text-xs" placeholder="如 L600MM-DE"
-                            value={l.preprocessing ?? ""} onChange={(e) => updateLine(i, { preprocessing: e.target.value })} />
-                        </td>
-                        <td className="py-2"><Input type="number" min={1} className="h-8"
-                          value={l.quantity} onChange={(e) => updateLine(i, { quantity: parseInt(e.target.value) || 1 })} /></td>
-                        <td className="py-2 text-right">{formatMoney(l.unitPrice)}</td>
-                        <td className="py-2 text-right font-medium">{formatMoney(l.unitPrice * l.quantity)}</td>
-                        <td className="py-2"><button onClick={() => removeLine(i)} className="text-red-600 text-xs hover:underline">删除</button></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+            <CardHeader><CardTitle>订单明细（{items.length} 项）</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b"><tr className="text-left">
+                  <th className="p-3">产品</th>
+                  <th className="p-3">规格</th>
+                  <th className="p-3 w-20">数量</th>
+                  <th className="p-3 text-right">单价</th>
+                  <th className="p-3 text-right">小计</th>
+                  <th className="p-3"></th>
+                </tr></thead>
+                <tbody>
+                  {items.map((i) => (
+                    <tr key={i.id} className="border-b">
+                      <td className="p-3">
+                        <div className="font-medium">{i.productName}</div>
+                        <div className="text-xs text-muted-foreground font-mono">{i.sku}</div>
+                      </td>
+                      <td className="p-3 text-xs">
+                        <div>{i.lengthMm}mm · {surfaceLabel(i.surfaceTreatment)}</div>
+                        <div className="text-muted-foreground">{processingLabel(i.preprocessing)}</div>
+                        {i.remark && <div className="text-muted-foreground">备注: {i.remark}</div>}
+                      </td>
+                      <td className="p-3">
+                        <Input type="number" min={1} className="h-8 w-16"
+                          value={i.quantity} onChange={(e) => updateQty(i.id, parseInt(e.target.value) || 1)} />
+                      </td>
+                      <td className="p-3 text-right">{formatMoney(i.unitPrice)}</td>
+                      <td className="p-3 text-right font-medium">{formatMoney(i.unitPrice * i.quantity)}</td>
+                      <td className="p-3"><button onClick={() => remove(i.id)} className="text-red-600 text-xs hover:underline">删除</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </CardContent>
           </Card>
 
@@ -213,15 +210,15 @@ export function NewOrderForm({
             <CardHeader><CardTitle>订单信息</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div><Label>期望交期</Label><Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} /></div>
-              <div><Label>备注</Label><Textarea value={remark} onChange={(e) => setRemark(e.target.value)} /></div>
+              <div><Label>订单备注</Label><Textarea value={remark} onChange={(e) => setRemark(e.target.value)} placeholder="整单级别的备注" /></div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader><CardTitle>金额汇总</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              <div className="flex justify-between text-sm"><span>行数</span><span>{lines.length}</span></div>
-              <div className="flex justify-between text-sm"><span>合计数量</span><span>{lines.reduce((s, l) => s + l.quantity, 0)}</span></div>
+              <div className="flex justify-between text-sm"><span>行数</span><span>{items.length}</span></div>
+              <div className="flex justify-between text-sm"><span>合计数量</span><span>{items.reduce((s, i) => s + i.quantity, 0)} 根</span></div>
               <div className="flex justify-between text-lg font-bold pt-2 border-t"><span>总金额</span><span className="text-emerald-700">{formatMoney(total)}</span></div>
               {dealer.paymentMethod === "CREDIT" && (
                 <div className="text-xs text-muted-foreground">
