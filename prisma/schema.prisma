@@ -1,0 +1,173 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  ADMIN
+  OPS
+  DEALER
+}
+
+enum PriceLevel {
+  A
+  B
+  C
+  D
+  E
+}
+
+enum PaymentMethod {
+  PREPAID
+  DEPOSIT
+  CREDIT
+}
+
+enum DealerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  CREDIT
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING
+  MODIFYING
+  CONFIRMED
+  PARTIALLY_PAID
+  PRODUCING
+  READY
+  SHIPPED
+  COMPLETED
+  CANCELLED
+  REJECTED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      UserRole @default(DEALER)
+  dealerId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dealer Dealer? @relation(fields: [dealerId], references: [id])
+}
+
+model Dealer {
+  id            String        @id @default(cuid())
+  dealerNo      String        @unique
+  companyName   String
+  contactName   String
+  contactPhone  String
+  priceLevel    PriceLevel    @default(E)
+  creditLimit   Decimal       @default(0) @db.Decimal(12, 2)
+  creditBalance Decimal       @default(0) @db.Decimal(12, 2)
+  usedCredit    Decimal       @default(0) @db.Decimal(12, 2)
+  paymentMethod PaymentMethod @default(PREPAID)
+  status        DealerStatus  @default(ACTIVE)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  users       User[]
+  addresses   DealerAddress[]
+  salesOrders SalesOrder[]
+}
+
+model DealerAddress {
+  id            String   @id @default(cuid())
+  dealerId      String
+  addressType   String   @default("warehouse")
+  receiverName  String
+  receiverPhone String
+  province      String
+  city          String
+  district      String
+  detailAddress String
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  dealer Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  sku         String   @unique
+  productName String
+  series      String
+  lengthInch  Decimal? @db.Decimal(6, 2)
+  lengthMm    Decimal? @db.Decimal(8, 2)
+  isCustom    Boolean  @default(false)
+  retailPrice Decimal  @db.Decimal(10, 2)
+  unit        String   @default("根")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orderLines SalesOrderLine[]
+}
+
+model SalesOrder {
+  id                    String        @id @default(cuid())
+  orderNo               String        @unique
+  dealerId              String
+  orderDate             DateTime      @default(now())
+  targetDeliveryDate    DateTime
+  suggestedDeliveryDate DateTime?
+  actualDeliveryDate    DateTime?
+  dealerAccount         String
+  reviewer              String?
+  reviewTime            DateTime?
+  reviewRemark          String?
+  paymentStatus         PaymentStatus @default(UNPAID)
+  orderStatus           OrderStatus   @default(DRAFT)
+  totalAmount           Decimal       @db.Decimal(12, 2)
+  confirmedAmount       Decimal?      @db.Decimal(12, 2)
+  paidAmount            Decimal       @default(0) @db.Decimal(12, 2)
+  discountRate          Decimal?      @db.Decimal(5, 2)
+  logisticsNo           String?
+  receiverName          String
+  receiverPhone         String
+  receiverAddress       String
+  remark                String?
+  internalRemark        String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  dealer Dealer           @relation(fields: [dealerId], references: [id])
+  lines  SalesOrderLine[]
+}
+
+model SalesOrderLine {
+  id               String   @id @default(cuid())
+  orderNo          String
+  lineNo           Int
+  sku              String
+  productName      String
+  surfaceTreatment String?
+  preprocessing    String?
+  quantity         Int
+  unitPrice        Decimal  @db.Decimal(10, 2)
+  confirmedPrice   Decimal? @db.Decimal(10, 2)
+  lineAmount       Decimal  @db.Decimal(12, 2)
+  workOrderNo      String?
+  isCustom         Boolean  @default(false)
+  imageUrl         String?
+  createdAt        DateTime @default(now())
+
+  order   SalesOrder @relation(fields: [orderNo], references: [orderNo], onDelete: Cascade)
+  product Product?   @relation(fields: [sku], references: [sku])
+}
