@@ -174,6 +174,8 @@ model SalesOrderLine {
   workOrderNo      String?
   isCustom         Boolean  @default(false)
   imageUrl         String?
+  drawingUrl       String?
+  drawingFileName  String?
   createdAt        DateTime @default(now())
 
   order   SalesOrder @relation(fields: [orderNo], references: [orderNo], onDelete: Cascade)

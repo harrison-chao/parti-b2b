@@ -21,6 +21,8 @@ export function OrderLineCostRow({
     productName: string;
     sku: string;
     preprocessing: string | null;
+    drawingUrl: string | null;
+    drawingFileName: string | null;
     quantity: number;
     unitPrice: number;
     lineAmount: number;
@@ -38,6 +40,11 @@ export function OrderLineCostRow({
         <td className="p-3">
           <div>{line.productName}</div>
           {line.preprocessing && <div className="text-xs text-muted-foreground">{line.preprocessing}</div>}
+          {line.drawingUrl && (
+            <a href={line.drawingUrl} target="_blank" rel="noopener" className="text-xs text-blue-600 hover:underline">
+              📎 图纸 {line.drawingFileName ?? ""}
+            </a>
+          )}
         </td>
         <td className="p-3 font-mono text-xs">{line.sku}</td>
         <td className="p-3 text-right">{line.quantity}</td>

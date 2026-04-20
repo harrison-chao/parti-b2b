@@ -14,6 +14,8 @@ const lineSchema = z.object({
   quantity: z.number().int().positive(),
   unitPrice: z.number().nonnegative(),
   targetPrice: z.number().nonnegative().optional().nullable(),
+  drawingUrl: z.string().url().optional().nullable(),
+  drawingFileName: z.string().optional().nullable(),
   isCustom: z.boolean().optional(),
 });
 
@@ -103,6 +105,8 @@ export async function POST(req: NextRequest) {
           unitPrice: l.unitPrice,
           targetPrice: l.targetPrice ?? null,
           lineAmount: l.quantity * l.unitPrice,
+          drawingUrl: l.drawingUrl ?? null,
+          drawingFileName: l.drawingFileName ?? null,
           isCustom: l.isCustom ?? false,
         })),
       },

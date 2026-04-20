@@ -71,7 +71,14 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
                 return (
                   <tr key={l.id} className="border-b">
                     <td className="p-3">{l.lineNo}</td>
-                    <td className="p-3">{l.productName}</td>
+                    <td className="p-3">
+                      <div>{l.productName}</div>
+                      {l.drawingUrl && (
+                        <a href={l.drawingUrl} target="_blank" rel="noopener" className="text-xs text-blue-600 hover:underline">
+                          📎 图纸 {l.drawingFileName ?? ""}
+                        </a>
+                      )}
+                    </td>
                     <td className="p-3 font-mono text-xs">{l.sku}</td>
                     <td className="p-3 text-xs">{l.preprocessing || "-"}</td>
                     <td className="p-3 text-right">{l.quantity}</td>

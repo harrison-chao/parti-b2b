@@ -101,6 +101,8 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
                           productName: l.productName,
                           sku: l.sku,
                           preprocessing: l.preprocessing,
+                          drawingUrl: l.drawingUrl,
+                          drawingFileName: l.drawingFileName,
                           quantity: l.quantity,
                           unitPrice: Number(l.unitPrice),
                           lineAmount: Number(l.lineAmount),

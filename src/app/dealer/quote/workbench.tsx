@@ -18,7 +18,10 @@ type Row = {
   processCode: string;
   colorCode: string;
   operationCode: string;
-  modifier: string;
+  drawingUrl: string;
+  drawingFileName: string;
+  drawingUploading: boolean;
+  drawingError?: string;
   quantity: number;
   targetPct: string;
   unitPrice: number | null;
@@ -34,7 +37,9 @@ function newRow(): Row {
     processCode: "",
     colorCode: "",
     operationCode: "",
-    modifier: "",
+    drawingUrl: "",
+    drawingFileName: "",
+    drawingUploading: false,
     quantity: 1,
     targetPct: "",
     unitPrice: null,
@@ -112,6 +117,31 @@ export function QuoteWorkbench({
     setRows((rs) => (rs.length === 1 ? [newRow()] : rs.filter((r) => r.id !== id)));
   }
 
+  async function uploadDrawing(rowId: string, file: File) {
+    patchRow(rowId, { drawingUploading: true, drawingError: undefined });
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const r = await fetch("/api/uploads/drawing", { method: "POST", body: fd });
+      const j = await r.json();
+      if (j.code !== 0) {
+        patchRow(rowId, { drawingUploading: false, drawingError: j.message });
+        return;
+      }
+      patchRow(rowId, {
+        drawingUploading: false,
+        drawingUrl: j.data.url,
+        drawingFileName: j.data.fileName,
+      });
+    } catch (e: any) {
+      patchRow(rowId, { drawingUploading: false, drawingError: e?.message ?? "上传失败" });
+    }
+  }
+
+  function clearDrawing(rowId: string) {
+    patchRow(rowId, { drawingUrl: "", drawingFileName: "", drawingError: undefined });
+  }
+
   const readyRows = useMemo(() => rows.filter(rowReady), [rows]);
   const total = useMemo(() => readyRows.reduce((s, r) => s + (r.unitPrice ?? 0) * r.quantity, 0), [readyRows]);
   const targetTotal = useMemo(
@@ -144,8 +174,8 @@ export function QuoteWorkbench({
       const mm = parseFloat(r.lengthMm);
       const surfaceCode = `${r.processCode}-${r.colorCode}`;
       const surfaceLabelText = labelOf(options.surfaceProcesses, r.processCode) + "/" + labelOf(options.surfaceColors, r.colorCode);
-      const processingCode = r.operationCode + (r.modifier ? r.modifier.trim().toUpperCase() : "");
-      const processingLabelText = labelOf(options.processingOperations, r.operationCode) + (r.modifier ? ` ${r.modifier}` : "");
+      const processingCode = r.operationCode;
+      const processingLabelText = labelOf(options.processingOperations, r.operationCode);
       const sku = genCustomSku("MR2525", mm, surfaceCode, processingCode);
       const productName = genCustomProductName("MR2525", mm, surfaceLabelText);
       const tp = rowTargetPrice(r);
@@ -158,6 +188,8 @@ export function QuoteWorkbench({
         quantity: r.quantity,
         unitPrice: r.unitPrice!,
         targetPrice: tp ?? null,
+        drawingUrl: r.drawingUrl || null,
+        drawingFileName: r.drawingFileName || null,
         isCustom: true,
       };
     });
@@ -199,7 +231,7 @@ export function QuoteWorkbench({
                 <th className="p-2">表面工艺</th>
                 <th className="p-2">颜色</th>
                 <th className="p-2">加工操作</th>
-                <th className="p-2">修饰</th>
+                <th className="p-2">加工图纸 (可选 PDF/DWG/STEP)</th>
                 <th className="p-2 w-20">数量</th>
                 <th className="p-2 w-24">目标%</th>
                 <th className="p-2 text-right">采购单价</th>
@@ -232,8 +264,30 @@ export function QuoteWorkbench({
                       <Select value={r.operationCode} onChange={(v) => patchRow(r.id, { operationCode: v })} options={options.processingOperations} />
                     </td>
                     <td className="p-2">
-                      <Input className="h-8 w-28" placeholder="如 600MM" value={r.modifier}
-                        onChange={(e) => patchRow(r.id, { modifier: e.target.value })} />
+                      {r.drawingUrl ? (
+                        <div className="flex items-center gap-2 text-xs">
+                          <a href={r.drawingUrl} target="_blank" rel="noopener" className="text-blue-600 hover:underline truncate max-w-[140px]">
+                            📎 {r.drawingFileName}
+                          </a>
+                          <button onClick={() => clearDrawing(r.id)} className="text-red-600 hover:underline">移除</button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <input
+                            type="file"
+                            accept=".pdf,.dwg,.step,.stp,application/pdf"
+                            disabled={r.drawingUploading}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) uploadDrawing(r.id, f);
+                              e.target.value = "";
+                            }}
+                            className="text-xs w-44"
+                          />
+                          {r.drawingUploading && <div className="text-xs text-muted-foreground">上传中...</div>}
+                          {r.drawingError && <div className="text-xs text-red-600">{r.drawingError}</div>}
+                        </div>
+                      )}
                     </td>
                     <td className="p-2">
                       <Input type="number" min={1} className="h-8 w-16" value={r.quantity}
