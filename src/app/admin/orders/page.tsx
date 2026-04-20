@@ -26,7 +26,7 @@ export default async function OpsOrdersPage({ searchParams }: { searchParams: { 
           return (
             <Link
               key={s || "all"}
-              href={s ? `/ops/orders?status=${s}` : "/ops/orders"}
+              href={s ? `/admin/orders?status=${s}` : "/admin/orders"}
               className={`px-3 py-1.5 rounded-full text-sm ${active ? "bg-slate-900 text-white" : "bg-white border hover:bg-slate-50"}`}
             >
               {s ? ORDER_STATUS_LABEL[s] : "全部"}
@@ -57,7 +57,7 @@ export default async function OpsOrdersPage({ searchParams }: { searchParams: { 
                     <td className="p-3">{o.lines.length}</td>
                     <td className="p-3 text-right font-medium">{formatMoney(Number(o.totalAmount))}</td>
                     <td className="p-3"><Badge className={ORDER_STATUS_COLOR[o.orderStatus]}>{ORDER_STATUS_LABEL[o.orderStatus]}</Badge></td>
-                    <td className="p-3"><Link href={`/ops/orders/${o.orderNo}`} className="text-blue-600 hover:underline">{o.orderStatus === "PENDING" ? "审核" : "查看"}</Link></td>
+                    <td className="p-3"><Link href={`/admin/orders/${o.orderNo}`} className="text-blue-600 hover:underline">{o.orderStatus === "PENDING" ? "审核" : "查看"}</Link></td>
                   </tr>
                 ))}
               </tbody>

@@ -8,10 +8,14 @@ export type CartItem = {
   series: string;
   lengthMm: number;
   surfaceTreatment: string;
+  surfaceLabel?: string;
   preprocessing: string;
+  processingLabel?: string;
   remark: string;
   quantity: number;
   unitPrice: number;
+  retailPrice?: number;
+  targetPrice?: number;
 };
 
 export function getCart(): CartItem[] {

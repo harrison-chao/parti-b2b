@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { calcPricing } from "@/lib/pricing";
-import { loadSettings } from "@/lib/settings";
+import { loadSettings, pricingFieldsToConfig } from "@/lib/settings";
 import { ok, fail } from "@/lib/api";
 
 export async function GET(req: NextRequest) {
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const full = calcPricing(lengthMm, level, settings.pricingConfig, settings.discountRates);
+  const full = calcPricing(lengthMm, level, pricingFieldsToConfig(settings.pricingFields), settings.discountRates);
   const discountPercent = Math.round(settings.discountRates[level] * 100);
 
   if (role === "DEALER") {
@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
       priceLevel: level,
       discountPercent,
       dealerPrice: full.dealerPrice,
+      retailPrice: full.retailPrice,
     });
   }
   return ok({ ...full, priceLevel: level, discountPercent });

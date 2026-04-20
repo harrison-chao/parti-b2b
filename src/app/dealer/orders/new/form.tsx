@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMoney } from "@/lib/utils";
-import { surfaceLabel, processingLabel } from "@/lib/options";
 import { getCart, removeFromCart, updateCartItem, clearCart, type CartItem } from "@/lib/cart";
 
 type Address = { id: string; receiverName: string; receiverPhone: string; fullAddress: string; isDefault: boolean };
@@ -56,6 +55,8 @@ export function CheckoutForm({
   }
 
   const total = useMemo(() => items.reduce((s, i) => s + i.unitPrice * i.quantity, 0), [items]);
+  const targetTotal = useMemo(() => items.reduce((s, i) => s + (i.targetPrice ?? i.unitPrice) * i.quantity, 0), [items]);
+  const profitTotal = targetTotal - total;
   const creditInsufficient = dealer.paymentMethod === "CREDIT" && total > dealer.creditBalance;
 
   async function submit(submitAfter: boolean) {
@@ -88,10 +89,12 @@ export function CheckoutForm({
           lines: items.map((i) => ({
             sku: i.sku,
             productName: i.productName,
+            lengthMm: i.lengthMm,
             surfaceTreatment: i.surfaceTreatment,
             preprocessing: `${i.preprocessing}${i.remark ? " / " + i.remark : ""}`,
             quantity: i.quantity,
             unitPrice: i.unitPrice,
+            targetPrice: i.targetPrice ?? null,
             isCustom: true,
           })),
         }),
@@ -139,8 +142,10 @@ export function CheckoutForm({
                   <th className="p-3">产品</th>
                   <th className="p-3">规格</th>
                   <th className="p-3 w-20">数量</th>
-                  <th className="p-3 text-right">单价</th>
-                  <th className="p-3 text-right">小计</th>
+                  <th className="p-3 text-right">采购单价</th>
+                  <th className="p-3 text-right">目标售价</th>
+                  <th className="p-3 text-right">单根毛利</th>
+                  <th className="p-3 text-right">采购小计</th>
                   <th className="p-3"></th>
                 </tr></thead>
                 <tbody>
@@ -151,8 +156,8 @@ export function CheckoutForm({
                         <div className="text-xs text-muted-foreground font-mono">{i.sku}</div>
                       </td>
                       <td className="p-3 text-xs">
-                        <div>{i.lengthMm}mm · {surfaceLabel(i.surfaceTreatment)}</div>
-                        <div className="text-muted-foreground">{processingLabel(i.preprocessing)}</div>
+                        <div>{i.lengthMm}mm · {i.surfaceLabel ?? i.surfaceTreatment}</div>
+                        <div className="text-muted-foreground">{i.processingLabel ?? i.preprocessing}</div>
                         {i.remark && <div className="text-muted-foreground">备注: {i.remark}</div>}
                       </td>
                       <td className="p-3">
@@ -160,6 +165,14 @@ export function CheckoutForm({
                           value={i.quantity} onChange={(e) => updateQty(i.id, parseInt(e.target.value) || 1)} />
                       </td>
                       <td className="p-3 text-right">{formatMoney(i.unitPrice)}</td>
+                      <td className="p-3 text-right">{i.targetPrice != null ? formatMoney(i.targetPrice) : "-"}</td>
+                      <td className="p-3 text-right">
+                        {i.targetPrice != null ? (
+                          <span className={i.targetPrice - i.unitPrice >= 0 ? "text-blue-700" : "text-red-600"}>
+                            {formatMoney(i.targetPrice - i.unitPrice)}
+                          </span>
+                        ) : "-"}
+                      </td>
                       <td className="p-3 text-right font-medium">{formatMoney(i.unitPrice * i.quantity)}</td>
                       <td className="p-3"><button onClick={() => remove(i.id)} className="text-red-600 text-xs hover:underline">删除</button></td>
                     </tr>
@@ -219,7 +232,12 @@ export function CheckoutForm({
             <CardContent className="space-y-2">
               <div className="flex justify-between text-sm"><span>行数</span><span>{items.length}</span></div>
               <div className="flex justify-between text-sm"><span>合计数量</span><span>{items.reduce((s, i) => s + i.quantity, 0)} 根</span></div>
-              <div className="flex justify-between text-lg font-bold pt-2 border-t"><span>总金额</span><span className="text-emerald-700">{formatMoney(total)}</span></div>
+              <div className="flex justify-between text-lg font-bold pt-2 border-t"><span>采购总金额</span><span className="text-emerald-700">{formatMoney(total)}</span></div>
+              <div className="flex justify-between text-sm"><span>目标销售总金额</span><span>{formatMoney(targetTotal)}</span></div>
+              <div className="flex justify-between text-base font-semibold">
+                <span>本单预计总毛利</span>
+                <span className={profitTotal >= 0 ? "text-blue-700" : "text-red-600"}>{formatMoney(profitTotal)}</span>
+              </div>
               {dealer.paymentMethod === "CREDIT" && (
                 <div className="text-xs text-muted-foreground">
                   可用信用: {formatMoney(dealer.creditBalance)}

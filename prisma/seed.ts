@@ -15,14 +15,10 @@ async function main() {
   await prisma.product.deleteMany();
 
   const adminPwd = await bcrypt.hash("admin123", 10);
-  const opsPwd = await bcrypt.hash("ops123", 10);
   const dealerPwd = await bcrypt.hash("dealer123", 10);
 
   await prisma.user.create({
     data: { email: "admin@parti.com", name: "系统管理员", password: adminPwd, role: "ADMIN" },
-  });
-  await prisma.user.create({
-    data: { email: "ops@parti.com", name: "运营小李", password: opsPwd, role: "OPS" },
   });
 
   const dealer = await prisma.dealer.create({
@@ -84,7 +80,6 @@ async function main() {
 
   console.log("✅ Seed complete");
   console.log("   Admin:  admin@parti.com / admin123");
-  console.log("   Ops:    ops@parti.com / ops123");
   console.log("   Dealer: dealer@parti.com / dealer123");
 }
 

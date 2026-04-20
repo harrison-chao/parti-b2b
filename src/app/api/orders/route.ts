@@ -8,10 +8,12 @@ import { z } from "zod";
 const lineSchema = z.object({
   sku: z.string(),
   productName: z.string(),
+  lengthMm: z.number().positive().optional().nullable(),
   surfaceTreatment: z.string().optional().nullable(),
   preprocessing: z.string().optional().nullable(),
   quantity: z.number().int().positive(),
   unitPrice: z.number().nonnegative(),
+  targetPrice: z.number().nonnegative().optional().nullable(),
   isCustom: z.boolean().optional(),
 });
 
@@ -94,10 +96,12 @@ export async function POST(req: NextRequest) {
           lineNo: idx + 1,
           sku: l.sku,
           productName: l.productName,
+          lengthMm: l.lengthMm ?? null,
           surfaceTreatment: l.surfaceTreatment ?? null,
           preprocessing: l.preprocessing ?? null,
           quantity: l.quantity,
           unitPrice: l.unitPrice,
+          targetPrice: l.targetPrice ?? null,
           lineAmount: l.quantity * l.unitPrice,
           isCustom: l.isCustom ?? false,
         })),

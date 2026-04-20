@@ -20,7 +20,7 @@ export function Nav({
           <Link href="/" className="font-bold text-lg">Parti B2B</Link>
           <nav className="flex items-center gap-1">
             {items.map((item) => {
-              const active = pathname === item.href || (item.href !== "/dealer" && item.href !== "/ops" && pathname.startsWith(item.href));
+              const active = pathname === item.href || (item.href !== "/dealer" && item.href !== "/admin" && pathname.startsWith(item.href));
               return (
                 <Link
                   key={item.href}

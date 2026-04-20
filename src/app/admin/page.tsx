@@ -25,11 +25,11 @@ export default async function OpsHomePage() {
       <h1 className="text-2xl font-bold">运营驾驶舱</h1>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Stat label="待审核" value={pending} href="/ops/orders?status=PENDING" tone="amber" />
-        <Stat label="已确认" value={confirmed} href="/ops/orders?status=CONFIRMED" tone="blue" />
-        <Stat label="生产中" value={producing} href="/ops/orders?status=PRODUCING" tone="indigo" />
-        <Stat label="已完成" value={completed} href="/ops/orders?status=COMPLETED" tone="emerald" />
-        <Stat label="活跃经销商" value={dealerCount} href="/ops/dealers" />
+        <Stat label="待审核" value={pending} href="/admin/orders?status=PENDING" tone="amber" />
+        <Stat label="已确认" value={confirmed} href="/admin/orders?status=CONFIRMED" tone="blue" />
+        <Stat label="生产中" value={producing} href="/admin/orders?status=PRODUCING" tone="indigo" />
+        <Stat label="已完成" value={completed} href="/admin/orders?status=COMPLETED" tone="emerald" />
+        <Stat label="活跃经销商" value={dealerCount} href="/admin/dealers" />
       </div>
 
       <Card>
@@ -56,7 +56,7 @@ export default async function OpsHomePage() {
                     <td className="p-3">{formatDate(o.targetDeliveryDate)}</td>
                     <td className="p-3 text-right font-medium">{formatMoney(Number(o.totalAmount))}</td>
                     <td className="p-3"><Badge className={ORDER_STATUS_COLOR[o.orderStatus]}>{ORDER_STATUS_LABEL[o.orderStatus]}</Badge></td>
-                    <td className="p-3"><Link href={`/ops/orders/${o.orderNo}`} className="text-blue-600 text-sm hover:underline">审核</Link></td>
+                    <td className="p-3"><Link href={`/admin/orders/${o.orderNo}`} className="text-blue-600 text-sm hover:underline">审核</Link></td>
                   </tr>
                 ))}
               </tbody>

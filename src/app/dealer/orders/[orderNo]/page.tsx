@@ -59,24 +59,47 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
             <thead className="bg-slate-50 border-b"><tr className="text-left">
               <th className="p-3">#</th><th className="p-3">产品</th><th className="p-3">SKU</th>
               <th className="p-3">加工</th><th className="p-3 text-right">数量</th>
-              <th className="p-3 text-right">单价</th><th className="p-3 text-right">小计</th>
+              <th className="p-3 text-right">采购单价</th>
+              <th className="p-3 text-right">目标售价</th>
+              <th className="p-3 text-right">单根毛利</th>
+              <th className="p-3 text-right">采购小计</th>
             </tr></thead>
             <tbody>
-              {order.lines.map((l) => (
-                <tr key={l.id} className="border-b">
-                  <td className="p-3">{l.lineNo}</td>
-                  <td className="p-3">{l.productName}</td>
-                  <td className="p-3 font-mono text-xs">{l.sku}</td>
-                  <td className="p-3 text-xs">{l.preprocessing || "-"}</td>
-                  <td className="p-3 text-right">{l.quantity}</td>
-                  <td className="p-3 text-right">{formatMoney(Number(l.unitPrice))}</td>
-                  <td className="p-3 text-right font-medium">{formatMoney(Number(l.lineAmount))}</td>
-                </tr>
-              ))}
+              {order.lines.map((l) => {
+                const target = l.targetPrice == null ? null : Number(l.targetPrice);
+                const profit = target == null ? null : target - Number(l.unitPrice);
+                return (
+                  <tr key={l.id} className="border-b">
+                    <td className="p-3">{l.lineNo}</td>
+                    <td className="p-3">{l.productName}</td>
+                    <td className="p-3 font-mono text-xs">{l.sku}</td>
+                    <td className="p-3 text-xs">{l.preprocessing || "-"}</td>
+                    <td className="p-3 text-right">{l.quantity}</td>
+                    <td className="p-3 text-right">{formatMoney(Number(l.unitPrice))}</td>
+                    <td className="p-3 text-right">{target != null ? formatMoney(target) : "-"}</td>
+                    <td className={`p-3 text-right ${profit == null ? "" : profit >= 0 ? "text-blue-700" : "text-red-600"}`}>
+                      {profit != null ? formatMoney(profit) : "-"}
+                    </td>
+                    <td className="p-3 text-right font-medium">{formatMoney(Number(l.lineAmount))}</td>
+                  </tr>
+                );
+              })}
             </tbody>
             <tfoot className="bg-slate-50">
-              <tr><td colSpan={6} className="p-3 text-right font-semibold">总金额</td>
-                <td className="p-3 text-right font-bold text-emerald-700 text-lg">{formatMoney(Number(order.totalAmount))}</td></tr>
+              {(() => {
+                const targetTotal = order.lines.reduce((s, l) => s + (l.targetPrice == null ? Number(l.unitPrice) : Number(l.targetPrice)) * l.quantity, 0);
+                const profitTotal = targetTotal - Number(order.totalAmount);
+                return (
+                  <>
+                    <tr><td colSpan={8} className="p-3 text-right font-semibold">采购总金额</td>
+                      <td className="p-3 text-right font-bold text-emerald-700 text-lg">{formatMoney(Number(order.totalAmount))}</td></tr>
+                    <tr><td colSpan={8} className="p-3 text-right text-sm">目标销售总金额</td>
+                      <td className="p-3 text-right">{formatMoney(targetTotal)}</td></tr>
+                    <tr><td colSpan={8} className="p-3 text-right font-semibold">本单预计总毛利</td>
+                      <td className={`p-3 text-right font-bold ${profitTotal >= 0 ? "text-blue-700" : "text-red-600"}`}>{formatMoney(profitTotal)}</td></tr>
+                  </>
+                );
+              })()}
             </tfoot>
           </table>
         </CardContent>

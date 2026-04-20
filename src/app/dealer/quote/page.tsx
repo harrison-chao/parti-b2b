@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMoney } from "@/lib/utils";
-import { surfaceLabel, processingLabel, genCustomSku, genCustomProductName } from "@/lib/options";
+import { genCustomSku, genCustomProductName } from "@/lib/options";
 import { addToCart, getCart, cartTotal, type CartItem } from "@/lib/cart";
 
 type Result = {
@@ -17,16 +17,24 @@ type Result = {
   priceLevel: string;
   discountPercent: number;
   dealerPrice: number;
+  retailPrice: number;
 };
+
+type Opt = { code: string; label: string };
 
 export default function QuotePage() {
   const router = useRouter();
   const [lengthMm, setLengthMm] = useState<number>(600);
-  const [surfaceOpts, setSurfaceOpts] = useState<{ code: string; label: string }[]>([]);
-  const [processingOpts, setProcessingOpts] = useState<{ code: string; label: string }[]>([]);
-  const [surface, setSurface] = useState<string>("");
-  const [processing, setProcessing] = useState<string>("");
+  const [surfaceProcesses, setSurfaceProcesses] = useState<Opt[]>([]);
+  const [surfaceColors, setSurfaceColors] = useState<Opt[]>([]);
+  const [processingOps, setProcessingOps] = useState<Opt[]>([]);
+  const [processingMods, setProcessingMods] = useState<Opt[]>([]);
+  const [surfaceProc, setSurfaceProc] = useState<string>("");
+  const [surfaceColor, setSurfaceColor] = useState<string>("");
+  const [procOp, setProcOp] = useState<string>("");
+  const [procMod, setProcMod] = useState<string>("");
   const [quantity, setQuantity] = useState<number>(10);
+  const [targetDiscount, setTargetDiscount] = useState<number>(100); // % of retail (default full retail)
   const [remark, setRemark] = useState<string>("");
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(false);
@@ -63,28 +71,52 @@ export default function QuotePage() {
     calc(lengthMm);
     fetch("/api/settings").then((r) => r.json()).then((j) => {
       if (j.code === 0) {
-        setSurfaceOpts(j.data.surfaceOptions ?? []);
-        setProcessingOpts(j.data.processingOptions ?? []);
-        if (j.data.surfaceOptions?.[0]) setSurface(j.data.surfaceOptions[0].code);
-        if (j.data.processingOptions?.[0]) setProcessing(j.data.processingOptions[0].code);
+        setSurfaceProcesses(j.data.surfaceProcesses ?? []);
+        setSurfaceColors(j.data.surfaceColors ?? []);
+        setProcessingOps(j.data.processingOperations ?? []);
+        setProcessingMods(j.data.processingModifiers ?? []);
+        if (j.data.surfaceProcesses?.[0]) setSurfaceProc(j.data.surfaceProcesses[0].code);
+        if (j.data.surfaceColors?.[0]) setSurfaceColor(j.data.surfaceColors[0].code);
+        if (j.data.processingOperations?.[0]) setProcOp(j.data.processingOperations[0].code);
       }
     });
     /* eslint-disable-next-line */
   }, []);
 
+  const surfaceCode = surfaceProc && surfaceColor ? `${surfaceProc}-${surfaceColor}` : "";
+  const surfaceText = (() => {
+    const p = surfaceProcesses.find((x) => x.code === surfaceProc)?.label;
+    const c = surfaceColors.find((x) => x.code === surfaceColor)?.label;
+    return p && c ? `${p} · ${c}` : surfaceCode;
+  })();
+  const processingCode = procOp ? (procMod ? `${procOp}-${procMod}` : procOp) : "";
+  const processingText = (() => {
+    const o = processingOps.find((x) => x.code === procOp)?.label;
+    const m = processingMods.find((x) => x.code === procMod)?.label;
+    return o ? (m ? `${o} · ${m}` : o) : "-";
+  })();
+
+  const targetPrice = result ? Math.round(result.retailPrice * (targetDiscount / 100) * 100) / 100 : 0;
+  const unitProfit = result ? targetPrice - result.dealerPrice : 0;
+  const totalProfit = unitProfit * quantity;
+
   function handleAddToCart() {
     if (!result) return;
     const item: CartItem = {
       id: `ci-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      sku: genCustomSku("MR2525", result.lengthMm, surface, processing),
-      productName: genCustomProductName("MR2525", result.lengthMm, surface),
+      sku: genCustomSku("MR2525", result.lengthMm, surfaceCode, processingCode),
+      productName: genCustomProductName("MR2525", result.lengthMm, surfaceText),
       series: "MR2525",
       lengthMm: result.lengthMm,
-      surfaceTreatment: surface,
-      preprocessing: processing,
+      surfaceTreatment: surfaceCode,
+      surfaceLabel: surfaceText,
+      preprocessing: processingCode,
+      processingLabel: processingText,
       remark,
       quantity,
       unitPrice: result.dealerPrice,
+      retailPrice: result.retailPrice,
+      targetPrice,
     };
     addToCart(item);
     setFlash(`已加入草稿（${quantity} 根 × ${formatMoney(result.dealerPrice)}）`);
@@ -130,35 +162,43 @@ export default function QuotePage() {
             </div>
 
             <div className="space-y-2">
-              <Label>表面处理</Label>
+              <Label>表面处理（工艺 · 颜色）</Label>
               <div className="grid grid-cols-2 gap-2">
-                {surfaceOpts.map((s) => (
-                  <button
-                    key={s.code}
-                    type="button"
-                    onClick={() => setSurface(s.code)}
-                    className={`text-left border rounded px-3 py-2 text-sm transition ${surface === s.code ? "border-slate-900 bg-slate-900 text-white" : "hover:bg-slate-50"}`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
+                <select className="border rounded h-10 px-2 text-sm"
+                  value={surfaceProc} onChange={(e) => setSurfaceProc(e.target.value)}>
+                  {surfaceProcesses.map((s) => (
+                    <option key={s.code} value={s.code}>{s.code} · {s.label}</option>
+                  ))}
+                </select>
+                <select className="border rounded h-10 px-2 text-sm"
+                  value={surfaceColor} onChange={(e) => setSurfaceColor(e.target.value)}>
+                  {surfaceColors.map((s) => (
+                    <option key={s.code} value={s.code}>{s.code} · {s.label}</option>
+                  ))}
+                </select>
               </div>
+              {surfaceCode && <p className="text-xs text-muted-foreground">编码：<span className="font-mono">{surfaceCode}</span></p>}
             </div>
 
             <div className="space-y-2">
-              <Label>加工工艺</Label>
+              <Label>加工工艺（操作 · 修饰）</Label>
               <div className="grid grid-cols-2 gap-2">
-                {processingOpts.map((p) => (
-                  <button
-                    key={p.code}
-                    type="button"
-                    onClick={() => setProcessing(p.code)}
-                    className={`text-left border rounded px-3 py-2 text-sm transition ${processing === p.code ? "border-slate-900 bg-slate-900 text-white" : "hover:bg-slate-50"}`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
+                <select className="border rounded h-10 px-2 text-sm"
+                  value={procOp} onChange={(e) => setProcOp(e.target.value)}>
+                  <option value="">（不加工）</option>
+                  {processingOps.map((s) => (
+                    <option key={s.code} value={s.code}>{s.code} · {s.label}</option>
+                  ))}
+                </select>
+                <select className="border rounded h-10 px-2 text-sm"
+                  value={procMod} onChange={(e) => setProcMod(e.target.value)}>
+                  <option value="">（无修饰）</option>
+                  {processingMods.map((s) => (
+                    <option key={s.code} value={s.code}>{s.code} · {s.label}</option>
+                  ))}
+                </select>
               </div>
+              {processingCode && <p className="text-xs text-muted-foreground">编码：<span className="font-mono">{processingCode}</span></p>}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -175,6 +215,19 @@ export default function QuotePage() {
             </div>
 
             <div className="space-y-2">
+              <Label>销售目标价 · 对外折扣 (% 零售价)</Label>
+              <div className="flex items-center gap-3">
+                <Input type="number" step="1" min={1} max={200}
+                  value={targetDiscount}
+                  onChange={(e) => setTargetDiscount(parseFloat(e.target.value) || 0)} />
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
+                  = {result ? formatMoney(targetPrice) : "-"}/根
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">按零售价的百分比设定对外销售价，用于计算本单利润</p>
+            </div>
+
+            <div className="space-y-2">
               <Label>备注</Label>
               <Textarea value={remark} onChange={(e) => setRemark(e.target.value)} placeholder="可填特殊加工要求、包装要求等" />
             </div>
@@ -188,19 +241,44 @@ export default function QuotePage() {
               <>
                 <div className="text-sm space-y-1">
                   <div className="flex justify-between"><span className="text-muted-foreground">长度</span><span>{result.lengthMm} mm</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">表面处理</span><span>{surfaceOpts.find(s => s.code === surface)?.label ?? surfaceLabel(surface)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">加工工艺</span><span>{processingOpts.find(p => p.code === processing)?.label ?? processingLabel(processing)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">表面处理</span><span>{surfaceText}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">加工工艺</span><span>{processingText}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">数量</span><span>{quantity} 根</span></div>
                 </div>
 
                 <div className="bg-emerald-50 rounded-lg p-4 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-emerald-700">您的单价（等级 {result.priceLevel}，折扣 {result.discountPercent}%）</span>
+                    <span className="text-sm text-emerald-700">您的采购单价（等级 {result.priceLevel}，折扣 {result.discountPercent}%）</span>
                   </div>
                   <div className="text-3xl font-bold text-emerald-700">{formatMoney(result.dealerPrice)}<span className="text-sm font-normal text-emerald-600"> / 根</span></div>
                   <div className="pt-2 border-t border-emerald-200 flex justify-between items-center">
-                    <span className="text-sm text-emerald-700">小计</span>
+                    <span className="text-sm text-emerald-700">采购小计</span>
                     <span className="text-xl font-bold text-emerald-700">{formatMoney(result.dealerPrice * quantity)}</span>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 rounded-lg p-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-blue-700">零售价</span>
+                    <span>{formatMoney(result.retailPrice)} / 根</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-blue-700">目标销售价（{targetDiscount}% 零售价）</span>
+                    <span className="font-semibold">{formatMoney(targetPrice)} / 根</span>
+                  </div>
+                  <div className="border-t border-blue-200 pt-2 space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-blue-800">单根毛利</span>
+                      <span className={unitProfit >= 0 ? "text-blue-800 font-semibold" : "text-red-600 font-semibold"}>
+                        {formatMoney(unitProfit)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-blue-800">本单预计总毛利</span>
+                      <span className={`text-lg font-bold ${totalProfit >= 0 ? "text-blue-800" : "text-red-600"}`}>
+                        {formatMoney(totalProfit)}
+                      </span>
+                    </div>
                   </div>
                 </div>
 

@@ -14,8 +14,8 @@ const schema = z.object({
 export async function POST(req: NextRequest, { params }: { params: { orderNo: string } }) {
   const session = await auth();
   if (!session) return fail("未登录", 401, 401);
-  if (session.user.role !== "OPS" && session.user.role !== "ADMIN") {
-    return fail("仅运营/管理员可审核", 403, 403);
+  if (session.user.role !== "ADMIN") {
+    return fail("仅管理员可审核", 403, 403);
   }
   const body = await req.json();
   const parsed = schema.safeParse(body);

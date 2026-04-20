@@ -8,7 +8,12 @@ export async function GET() {
   if (!session) return fail("未登录", 401, 401);
   const s = await loadSettings();
   if (session.user.role === "DEALER") {
-    return ok({ surfaceOptions: s.surfaceOptions, processingOptions: s.processingOptions });
+    return ok({
+      surfaceProcesses: s.surfaceProcesses,
+      surfaceColors: s.surfaceColors,
+      processingOperations: s.processingOperations,
+      processingModifiers: s.processingModifiers,
+    });
   }
   return ok(s);
 }
@@ -20,7 +25,14 @@ export async function PUT(req: NextRequest) {
 
   const body = await req.json();
   const { key, value } = body ?? {};
-  const allowed = ["surfaceOptions", "processingOptions", "discountRates", "pricingConfig"];
+  const allowed = [
+    "surfaceProcesses",
+    "surfaceColors",
+    "processingOperations",
+    "processingModifiers",
+    "discountRates",
+    "pricingFields",
+  ];
   if (!allowed.includes(key)) return fail("无效的 key");
   if (value === undefined || value === null) return fail("value 不能为空");
 

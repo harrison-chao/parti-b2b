@@ -5,7 +5,7 @@ import { Nav } from "@/components/nav";
 export default async function DealerLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session) redirect("/login");
-  if (session.user.role !== "DEALER") redirect("/ops");
+  if (session.user.role !== "DEALER") redirect("/admin");
   return (
     <div className="min-h-screen bg-slate-50">
       <Nav

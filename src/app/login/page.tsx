@@ -25,10 +25,9 @@ export default function LoginPage() {
     window.location.href = "/";
   }
 
-  function fill(kind: "admin" | "ops" | "dealer") {
+  function fill(kind: "admin" | "dealer") {
     const map = {
       admin: ["admin@parti.com", "admin123"],
-      ops: ["ops@parti.com", "ops123"],
       dealer: ["dealer@parti.com", "dealer123"],
     };
     setEmail(map[kind][0]);
@@ -61,7 +60,6 @@ export default function LoginPage() {
             <p className="text-xs text-muted-foreground">演示账号（点击快速填入）:</p>
             <div className="flex gap-2 flex-wrap">
               <Button type="button" size="sm" variant="outline" onClick={() => fill("admin")}>管理员</Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => fill("ops")}>运营</Button>
               <Button type="button" size="sm" variant="outline" onClick={() => fill("dealer")}>经销商</Button>
             </div>
           </div>
