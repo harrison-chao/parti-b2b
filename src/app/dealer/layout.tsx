@@ -12,8 +12,7 @@ export default async function DealerLayout({ children }: { children: React.React
         user={{ name: session.user.name, role: "经销商" }}
         items={[
           { href: "/dealer", label: "工作台" },
-          { href: "/dealer/quote", label: "报价计算器" },
-          { href: "/dealer/orders/new", label: "订单草稿" },
+          { href: "/dealer/quote", label: "报价下单" },
           { href: "/dealer/orders", label: "我的订单" },
         ]}
       />

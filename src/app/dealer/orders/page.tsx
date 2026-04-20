@@ -18,7 +18,7 @@ export default async function OrdersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">我的订单</h1>
-        <Link href="/dealer/orders/new"><Button>+ 创建订单</Button></Link>
+        <Link href="/dealer/quote"><Button>+ 创建订单</Button></Link>
       </div>
       {orders.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">暂无订单</CardContent></Card>
