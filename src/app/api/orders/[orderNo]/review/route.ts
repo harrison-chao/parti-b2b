@@ -28,7 +28,17 @@ export async function POST(req: NextRequest, { params }: { params: { orderNo: st
 
   const newStatus = action === "APPROVE" ? "CONFIRMED" : action === "REJECT" ? "REJECTED" : "MODIFYING";
 
-  const updated = await prisma.$transaction(async (tx) => {
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+    const dealer = await tx.dealer.findUnique({ where: { id: order.dealerId } });
+    const creditAmount = confirmedAmount ?? Number(order.totalAmount);
+    if (action === "APPROVE") {
+      if (!dealer || dealer.status !== "ACTIVE") throw new Error("经销商不存在或已停用，不能审核通过");
+      if (dealer.paymentMethod === "CREDIT" && !dealer.allowOverCredit && Number(dealer.creditBalance) < creditAmount) {
+        throw new Error(`信用额度不足（可用 ${Number(dealer.creditBalance).toFixed(2)}，确认金额 ${creditAmount.toFixed(2)}）`);
+      }
+    }
+
     const u = await tx.salesOrder.update({
       where: { orderNo: params.orderNo },
       data: {
@@ -38,24 +48,24 @@ export async function POST(req: NextRequest, { params }: { params: { orderNo: st
         reviewRemark: remark ?? null,
         suggestedDeliveryDate: suggestedDeliveryDate ? new Date(suggestedDeliveryDate) : null,
         confirmedAmount: confirmedAmount ?? null,
+        paymentStatus: action === "APPROVE" && dealer?.paymentMethod === "CREDIT" ? "CREDIT" : order.paymentStatus,
       },
     });
 
-    if (action === "APPROVE") {
-      const dealer = await tx.dealer.findUnique({ where: { id: order.dealerId } });
-      if (dealer && dealer.paymentMethod === "CREDIT") {
-        const amt = Number(order.totalAmount);
-        await tx.dealer.update({
-          where: { id: dealer.id },
-          data: {
-            usedCredit: { increment: amt },
-            creditBalance: { decrement: amt },
-          },
-        });
-      }
+    if (action === "APPROVE" && dealer?.paymentMethod === "CREDIT") {
+      await tx.dealer.update({
+        where: { id: dealer.id },
+        data: {
+          usedCredit: { increment: creditAmount },
+          creditBalance: { decrement: creditAmount },
+        },
+      });
     }
     return u;
-  });
+    }, { timeout: 120_000, maxWait: 120_000 });
 
-  return ok(updated);
+    return ok(updated);
+  } catch (error: any) {
+    return fail(error?.message ?? "审核失败");
+  }
 }

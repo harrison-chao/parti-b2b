@@ -7,7 +7,7 @@ export default async function DealerLayout({ children }: { children: React.React
   if (!session) redirect("/login");
   if (session.user.role !== "DEALER") redirect("/admin");
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen">
       <Nav
         user={{ name: session.user.name, role: "经销商" }}
         items={[
@@ -16,7 +16,7 @@ export default async function DealerLayout({ children }: { children: React.React
           { href: "/dealer/orders", label: "我的订单" },
         ]}
       />
-      <main className="container py-6">{children}</main>
+      <main className="container py-6 md:py-8">{children}</main>
     </div>
   );
 }

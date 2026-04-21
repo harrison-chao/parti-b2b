@@ -35,11 +35,25 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-200 p-4">
-      <Card className="w-full max-w-md">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
+      <div className="absolute left-8 top-10 hidden max-w-xl md:block">
+        <div className="mb-6 inline-flex rounded-full border border-white/70 bg-white/65 px-4 py-2 text-xs font-bold uppercase tracking-[0.28em] text-teal-800 shadow-sm backdrop-blur">
+          Parti Operations
+        </div>
+        <h1 className="text-5xl font-black leading-[0.95] tracking-[-0.06em] text-slate-950">
+          经销、采购、车间履约一条线管理
+        </h1>
+        <p className="mt-5 max-w-md text-sm leading-7 text-slate-600">
+          从报价下单到派工生产，再到库存扣减、盘点和应收应付对账，统一在一个轻量 ERP 中闭环。
+        </p>
+      </div>
+      <Card className="relative z-10 w-full max-w-md border-white/80 bg-white/82 shadow-[0_30px_90px_-35px_rgba(15,23,42,0.55)]">
         <CardHeader>
-          <CardTitle className="text-2xl">Parti B2B ERP</CardTitle>
-          <CardDescription>经销商管理系统 — 模块一</CardDescription>
+          <div className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-teal-700 to-amber-500 text-lg font-black text-white shadow-lg shadow-teal-900/20">
+            P
+          </div>
+          <CardTitle className="text-3xl">Parti B2B ERP</CardTitle>
+          <CardDescription>经销商、管理员、车间协同工作台</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -56,7 +70,7 @@ export default function LoginPage() {
               {loading ? "登录中..." : "登录"}
             </Button>
           </form>
-          <div className="mt-6 pt-4 border-t space-y-2">
+          <div className="mt-6 space-y-2 border-t border-slate-900/10 pt-4">
             <p className="text-xs text-muted-foreground">演示账号（点击快速填入）:</p>
             <div className="flex gap-2 flex-wrap">
               <Button type="button" size="sm" variant="outline" onClick={() => fill("admin")}>管理员</Button>

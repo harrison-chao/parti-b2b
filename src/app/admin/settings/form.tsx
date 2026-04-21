@@ -13,6 +13,7 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
   const [processingModifiers, setProcessingModifiers] = useState<Option[]>(initial.processingModifiers);
   const [discount, setDiscount] = useState(initial.discountRates);
   const [pricing, setPricing] = useState<PricingField[]>(initial.pricingFields);
+  const [carriers, setCarriers] = useState<string[]>(initial.carriers);
   const [status, setStatus] = useState<Record<string, string>>({});
 
   async function save(key: string, value: any) {
@@ -154,6 +155,30 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
             </Button>
             <Button onClick={() => save("pricingFields", pricing)}>保存定价参数</Button>
             {status.pricingFields && <span className="text-sm text-emerald-700">{status.pricingFields}</span>}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>物流承运商</CardTitle>
+          <CardDescription>车间确认出运时的下拉选项。列表外仍可选择"其他"自行输入。</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {carriers.map((c, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <Input
+                placeholder="如 顺丰速运"
+                value={c}
+                onChange={(e) => setCarriers(carriers.map((x, i) => i === idx ? e.target.value : x))}
+              />
+              <Button variant="outline" size="sm" onClick={() => setCarriers(carriers.filter((_, i) => i !== idx))}>删除</Button>
+            </div>
+          ))}
+          <div className="flex items-center gap-3 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setCarriers([...carriers, ""])}>+ 添加</Button>
+            <Button onClick={() => save("carriers", carriers.map((c) => c.trim()).filter(Boolean))}>保存承运商</Button>
+            {status.carriers && <span className="text-sm text-emerald-700">{status.carriers}</span>}
           </div>
         </CardContent>
       </Card>

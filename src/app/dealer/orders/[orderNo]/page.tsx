@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatMoney, formatDate, formatDateTime, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR } from "@/lib/utils";
+import { formatMoney, formatDate, formatDateTime, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, WORK_ORDER_STATUS_LABEL, WORK_ORDER_STATUS_COLOR, WORK_ORDER_STATUS_FLOW, ORDER_LINE_TYPE_LABEL, ORDER_LINE_TYPE_COLOR } from "@/lib/utils";
 import { SubmitBtn } from "./actions";
 
 export default async function OrderDetailPage({ params }: { params: { orderNo: string } }) {
@@ -13,6 +13,13 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
     include: { lines: { orderBy: { lineNo: "asc" } } },
   });
   if (!order || order.dealerId !== session!.user.dealerId) notFound();
+  const workOrder = await prisma.workOrder.findUnique({
+    where: { orderNo: params.orderNo },
+    include: {
+      workshop: { select: { name: true, contactPhone: true } },
+      events: { orderBy: { createdAt: "desc" } },
+    },
+  });
 
   return (
     <div className="space-y-6">
@@ -52,6 +59,61 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
         </Card>
       </div>
 
+      {workOrder && (
+        <Card>
+          <CardHeader><CardTitle>加工进度</CardTitle></CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Row k="加工单号" v={workOrder.workOrderNo} />
+              <Row k="加工车间" v={workOrder.workshop.name} />
+              <Row k="承诺交期" v={workOrder.committedDeliveryDate ? formatDate(workOrder.committedDeliveryDate) : "-"} />
+              <Row k="当前状态" v={WORK_ORDER_STATUS_LABEL[workOrder.status]} />
+            </div>
+            <div className="flex items-center gap-1 flex-wrap pt-2">
+              {WORK_ORDER_STATUS_FLOW.filter((s) => s !== "QC" || workOrder.qcRequired).map((s, i, arr) => {
+                const currentIdx = arr.indexOf(workOrder.status);
+                const done = i <= currentIdx;
+                return (
+                  <div key={s} className="flex items-center gap-1">
+                    <Badge className={done ? WORK_ORDER_STATUS_COLOR[s] : "bg-slate-100 text-slate-400"}>
+                      {WORK_ORDER_STATUS_LABEL[s]}
+                    </Badge>
+                    {i < arr.length - 1 && <span className="text-slate-300">→</span>}
+                  </div>
+                );
+              })}
+            </div>
+            {workOrder.status === "SHIPPED" && (
+              <div className="rounded border bg-emerald-50 p-3 text-xs">
+                已出运 · 物流 {workOrder.carrier} · 单号 {workOrder.trackingNo}
+                {workOrder.actualShippedAt && <> · {formatDateTime(workOrder.actualShippedAt)}</>}
+              </div>
+            )}
+            {workOrder.delayReason && (
+              <div className="rounded border bg-amber-50 p-3 text-xs text-amber-900">
+                ⚠ 延期说明：{workOrder.delayReason}
+              </div>
+            )}
+            <div className="border-t pt-3">
+              <div className="text-xs font-semibold text-muted-foreground mb-2">操作记录</div>
+              <ul className="space-y-1.5">
+                {workOrder.events.map((ev) => (
+                  <li key={ev.id} className="text-xs flex gap-3">
+                    <span className="text-muted-foreground shrink-0 w-36">{formatDateTime(ev.createdAt)}</span>
+                    <span className="shrink-0">
+                      {ev.fromStatus ? `${WORK_ORDER_STATUS_LABEL[ev.fromStatus]} → ` : ""}
+                      <b>{WORK_ORDER_STATUS_LABEL[ev.toStatus]}</b>
+                    </span>
+                    {ev.note && <span className="text-muted-foreground">· {ev.note}</span>}
+                  </li>
+                ))}
+                {workOrder.events.length === 0 && <li className="text-xs text-muted-foreground">暂无</li>}
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader><CardTitle>订单明细</CardTitle></CardHeader>
         <CardContent className="p-0">
@@ -72,7 +134,10 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
                   <tr key={l.id} className="border-b">
                     <td className="p-3">{l.lineNo}</td>
                     <td className="p-3">
-                      <div>{l.productName}</div>
+                      <div className="flex items-center gap-2">
+                        <Badge className={ORDER_LINE_TYPE_COLOR[l.lineType] + " text-[10px]"}>{ORDER_LINE_TYPE_LABEL[l.lineType]}</Badge>
+                        <span>{l.productName}</span>
+                      </div>
                       {l.drawingUrl && (
                         <a href={l.drawingUrl} target="_blank" rel="noopener" className="text-xs text-blue-600 hover:underline">
                           📎 图纸 {l.drawingFileName ?? ""}

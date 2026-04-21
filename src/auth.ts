@@ -13,12 +13,14 @@ declare module "next-auth" {
       name: string;
       role: UserRole;
       dealerId?: string | null;
+      workshopId?: string | null;
     };
   }
   interface User {
     id?: string;
     role?: UserRole;
     dealerId?: string | null;
+    workshopId?: string | null;
   }
 }
 
@@ -41,6 +43,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           name: user.name,
           role: user.role,
           dealerId: user.dealerId,
+          workshopId: user.workshopId,
         };
       },
     }),

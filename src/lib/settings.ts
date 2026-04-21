@@ -48,6 +48,8 @@ export const DEFAULT_PROCESSING_MODIFIERS: Option[] = [
 
 export const DEFAULT_DISCOUNT_RATES: DiscountRates = { A: 1.0, B: 0.95, C: 0.9, D: 0.85, E: 0.8 };
 
+export const DEFAULT_CARRIERS: string[] = ["顺丰速运", "德邦物流", "京东物流", "中通快运", "安能物流", "自提"];
+
 export const DEFAULT_PRICING_FIELDS: PricingField[] = [
   { key: "meterWeight", label: "型材米重 (kg/m)", value: PRICING_CONFIG.meterWeight, builtin: true },
   { key: "utilization", label: "截断利用率", value: PRICING_CONFIG.utilization, builtin: true },
@@ -68,6 +70,7 @@ export type AllSettings = {
   processingModifiers: Option[];
   discountRates: DiscountRates;
   pricingFields: PricingField[];
+  carriers: string[];
 };
 
 export type PricingConfigMap = { [K in keyof typeof PRICING_CONFIG]: number };
@@ -93,6 +96,7 @@ export async function loadSettings(): Promise<AllSettings> {
     processingModifiers: map.get("processingModifiers") ?? DEFAULT_PROCESSING_MODIFIERS,
     discountRates: map.get("discountRates") ?? DEFAULT_DISCOUNT_RATES,
     pricingFields: map.get("pricingFields") ?? DEFAULT_PRICING_FIELDS,
+    carriers: map.get("carriers") ?? DEFAULT_CARRIERS,
   };
 }
 

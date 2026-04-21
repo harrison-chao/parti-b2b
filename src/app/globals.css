@@ -4,28 +4,71 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 42 45% 96%;
+    --foreground: 220 36% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
+    --card-foreground: 220 36% 12%;
+    --primary: 174 62% 25%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --secondary: 38 45% 91%;
+    --secondary-foreground: 220 36% 12%;
+    --muted: 42 32% 90%;
+    --muted-foreground: 218 13% 43%;
+    --accent: 171 45% 90%;
+    --accent-foreground: 174 62% 18%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --border: 38 22% 82%;
+    --input: 38 22% 82%;
+    --ring: 174 62% 25%;
+    --radius: 1rem;
   }
 }
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    min-height: 100vh;
+    font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background:
+      radial-gradient(circle at 12% 8%, hsl(172 58% 78% / 0.45), transparent 28rem),
+      radial-gradient(circle at 86% 0%, hsl(31 84% 78% / 0.34), transparent 24rem),
+      linear-gradient(135deg, hsl(45 55% 97%), hsl(188 32% 92%) 45%, hsl(42 34% 94%));
+  }
+
+  ::selection {
+    background: hsl(174 62% 25% / 0.18);
+  }
+
+  h1, h2, h3 {
+    letter-spacing: -0.03em;
+  }
+
+  table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  thead {
+    color: hsl(var(--muted-foreground));
+  }
+
+  tbody tr {
+    transition: background-color 160ms ease, transform 160ms ease;
+  }
+
+  tbody tr:hover {
+    background-color: hsl(174 55% 96% / 0.7);
+  }
+}
+
+@layer components {
+  .container {
+    @apply px-4 md:px-8;
+  }
 }

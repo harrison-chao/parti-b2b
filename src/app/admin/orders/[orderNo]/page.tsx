@@ -7,15 +7,42 @@ import { calcPricing } from "@/lib/pricing";
 import { loadSettings, pricingFieldsToConfig } from "@/lib/settings";
 import { ReviewPanel } from "./review-panel";
 import { OrderLineCostRow } from "./cost-row";
+import { DispatchPanel } from "./dispatch-panel";
 
 const PAYMENT_LABELS: Record<string, string> = { PREPAID: "预付款", DEPOSIT: "定金", CREDIT: "信用额度" };
 
 export default async function AdminOrderDetailPage({ params }: { params: { orderNo: string } }) {
   const order = await prisma.salesOrder.findUnique({
     where: { orderNo: params.orderNo },
-    include: { lines: { orderBy: { lineNo: "asc" } }, dealer: true },
+    include: {
+      lines: { orderBy: { lineNo: "asc" } },
+      dealer: true,
+      workOrder: { include: { workshop: true } },
+    },
   });
   if (!order) notFound();
+
+  const workshops = await prisma.workshop.findMany({
+    where: { isActive: true },
+    orderBy: { code: "asc" },
+    select: { id: true, code: true, name: true },
+  });
+  const hasProducibleLines = order.lines.some((l) => l.lineType !== "OUTSOURCED");
+  const canDispatch = ["CONFIRMED", "PARTIALLY_PAID", "PRODUCING", "READY", "SHIPPED"].includes(order.orderStatus) && hasProducibleLines;
+  const existingWo = order.workOrder ? {
+    workOrderNo: order.workOrder.workOrderNo,
+    status: order.workOrder.status,
+    workshopName: order.workOrder.workshop.name,
+    committedDeliveryDate: order.workOrder.committedDeliveryDate?.toISOString() ?? null,
+    actualShippedAt: order.workOrder.actualShippedAt?.toISOString() ?? null,
+    carrier: order.workOrder.carrier,
+    trackingNo: order.workOrder.trackingNo,
+    qcRequired: order.workOrder.qcRequired,
+    currentNote: order.workOrder.currentNote,
+    delayReason: order.workOrder.delayReason,
+    assignedBy: order.workOrder.assignedBy,
+    assignedAt: order.workOrder.assignedAt.toISOString(),
+  } : null;
 
   const settings = await loadSettings();
   const config = pricingFieldsToConfig(settings.pricingFields);
@@ -138,7 +165,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
           </Card>
         </div>
 
-        <div>
+        <div className="space-y-6">
           {order.orderStatus === "PENDING" ? (
             <ReviewPanel orderNo={order.orderNo} defaultAmount={Number(order.totalAmount)} />
           ) : (
@@ -151,6 +178,14 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
                 )}
               </CardContent>
             </Card>
+          )}
+          {canDispatch && (
+            <DispatchPanel
+              orderNo={order.orderNo}
+              targetDeliveryDate={order.targetDeliveryDate.toISOString()}
+              workshops={workshops}
+              existing={existingWo}
+            />
           )}
         </div>
       </div>

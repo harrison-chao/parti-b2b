@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { loadSettings } from "@/lib/settings";
+import { LEVEL_DISCOUNT } from "@/lib/pricing";
 import { QuoteWorkbench } from "./workbench";
 
 export default async function QuotePage() {
@@ -10,6 +11,15 @@ export default async function QuotePage() {
     include: { addresses: { orderBy: [{ isDefault: "desc" }] } },
   });
   const settings = await loadSettings();
+  const hardware = await prisma.product.findMany({
+    where: { category: "HARDWARE", isActive: true },
+    orderBy: [{ series: "asc" }, { sku: "asc" }],
+  });
+  const rawProfiles = await prisma.product.findMany({
+    where: { category: "PROFILE", isRawMaterial: true, isActive: true },
+    orderBy: [{ series: "asc" }, { sku: "asc" }],
+  });
+  const discount = LEVEL_DISCOUNT[dealer!.priceLevel];
 
   return (
     <QuoteWorkbench
@@ -32,6 +42,24 @@ export default async function QuotePage() {
         surfaceColors: settings.surfaceColors,
         processingOperations: settings.processingOperations,
       }}
+      hardwareCatalog={hardware.map((p) => ({
+        id: p.id,
+        sku: p.sku,
+        productName: p.productName,
+        series: p.series,
+        spec: p.spec,
+        retailPrice: Number(p.retailPrice),
+        dealerPrice: Math.round(Number(p.retailPrice) * discount * 100) / 100,
+        drawingRequired: p.drawingRequired,
+      }))}
+      rawProfileCatalog={rawProfiles.map((p) => ({
+        id: p.id,
+        sku: p.sku,
+        productName: p.productName,
+        series: p.series,
+        spec: p.spec,
+        lengthMm: p.lengthMm ? Number(p.lengthMm) : null,
+      }))}
     />
   );
 }

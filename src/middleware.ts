@@ -14,14 +14,19 @@ export default auth((req) => {
 
   if (!isAuthed) return NextResponse.redirect(new URL("/login", req.url));
 
+  const home = role === "ADMIN" ? "/admin" : role === "WORKSHOP" ? "/workshop" : "/dealer";
+
   if (pathname.startsWith("/admin") && role !== "ADMIN") {
-    return NextResponse.redirect(new URL("/dealer", req.url));
+    return NextResponse.redirect(new URL(home, req.url));
   }
   if (pathname.startsWith("/dealer") && role !== "DEALER") {
-    return NextResponse.redirect(new URL("/admin", req.url));
+    return NextResponse.redirect(new URL(home, req.url));
+  }
+  if (pathname.startsWith("/workshop") && role !== "WORKSHOP") {
+    return NextResponse.redirect(new URL(home, req.url));
   }
   if (pathname === "/") {
-    return NextResponse.redirect(new URL(role === "DEALER" ? "/dealer" : "/admin", req.url));
+    return NextResponse.redirect(new URL(home, req.url));
   }
   return NextResponse.next();
 });

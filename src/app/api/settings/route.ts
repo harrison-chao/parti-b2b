@@ -32,6 +32,7 @@ export async function PUT(req: NextRequest) {
     "processingModifiers",
     "discountRates",
     "pricingFields",
+    "carriers",
   ];
   if (!allowed.includes(key)) return fail("无效的 key");
   if (value === undefined || value === null) return fail("value 不能为空");

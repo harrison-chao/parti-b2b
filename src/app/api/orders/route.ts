@@ -3,14 +3,20 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
 import { genOrderNo } from "@/lib/utils";
+import { LEVEL_DISCOUNT } from "@/lib/pricing";
 import { z } from "zod";
 
 const lineSchema = z.object({
+  lineType: z.enum(["PROFILE", "HARDWARE", "OUTSOURCED"]).default("PROFILE"),
   sku: z.string(),
   productName: z.string(),
+  productId: z.string().optional().nullable(),
+  rawProductId: z.string().optional().nullable(),
   lengthMm: z.number().positive().optional().nullable(),
+  cutLengthMm: z.number().int().positive().optional().nullable(),
   surfaceTreatment: z.string().optional().nullable(),
   preprocessing: z.string().optional().nullable(),
+  spec: z.string().optional().nullable(),
   quantity: z.number().int().positive(),
   unitPrice: z.number().nonnegative(),
   targetPrice: z.number().nonnegative().optional().nullable(),
@@ -71,48 +77,95 @@ export async function POST(req: NextRequest) {
 
   const dealer = await prisma.dealer.findUnique({ where: { id: dealerId } });
   if (!dealer) return fail("经销商不存在", 404, 404);
+  const discount = LEVEL_DISCOUNT[dealer.priceLevel];
 
-  const totalAmount = data.lines.reduce((s, l) => s + l.quantity * l.unitPrice, 0);
+  // Server-side authoritative pricing for HARDWARE (client-provided price is advisory).
+  const hardwareIds = data.lines.filter((l) => l.lineType === "HARDWARE" && l.productId).map((l) => l.productId!);
+  const hardwareProducts = hardwareIds.length
+    ? await prisma.product.findMany({ where: { id: { in: hardwareIds }, category: "HARDWARE" } })
+    : [];
+  const hwMap = new Map(hardwareProducts.map((p) => [p.id, p]));
 
-  if (dealer.paymentMethod === "CREDIT" && Number(dealer.creditBalance) < totalAmount) {
+  // Validate PROFILE lines reference a real raw-material product.
+  const rawIds = data.lines.filter((l) => l.lineType === "PROFILE" && l.rawProductId).map((l) => l.rawProductId!);
+  const rawProducts = rawIds.length
+    ? await prisma.product.findMany({ where: { id: { in: rawIds }, category: "PROFILE", isRawMaterial: true } })
+    : [];
+  const rawMap = new Map(rawProducts.map((p) => [p.id, p]));
+
+  const resolvedLines = data.lines.map((l) => {
+    if (l.lineType === "PROFILE") {
+      if (!l.rawProductId) throw new Error(`PROFILE 行缺原料型材`);
+      if (!rawMap.has(l.rawProductId)) throw new Error(`原料型材不存在或非原料: ${l.rawProductId}`);
+    }
+    if (l.lineType === "HARDWARE") {
+      if (!l.productId) throw new Error(`HARDWARE 行缺 productId`);
+      const prod = hwMap.get(l.productId);
+      if (!prod) throw new Error(`HARDWARE 产品不存在: ${l.productId}`);
+      if (prod.drawingRequired && !l.drawingUrl) throw new Error(`${prod.sku} 需上传图纸`);
+      const unitPrice = Math.round(Number(prod.retailPrice) * discount * 100) / 100;
+      return {
+        ...l,
+        sku: prod.sku,
+        productName: prod.productName,
+        spec: prod.spec ?? null,
+        unitPrice,
+      };
+    }
+    return l;
+  });
+
+  const totalAmount = resolvedLines.reduce((s, l) => s + l.quantity * l.unitPrice, 0);
+  if (dealer.status !== "ACTIVE") {
+    return fail("经销商已停用，不能创建新订单");
+  }
+  if (dealer.paymentMethod === "CREDIT" && !dealer.allowOverCredit && Number(dealer.creditBalance) < totalAmount) {
     return fail(`信用额度不足（可用 ${Number(dealer.creditBalance).toFixed(2)}，订单 ${totalAmount.toFixed(2)}）`);
   }
 
   const orderNo = genOrderNo();
 
-  const created = await prisma.salesOrder.create({
-    data: {
-      orderNo,
-      dealerId,
-      targetDeliveryDate: new Date(data.targetDeliveryDate),
-      dealerAccount: session.user.email,
-      receiverName: data.receiverName,
-      receiverPhone: data.receiverPhone,
-      receiverAddress: data.receiverAddress,
-      remark: data.remark ?? null,
-      totalAmount,
-      orderStatus: "DRAFT",
-      paymentStatus: "UNPAID",
-      lines: {
-        create: data.lines.map((l, idx) => ({
-          lineNo: idx + 1,
-          sku: l.sku,
-          productName: l.productName,
-          lengthMm: l.lengthMm ?? null,
-          surfaceTreatment: l.surfaceTreatment ?? null,
-          preprocessing: l.preprocessing ?? null,
-          quantity: l.quantity,
-          unitPrice: l.unitPrice,
-          targetPrice: l.targetPrice ?? null,
-          lineAmount: l.quantity * l.unitPrice,
-          drawingUrl: l.drawingUrl ?? null,
-          drawingFileName: l.drawingFileName ?? null,
-          isCustom: l.isCustom ?? false,
-        })),
+  try {
+    const created = await prisma.salesOrder.create({
+      data: {
+        orderNo,
+        dealerId,
+        targetDeliveryDate: new Date(data.targetDeliveryDate),
+        dealerAccount: session.user.email,
+        receiverName: data.receiverName,
+        receiverPhone: data.receiverPhone,
+        receiverAddress: data.receiverAddress,
+        remark: data.remark ?? null,
+        totalAmount,
+        orderStatus: "DRAFT",
+        paymentStatus: "UNPAID",
+        lines: {
+          create: resolvedLines.map((l, idx) => ({
+            lineNo: idx + 1,
+            lineType: l.lineType,
+            sku: l.sku,
+            productName: l.productName,
+            productId: l.lineType === "HARDWARE" ? (l.productId ?? null) : null,
+            rawProductId: l.lineType === "PROFILE" ? (l.rawProductId ?? null) : null,
+            cutLengthMm: l.cutLengthMm ?? null,
+            lengthMm: l.lengthMm ?? null,
+            surfaceTreatment: l.surfaceTreatment ?? null,
+            preprocessing: l.preprocessing ?? null,
+            spec: l.spec ?? null,
+            quantity: l.quantity,
+            unitPrice: l.unitPrice,
+            targetPrice: l.targetPrice ?? null,
+            lineAmount: l.quantity * l.unitPrice,
+            drawingUrl: l.drawingUrl ?? null,
+            drawingFileName: l.drawingFileName ?? null,
+            isCustom: l.isCustom ?? (l.lineType === "PROFILE"),
+          })),
+        },
       },
-    },
-    include: { lines: true },
-  });
-
-  return ok(created);
+      include: { lines: true },
+    });
+    return ok(created);
+  } catch (e: any) {
+    return fail("创建失败: " + (e?.message ?? e));
+  }
 }

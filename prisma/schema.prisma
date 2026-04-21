@@ -11,6 +11,17 @@ datasource db {
 enum UserRole {
   ADMIN
   DEALER
+  WORKSHOP
+}
+
+enum WorkOrderStatus {
+  SCHEDULED
+  PREPARING
+  PROCESSING
+  QC
+  PACKING
+  READY_TO_SHIP
+  SHIPPED
 }
 
 enum PriceLevel {
@@ -39,6 +50,40 @@ enum PaymentStatus {
   CREDIT
 }
 
+enum ProductCategory {
+  PROFILE
+  HARDWARE
+}
+
+enum OrderLineType {
+  PROFILE
+  HARDWARE
+  OUTSOURCED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SENT
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CLOSED
+  CANCELLED
+}
+
+enum StockMovementType {
+  PO_RECEIPT
+  WORK_ORDER_CONSUME
+  STOCK_COUNT_ADJUST
+  MANUAL_ADJUST
+}
+
+enum StockCountStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  CANCELLED
+}
+
 enum OrderStatus {
   DRAFT
   PENDING
@@ -53,17 +98,84 @@ enum OrderStatus {
   REJECTED
 }
 
+enum SupplierCategory {
+  RAW_MATERIAL
+  HARDWARE
+  OUTSOURCED
+  LOGISTICS
+  SERVICE
+  OTHER
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String
   password  String
-  role      UserRole @default(DEALER)
-  dealerId  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  role       UserRole @default(DEALER)
+  dealerId   String?
+  workshopId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  dealer Dealer? @relation(fields: [dealerId], references: [id])
+  dealer   Dealer?   @relation(fields: [dealerId], references: [id])
+  workshop Workshop? @relation(fields: [workshopId], references: [id])
+}
+
+model Workshop {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  name         String
+  contactName  String?
+  contactPhone String?
+  address      String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users          User[]
+  workOrders     WorkOrder[]
+  purchaseOrders PurchaseOrder[]
+  inventory      WorkshopInventory[]
+  movements      StockMovement[]
+  stockCounts    StockCount[]
+}
+
+model WorkOrder {
+  id                    String          @id @default(cuid())
+  workOrderNo           String          @unique
+  orderNo               String          @unique
+  workshopId            String
+  status                WorkOrderStatus @default(SCHEDULED)
+  committedDeliveryDate DateTime?
+  actualShippedAt       DateTime?
+  carrier               String?
+  trackingNo            String?
+  currentNote           String?
+  delayReason           String?
+  qcRequired            Boolean         @default(true)
+  printedAt             DateTime?
+  assignedBy            String?
+  assignedAt            DateTime        @default(now())
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  order    SalesOrder       @relation(fields: [orderNo], references: [orderNo], onDelete: Cascade)
+  workshop Workshop         @relation(fields: [workshopId], references: [id])
+  events   WorkOrderEvent[]
+}
+
+model WorkOrderEvent {
+  id             String           @id @default(cuid())
+  workOrderId    String
+  fromStatus     WorkOrderStatus?
+  toStatus       WorkOrderStatus
+  note           String?
+  operatorUserId String?
+  operatorName   String?
+  createdAt      DateTime         @default(now())
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 }
 
 model Dealer {
@@ -72,6 +184,19 @@ model Dealer {
   companyName   String
   contactName   String
   contactPhone  String
+  legalName     String?
+  taxNo         String?
+  invoiceTitle  String?
+  invoiceType   String?
+  bankName      String?
+  bankAccount   String?
+  region        String?
+  industry      String?
+  source        String?
+  salesOwner    String?
+  creditDays    Int           @default(0)
+  allowOverCredit Boolean     @default(false)
+  remark        String?
   priceLevel    PriceLevel    @default(E)
   creditLimit   Decimal       @default(0) @db.Decimal(12, 2)
   creditBalance Decimal       @default(0) @db.Decimal(12, 2)
@@ -83,7 +208,27 @@ model Dealer {
 
   users       User[]
   addresses   DealerAddress[]
+  contacts    DealerContact[]
   salesOrders SalesOrder[]
+  payments    DealerPayment[]
+}
+
+model DealerContact {
+  id        String   @id @default(cuid())
+  dealerId  String
+  role      String   @default("业务联系人")
+  name      String
+  phone     String?
+  email     String?
+  wechat    String?
+  isPrimary Boolean  @default(false)
+  remark    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dealer Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  @@index([dealerId])
 }
 
 model DealerAddress {
@@ -103,20 +248,24 @@ model DealerAddress {
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  sku         String   @unique
-  productName String
-  series      String
-  lengthInch  Decimal? @db.Decimal(6, 2)
-  lengthMm    Decimal? @db.Decimal(8, 2)
-  isCustom    Boolean  @default(false)
-  retailPrice Decimal  @db.Decimal(10, 2)
-  unit        String   @default("根")
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  orderLines SalesOrderLine[]
+  id              String          @id @default(cuid())
+  sku             String          @unique
+  productName     String
+  series          String
+  category        ProductCategory @default(PROFILE)
+  lengthInch      Decimal?        @db.Decimal(6, 2)
+  lengthMm        Decimal?        @db.Decimal(8, 2)
+  isCustom        Boolean         @default(false)
+  retailPrice     Decimal         @db.Decimal(10, 2)
+  purchasePrice   Decimal?        @db.Decimal(10, 2)
+  unit            String          @default("根")
+  drawingRequired Boolean         @default(false)
+  spec            String?
+  isRawMaterial   Boolean         @default(false)
+  yieldRate       Decimal         @default(0.95) @db.Decimal(5, 4)
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 }
 
 model SalesOrder {
@@ -146,8 +295,10 @@ model SalesOrder {
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
-  dealer Dealer           @relation(fields: [dealerId], references: [id])
-  lines  SalesOrderLine[]
+  dealer    Dealer           @relation(fields: [dealerId], references: [id])
+  lines     SalesOrderLine[]
+  workOrder WorkOrder?
+  paymentAllocations DealerPaymentAllocation[]
 }
 
 model SystemSetting {
@@ -158,26 +309,236 @@ model SystemSetting {
 }
 
 model SalesOrderLine {
-  id               String   @id @default(cuid())
+  id               String        @id @default(cuid())
   orderNo          String
   lineNo           Int
+  lineType         OrderLineType @default(PROFILE)
   sku              String
   productName      String
-  lengthMm         Decimal? @db.Decimal(8, 2)
+  productId        String?
+  rawProductId     String?
+  cutLengthMm      Int?
+  lengthMm         Decimal?      @db.Decimal(8, 2)
   surfaceTreatment String?
   preprocessing    String?
+  spec             String?
   quantity         Int
-  unitPrice        Decimal  @db.Decimal(10, 2)
-  targetPrice      Decimal? @db.Decimal(10, 2)
-  confirmedPrice   Decimal? @db.Decimal(10, 2)
-  lineAmount       Decimal  @db.Decimal(12, 2)
+  unitPrice        Decimal       @db.Decimal(10, 2)
+  targetPrice      Decimal?      @db.Decimal(10, 2)
+  confirmedPrice   Decimal?      @db.Decimal(10, 2)
+  lineAmount       Decimal       @db.Decimal(12, 2)
   workOrderNo      String?
-  isCustom         Boolean  @default(false)
+  isCustom         Boolean       @default(false)
   imageUrl         String?
   drawingUrl       String?
   drawingFileName  String?
-  createdAt        DateTime @default(now())
+  createdAt        DateTime      @default(now())
 
-  order   SalesOrder @relation(fields: [orderNo], references: [orderNo], onDelete: Cascade)
-  product Product?   @relation(fields: [sku], references: [sku])
+  order SalesOrder @relation(fields: [orderNo], references: [orderNo], onDelete: Cascade)
+}
+
+model Supplier {
+  id            String   @id @default(cuid())
+  supplierNo    String   @unique
+  name          String
+  category      SupplierCategory @default(OTHER)
+  contactName   String?
+  contactPhone  String?
+  address       String?
+  taxNo         String?
+  invoiceType   String?
+  bankName      String?
+  bankAccount   String?
+  paymentTerms  String?
+  paymentDays   Int      @default(0)
+  defaultLeadTimeDays Int @default(0)
+  serviceScope  String?
+  remark        String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+  payments       SupplierPayment[]
+  contacts       SupplierContact[]
+}
+
+model SupplierContact {
+  id         String   @id @default(cuid())
+  supplierId String
+  role       String   @default("业务联系人")
+  name       String
+  phone      String?
+  email      String?
+  wechat     String?
+  isPrimary  Boolean  @default(false)
+  remark     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+}
+
+model PurchaseOrder {
+  id              String              @id @default(cuid())
+  poNo            String              @unique
+  supplierId      String
+  workshopId      String
+  status          PurchaseOrderStatus @default(DRAFT)
+  orderDate       DateTime            @default(now())
+  expectedDate    DateTime?
+  totalAmount     Decimal             @db.Decimal(12, 2)
+  paidAmount      Decimal             @default(0) @db.Decimal(12, 2)
+  remark          String?
+  createdBy       String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  supplier Supplier            @relation(fields: [supplierId], references: [id])
+  workshop Workshop            @relation(fields: [workshopId], references: [id])
+  lines    PurchaseOrderLine[]
+  paymentAllocations SupplierPaymentAllocation[]
+}
+
+model PurchaseOrderLine {
+  id            String  @id @default(cuid())
+  poNo          String
+  lineNo        Int
+  sku           String
+  productName   String
+  spec          String?
+  quantity      Int
+  receivedQty   Int     @default(0)
+  unitPrice     Decimal @db.Decimal(10, 2)
+  lineAmount    Decimal @db.Decimal(12, 2)
+
+  po PurchaseOrder @relation(fields: [poNo], references: [poNo], onDelete: Cascade)
+}
+
+model WorkshopInventory {
+  id                 String   @id @default(cuid())
+  workshopId         String
+  sku                String
+  productName        String
+  quantity           Int      @default(0)
+  lowStockThreshold  Int      @default(0)
+  updatedAt          DateTime @updatedAt
+
+  workshop Workshop @relation(fields: [workshopId], references: [id], onDelete: Cascade)
+
+  @@unique([workshopId, sku])
+  @@index([workshopId])
+}
+
+model StockMovement {
+  id           String            @id @default(cuid())
+  workshopId   String
+  sku          String
+  productName  String
+  type         StockMovementType
+  quantity     Int
+  balanceAfter Int
+  refType      String?
+  refNo        String?
+  note         String?
+  operatorName String?
+  createdAt    DateTime          @default(now())
+
+  workshop Workshop @relation(fields: [workshopId], references: [id], onDelete: Cascade)
+
+  @@index([workshopId, sku, createdAt])
+  @@index([refType, refNo])
+}
+
+model StockCount {
+  id           String           @id @default(cuid())
+  countNo      String           @unique
+  workshopId   String
+  status       StockCountStatus @default(DRAFT)
+  remark       String?
+  submittedBy  String?
+  submittedAt  DateTime?
+  approvedBy   String?
+  approvedAt   DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  workshop Workshop         @relation(fields: [workshopId], references: [id])
+  lines    StockCountLine[]
+}
+
+model StockCountLine {
+  id          String @id @default(cuid())
+  countNo     String
+  sku         String
+  productName String
+  systemQty   Int
+  actualQty   Int
+  diff        Int
+
+  count StockCount @relation(fields: [countNo], references: [countNo], onDelete: Cascade)
+}
+
+model DealerPayment {
+  id         String   @id @default(cuid())
+  dealerId   String
+  amount     Decimal  @db.Decimal(12, 2)
+  paidAt     DateTime
+  method     String?
+  refNo      String?
+  note       String?
+  recordedBy String?
+  createdAt  DateTime @default(now())
+
+  dealer Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  allocations DealerPaymentAllocation[]
+
+  @@index([dealerId, paidAt])
+}
+
+model DealerPaymentAllocation {
+  id        String   @id @default(cuid())
+  paymentId String
+  orderNo   String
+  amount    Decimal  @db.Decimal(12, 2)
+  createdAt DateTime @default(now())
+
+  payment DealerPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  order   SalesOrder    @relation(fields: [orderNo], references: [orderNo], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([orderNo])
+}
+
+model SupplierPayment {
+  id         String   @id @default(cuid())
+  supplierId String
+  amount     Decimal  @db.Decimal(12, 2)
+  paidAt     DateTime
+  method     String?
+  refNo      String?
+  note       String?
+  recordedBy String?
+  createdAt  DateTime @default(now())
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  allocations SupplierPaymentAllocation[]
+
+  @@index([supplierId, paidAt])
+}
+
+model SupplierPaymentAllocation {
+  id        String   @id @default(cuid())
+  paymentId String
+  poNo      String
+  amount    Decimal  @db.Decimal(12, 2)
+  createdAt DateTime @default(now())
+
+  payment SupplierPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  po      PurchaseOrder   @relation(fields: [poNo], references: [poNo], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([poNo])
 }
