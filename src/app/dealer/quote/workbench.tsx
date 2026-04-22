@@ -100,6 +100,16 @@ function rowReady(r: Row): boolean {
   return !!(r.productName && rowUnitPrice(r) != null && r.quantity > 0);
 }
 
+function rawProfileLabel(raw: RawProfileItem) {
+  const parts = [
+    raw.series,
+    raw.productName,
+    raw.spec,
+    raw.lengthMm ? `${raw.lengthMm}mm 原料棒` : null,
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
+
 export function QuoteWorkbench({
   dealer, addresses, options, hardwareCatalog, rawProfileCatalog,
 }: {
@@ -439,9 +449,14 @@ function ProfileTable({
           ⚠ 暂无可选原料型材。请联系管理员在产品目录加入 isRawMaterial 型材。
         </div>
       )}
+      {rawProfileCatalog.length > 0 && (
+        <div className="mb-3 rounded-2xl border border-teal-100 bg-teal-50/70 p-3 text-xs leading-5 text-teal-900">
+          这里选择的是用于加工的型材系列/规格，不需要理解内部 SKU。若只有一种常用型材，系统已默认选中；不确定时请选择与客户需求一致的系列和规格。
+        </div>
+      )}
       <table className="w-full text-sm min-w-[1200px]">
         <thead className="bg-slate-50 border-b"><tr className="text-left">
-          <th className="p-2">原料型材</th>
+          <th className="p-2">型材系列 / 规格</th>
           <th className="p-2">长度(mm)</th><th className="p-2">表面工艺</th><th className="p-2">颜色</th>
           <th className="p-2">加工操作</th><th className="p-2">图纸</th>
           <th className="p-2 w-20">数量</th><th className="p-2 w-24">目标%</th>
@@ -461,9 +476,9 @@ function ProfileTable({
                       const raw = rawProfileCatalog.find((x: RawProfileItem) => x.id === e.target.value);
                       patchRow(r.id, { rawProductId: raw?.id ?? "", rawSku: raw?.sku ?? "", rawSeries: raw?.series ?? "" });
                     }}>
-                    <option value="">请选择原料</option>
+                    <option value="">请选择型材系列/规格</option>
                     {rawProfileCatalog.map((x: RawProfileItem) => (
-                      <option key={x.id} value={x.id}>{x.sku} · {x.productName}</option>
+                      <option key={x.id} value={x.id}>{rawProfileLabel(x)}</option>
                     ))}
                   </select>
                 </td>
