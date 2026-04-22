@@ -11,6 +11,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/orders", label: "销售订单" },
     { href: "/admin/work-orders", label: "加工制单" },
     { href: "/admin/dealers", label: "经销商" },
+    { href: "/admin/users", label: "账号管理" },
     { href: "/admin/workshops", label: "加工车间" },
     { href: "/admin/products", label: "产品目录" },
     { href: "/admin/suppliers", label: "供应商" },
@@ -20,6 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/reconcile/suppliers", label: "供应商对账" },
     { href: "/admin/pricing", label: "报价成本" },
     { href: "/admin/settings", label: "系统设置" },
+    { href: "/admin/account", label: "我的账号" },
   ];
   return (
     <div className="min-h-screen">

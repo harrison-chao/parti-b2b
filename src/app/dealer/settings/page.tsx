@@ -12,7 +12,7 @@ export default async function DealerSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">账户设置</h1>
+        <h1 className="text-2xl font-bold">合同章设置</h1>
         <p className="text-muted-foreground text-sm">上传合同章用于报价单 PDF 加盖</p>
       </div>
 

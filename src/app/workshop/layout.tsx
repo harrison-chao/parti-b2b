@@ -11,6 +11,7 @@ export default async function WorkshopLayout({ children }: { children: React.Rea
     { href: "/workshop/history", label: "历史加工" },
     { href: "/workshop/inventory", label: "库存" },
     { href: "/workshop/stock-count", label: "盘点" },
+    { href: "/workshop/account", label: "账号设置" },
   ];
   return (
     <div className="min-h-screen">

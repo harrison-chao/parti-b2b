@@ -14,7 +14,8 @@ export default async function DealerLayout({ children }: { children: React.React
           { href: "/dealer", label: "工作台" },
           { href: "/dealer/quote", label: "报价下单" },
           { href: "/dealer/orders", label: "我的订单" },
-          { href: "/dealer/settings", label: "账户设置" },
+          { href: "/dealer/settings", label: "合同章" },
+          { href: "/dealer/account", label: "账号设置" },
         ]}
       />
       <main className="container py-6 md:py-8">{children}</main>
