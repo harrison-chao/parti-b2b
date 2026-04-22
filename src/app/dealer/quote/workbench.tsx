@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { formatMoney, ORDER_LINE_TYPE_LABEL, ORDER_LINE_TYPE_COLOR } from "@/lib/utils";
 import { genCustomSku, genCustomProductName } from "@/lib/options";
+import { PRICE_TIER_LABEL } from "@/lib/pricing";
 
 type Option = { code: string; label: string };
 type Address = { id: string; receiverName: string; receiverPhone: string; fullAddress: string; isDefault: boolean };
@@ -26,14 +27,14 @@ type ProfileRow = {
   rawProductId: string; rawSku: string; rawSeries: string;
   lengthMm: string; processCode: string; colorCode: string; operationCode: string;
   drawingUrl: string; drawingFileName: string; drawingUploading: boolean; drawingError?: string;
-  quantity: number; targetPct: string;
+  quantity: number; targetPct: string; targetPriceOverride?: string;
   unitPrice: number | null; retailPrice: number | null; loading: boolean; error?: string;
 };
 type HardwareRow = {
   id: string; lineType: "HARDWARE";
   productId: string; sku: string; productName: string; spec: string | null; drawingRequired: boolean;
   drawingUrl: string; drawingFileName: string; drawingUploading: boolean; drawingError?: string;
-  quantity: number; targetPct: string;
+  quantity: number; targetPct: string; targetPriceOverride?: string;
   unitPrice: number; retailPrice: number;
 };
 type OutsourcedRow = {
@@ -68,6 +69,10 @@ function rowTargetPrice(r: Row): number | null {
   if (r.lineType === "OUTSOURCED") {
     const v = parseFloat(r.targetPrice);
     return isFinite(v) && v > 0 ? v : null;
+  }
+  if (r.targetPriceOverride) {
+    const v = parseFloat(r.targetPriceOverride);
+    if (isFinite(v) && v > 0) return v;
   }
   if (!r.retailPrice || !r.targetPct) return null;
   const pct = parseFloat(r.targetPct);
@@ -246,7 +251,7 @@ export function QuoteWorkbench({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">报价下单 · {dealer.companyName}</h1>
-        <div className="text-sm text-muted-foreground">等级 {dealer.priceLevel}</div>
+        <div className="text-sm text-muted-foreground">{PRICE_TIER_LABEL[dealer.priceLevel as "A"|"B"|"C"] ?? dealer.priceLevel}</div>
       </div>
 
       <Card>
@@ -317,7 +322,29 @@ export function QuoteWorkbench({
                     <td className="p-2 text-xs">{name}</td>
                     <td className="p-2 text-right">{r.quantity}</td>
                     <td className="p-2 text-right">{up != null ? formatMoney(up) : "-"}</td>
-                    <td className="p-2 text-right">{tp != null ? formatMoney(tp) : "-"}</td>
+                    <td className="p-2 text-right">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        className="h-8 w-24 ml-auto text-right"
+                        placeholder={tp != null ? tp.toFixed(2) : "-"}
+                        value={
+                          r.lineType === "OUTSOURCED"
+                            ? r.targetPrice
+                            : (r.targetPriceOverride ?? "")
+                        }
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (r.lineType === "OUTSOURCED") {
+                            patchRow<OutsourcedRow>(r.id, { targetPrice: v });
+                          } else if (r.lineType === "PROFILE") {
+                            patchRow<ProfileRow>(r.id, { targetPriceOverride: v });
+                          } else {
+                            patchRow<HardwareRow>(r.id, { targetPriceOverride: v });
+                          }
+                        }}
+                      />
+                    </td>
                     <td className="p-2 text-right font-medium">{up != null ? formatMoney(up * r.quantity) : "-"}</td>
                     <td className="p-2">{ready ? "✓" : <span className="text-muted-foreground">填写中</span>}</td>
                   </tr>

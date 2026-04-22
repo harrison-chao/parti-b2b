@@ -28,7 +28,17 @@ export default async function PODetailPage({ params }: { params: { poNo: string 
           <h1 className="text-2xl font-bold font-mono">{po.poNo}</h1>
           <p className="text-sm text-muted-foreground">创建于 {formatDateTime(po.createdAt)} · {po.createdBy ?? "-"}</p>
         </div>
-        <Badge className={PURCHASE_ORDER_STATUS_COLOR[po.status] + " text-base px-3 py-1"}>{PURCHASE_ORDER_STATUS_LABEL[po.status]}</Badge>
+        <div className="flex items-center gap-3">
+          <a
+            href={`/print/po/${po.poNo}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center h-9 px-4 rounded-md bg-slate-900 text-white text-sm hover:bg-slate-800"
+          >
+            导出 PDF
+          </a>
+          <Badge className={PURCHASE_ORDER_STATUS_COLOR[po.status] + " text-base px-3 py-1"}>{PURCHASE_ORDER_STATUS_LABEL[po.status]}</Badge>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

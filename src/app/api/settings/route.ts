@@ -12,7 +12,6 @@ export async function GET() {
       surfaceProcesses: s.surfaceProcesses,
       surfaceColors: s.surfaceColors,
       processingOperations: s.processingOperations,
-      processingModifiers: s.processingModifiers,
     });
   }
   return ok(s);
@@ -29,13 +28,15 @@ export async function PUT(req: NextRequest) {
     "surfaceProcesses",
     "surfaceColors",
     "processingOperations",
-    "processingModifiers",
     "discountRates",
     "pricingFields",
     "carriers",
+    "stampTemplate",
   ];
   if (!allowed.includes(key)) return fail("无效的 key");
-  if (value === undefined || value === null) return fail("value 不能为空");
+  // stampTemplate may be explicitly set to null to remove the saved stamp.
+  if (value === undefined) return fail("value 不能为空");
+  if (value === null && key !== "stampTemplate") return fail("value 不能为空");
 
   await saveSetting(key, value, session.user.email);
   return ok({ key, value });

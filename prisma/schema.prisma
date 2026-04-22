@@ -197,7 +197,8 @@ model Dealer {
   creditDays    Int           @default(0)
   allowOverCredit Boolean     @default(false)
   remark        String?
-  priceLevel    PriceLevel    @default(E)
+  priceLevel    PriceLevel    @default(C)
+  stampUrl      String?
   creditLimit   Decimal       @default(0) @db.Decimal(12, 2)
   creditBalance Decimal       @default(0) @db.Decimal(12, 2)
   usedCredit    Decimal       @default(0) @db.Decimal(12, 2)
@@ -327,6 +328,7 @@ model SalesOrderLine {
   targetPrice      Decimal?      @db.Decimal(10, 2)
   confirmedPrice   Decimal?      @db.Decimal(10, 2)
   lineAmount       Decimal       @db.Decimal(12, 2)
+  includedInProfit Boolean       @default(true)
   workOrderNo      String?
   isCustom         Boolean       @default(false)
   imageUrl         String?
@@ -391,6 +393,9 @@ model PurchaseOrder {
   expectedDate    DateTime?
   totalAmount     Decimal             @db.Decimal(12, 2)
   paidAmount      Decimal             @default(0) @db.Decimal(12, 2)
+  receiverName    String?
+  receiverPhone   String?
+  receiverAddress String?
   remark          String?
   createdBy       String?
   createdAt       DateTime            @default(now())

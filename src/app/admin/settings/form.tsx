@@ -5,16 +5,39 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { AllSettings, Option, PricingField } from "@/lib/settings";
+import { PRICE_TIERS, PRICE_TIER_LABEL } from "@/lib/pricing";
 
 export function SettingsForm({ initial }: { initial: AllSettings }) {
   const [surfaceProcesses, setSurfaceProcesses] = useState<Option[]>(initial.surfaceProcesses);
   const [surfaceColors, setSurfaceColors] = useState<Option[]>(initial.surfaceColors);
   const [processingOperations, setProcessingOperations] = useState<Option[]>(initial.processingOperations);
-  const [processingModifiers, setProcessingModifiers] = useState<Option[]>(initial.processingModifiers);
   const [discount, setDiscount] = useState(initial.discountRates);
   const [pricing, setPricing] = useState<PricingField[]>(initial.pricingFields);
   const [carriers, setCarriers] = useState<string[]>(initial.carriers);
+  const [stamp, setStamp] = useState(initial.stampTemplate);
+  const [stampUploading, setStampUploading] = useState(false);
   const [status, setStatus] = useState<Record<string, string>>({});
+
+  async function uploadStamp(file: File) {
+    setStampUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await fetch("/api/uploads/stamp", { method: "POST", body: fd });
+      const j = await r.json();
+      if (j.code !== 0) { alert("上传失败: " + j.message); return; }
+      const next = {
+        url: j.data.url,
+        fileName: j.data.fileName,
+        companyName: stamp?.companyName ?? "",
+        updatedAt: new Date().toISOString(),
+      };
+      setStamp(next);
+      await save("stampTemplate", next);
+    } finally {
+      setStampUploading(false);
+    }
+  }
 
   async function save(key: string, value: any) {
     setStatus((s) => ({ ...s, [key]: "保存中..." }));
@@ -65,9 +88,9 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
       <Card>
         <CardHeader>
           <CardTitle>加工工艺选项</CardTitle>
-          <CardDescription>两个下拉框（工艺操作 · 规格修饰），下单时组合成工艺链（如 L-600MM）</CardDescription>
+          <CardDescription>工艺操作下拉框，下单时选用对应操作码</CardDescription>
         </CardHeader>
-        <CardContent className="grid md:grid-cols-2 gap-6">
+        <CardContent>
           <OptionList
             title="工艺操作"
             codePlaceholder="如 L、D、T、CH"
@@ -75,14 +98,6 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
             setItems={setProcessingOperations}
             onSave={() => save("processingOperations", processingOperations)}
             status={status.processingOperations}
-          />
-          <OptionList
-            title="规格修饰（可选）"
-            codePlaceholder="如 600MM、24IN"
-            items={processingModifiers}
-            setItems={setProcessingModifiers}
-            onSave={() => save("processingModifiers", processingModifiers)}
-            status={status.processingModifiers}
           />
         </CardContent>
       </Card>
@@ -93,9 +108,9 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
           <CardDescription>各等级经销商相对零售价的折扣率（1.0 = 零售价）</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {(["A", "B", "C", "D", "E"] as const).map((lv) => (
+          {PRICE_TIERS.map((lv) => (
             <div key={lv} className="flex items-center gap-3">
-              <span className="w-8 font-semibold">{lv}</span>
+              <span className="w-32 font-semibold text-sm">{PRICE_TIER_LABEL[lv]}</span>
               <Input
                 type="number"
                 step="0.01"
@@ -179,6 +194,49 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
             <Button variant="outline" size="sm" onClick={() => setCarriers([...carriers, ""])}>+ 添加</Button>
             <Button onClick={() => save("carriers", carriers.map((c) => c.trim()).filter(Boolean))}>保存承运商</Button>
             {status.carriers && <span className="text-sm text-emerald-700">{status.carriers}</span>}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>采购合同章模板</CardTitle>
+          <CardDescription>上传公司合同章 PNG（建议透明底，320×320 像素以上），采购单导出 PDF 时自动加盖</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {stamp?.url ? (
+            <div className="flex items-center gap-4">
+              <img src={stamp.url} alt="合同章" className="w-32 h-32 object-contain border rounded bg-white" />
+              <div className="text-sm space-y-1">
+                <div className="text-muted-foreground">{stamp.fileName}</div>
+                {stamp.updatedAt && <div className="text-xs text-muted-foreground">更新于 {new Date(stamp.updatedAt).toLocaleString("zh-CN")}</div>}
+                <Button variant="outline" size="sm" onClick={() => { setStamp(null); save("stampTemplate", null); }}>移除</Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">尚未上传合同章</p>
+          )}
+          <div className="flex items-center gap-3">
+            <Label className="cursor-pointer">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadStamp(f); e.target.value = ""; }}
+              />
+              <span className="inline-flex items-center h-9 px-4 rounded-md bg-slate-900 text-white text-sm">
+                {stampUploading ? "上传中..." : (stamp?.url ? "替换合同章" : "上传合同章")}
+              </span>
+            </Label>
+            <Input
+              placeholder="公司名称（盖章底部标注）"
+              value={stamp?.companyName ?? ""}
+              onChange={(e) => setStamp(stamp ? { ...stamp, companyName: e.target.value } : null)}
+              onBlur={() => stamp && save("stampTemplate", stamp)}
+              className="max-w-xs"
+              disabled={!stamp}
+            />
+            {status.stampTemplate && <span className="text-sm text-emerald-700">{status.stampTemplate}</span>}
           </div>
         </CardContent>
       </Card>

@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const role = session.user.role;
   const settings = await loadSettings();
 
-  let level: "A" | "B" | "C" | "D" | "E" = "E";
+  let level: "A" | "B" | "C" | "D" | "E" = "C";
   if (role === "DEALER" && session.user.dealerId) {
     const d = await prisma.dealer.findUnique({
       where: { id: session.user.dealerId },
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     if (d) level = d.priceLevel;
   } else {
     const qLevel = url.searchParams.get("level");
-    if (qLevel && ["A", "B", "C", "D", "E"].includes(qLevel)) {
+    if (qLevel && ["A", "B", "C"].includes(qLevel)) {
       level = qLevel as typeof level;
     }
   }

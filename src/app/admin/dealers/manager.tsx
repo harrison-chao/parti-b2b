@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMoney, formatDate } from "@/lib/utils";
+import { PRICE_TIERS, PRICE_TIER_LABEL } from "@/lib/pricing";
 
 type Contact = {
   role: string;
@@ -92,7 +93,7 @@ export function DealersManager({ initial }: { initial: Dealer[] }) {
           </select>
           <select className="h-10 rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={levelFilter} onChange={(e) => setLevelFilter(e.target.value)}>
             <option value="ALL">全部等级</option>
-            {["A", "B", "C", "D", "E"].map((lv) => <option key={lv} value={lv}>等级 {lv}</option>)}
+            {PRICE_TIERS.map((lv) => <option key={lv} value={lv}>{PRICE_TIER_LABEL[lv]}</option>)}
           </select>
           <div className="flex items-center text-sm text-muted-foreground">共 {filtered.length} / {dealers.length} 家经销商</div>
         </CardContent>
@@ -140,7 +141,7 @@ export function DealersManager({ initial }: { initial: Dealer[] }) {
                       <div className="text-muted-foreground">{d.industry || "-"}</div>
                     </td>
                     <td className="p-3 text-xs">{d.salesOwner || "-"}</td>
-                    <td className="p-3"><Badge className="bg-slate-100 text-slate-700">{d.priceLevel}</Badge></td>
+                    <td className="p-3"><Badge className="bg-slate-100 text-slate-700">{PRICE_TIER_LABEL[d.priceLevel as "A"|"B"|"C"] ?? d.priceLevel}</Badge></td>
                     <td className="p-3 text-xs">{PAYMENT_LABELS[d.paymentMethod] ?? d.paymentMethod}</td>
                     <td className="p-3 text-right">{formatMoney(d.creditLimit)}</td>
                     <td className="p-3 text-right text-emerald-700">{formatMoney(d.creditBalance)}</td>
@@ -187,7 +188,7 @@ function DealerForm({ dealer, onCancel, onSaved }: {
     creditDays: dealer?.creditDays ?? 0,
     allowOverCredit: dealer?.allowOverCredit ?? false,
     remark: dealer?.remark ?? "",
-    priceLevel: dealer?.priceLevel ?? "E",
+    priceLevel: dealer?.priceLevel ?? "C",
     creditLimit: dealer?.creditLimit ?? 0,
     paymentMethod: dealer?.paymentMethod ?? "PREPAID",
     status: dealer?.status ?? "ACTIVE",
@@ -299,7 +300,7 @@ function DealerForm({ dealer, onCancel, onSaved }: {
           <div className="grid gap-3 md:grid-cols-4">
             <Field label="价格等级">
               <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={form.priceLevel} onChange={(e) => patch("priceLevel", e.target.value)}>
-                {["A", "B", "C", "D", "E"].map((lv) => <option key={lv} value={lv}>{lv}</option>)}
+                {PRICE_TIERS.map((lv) => <option key={lv} value={lv}>{PRICE_TIER_LABEL[lv]}</option>)}
               </select>
             </Field>
             <Field label="结算方式">

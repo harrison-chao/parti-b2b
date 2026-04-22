@@ -21,7 +21,9 @@ const patchSchema = z.object({
   creditDays: z.number().int().nonnegative().optional(),
   allowOverCredit: z.boolean().optional(),
   remark: z.string().optional().nullable(),
+  // Accept legacy D/E so editing a pre-migration dealer does not 400; UI only offers A/B/C.
   priceLevel: z.enum(["A", "B", "C", "D", "E"]).optional(),
+  stampUrl: z.string().optional().nullable(),
   creditLimit: z.number().nonnegative().optional(),
   paymentMethod: z.enum(["PREPAID", "DEPOSIT", "CREDIT"]).optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),

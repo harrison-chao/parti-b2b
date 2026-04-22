@@ -11,11 +11,19 @@ export const PRICING_CONFIG = {
   taxRate: 1.1,
 } as const;
 
+export type PriceTier = "A" | "B" | "C";
+export const PRICE_TIERS: PriceTier[] = ["A", "B", "C"];
+export const PRICE_TIER_LABEL: Record<PriceTier, string> = {
+  A: "战略伙伴级",
+  B: "渠道共建级",
+  C: "先锋共创者级",
+};
+// Retained legacy record shape for back-compat; D/E kept as aliases to C after migration.
 export const LEVEL_DISCOUNT: Record<"A" | "B" | "C" | "D" | "E", number> = {
   A: 1.0,
-  B: 0.95,
-  C: 0.9,
-  D: 0.85,
+  B: 0.9,
+  C: 0.8,
+  D: 0.8,
   E: 0.8,
 };
 
@@ -41,7 +49,7 @@ const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
 export function calcPricing(
   lengthMm: number,
-  priceLevel: "A" | "B" | "C" | "D" | "E" = "E",
+  priceLevel: "A" | "B" | "C" | "D" | "E" = "C",
   config: { [K in keyof typeof PRICING_CONFIG]: number } = PRICING_CONFIG,
   discountRates: Record<"A" | "B" | "C" | "D" | "E", number> = LEVEL_DISCOUNT,
 ): PricingResult {

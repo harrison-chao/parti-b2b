@@ -4,6 +4,7 @@ import { PRICING_CONFIG, LEVEL_DISCOUNT } from "@/lib/pricing";
 export type Option = { code: string; label: string };
 export type PricingField = { key: string; label: string; value: number; builtin?: boolean };
 export type DiscountRates = Record<"A" | "B" | "C" | "D" | "E", number>;
+export type ThreeTierDiscount = Record<"A" | "B" | "C", number>;
 
 // Surface: two dropdowns — process × color → combined code
 export const DEFAULT_SURFACE_PROCESSES: Option[] = [
@@ -38,15 +39,7 @@ export const DEFAULT_PROCESSING_OPERATIONS: Option[] = [
   { code: "T", label: "攻丝" },
   { code: "CH", label: "倒角" },
 ];
-export const DEFAULT_PROCESSING_MODIFIERS: Option[] = [
-  { code: "600MM", label: "600mm" },
-  { code: "800MM", label: "800mm" },
-  { code: "8IN", label: "8 英寸" },
-  { code: "10IN", label: "10 英寸" },
-  { code: "24IN", label: "24 英寸" },
-];
-
-export const DEFAULT_DISCOUNT_RATES: DiscountRates = { A: 1.0, B: 0.95, C: 0.9, D: 0.85, E: 0.8 };
+export const DEFAULT_DISCOUNT_RATES: DiscountRates = { A: 1.0, B: 0.9, C: 0.8, D: 0.8, E: 0.8 };
 
 export const DEFAULT_CARRIERS: string[] = ["顺丰速运", "德邦物流", "京东物流", "中通快运", "安能物流", "自提"];
 
@@ -63,14 +56,21 @@ export const DEFAULT_PRICING_FIELDS: PricingField[] = [
   { key: "taxRate", label: "含税加成", value: PRICING_CONFIG.taxRate, builtin: true },
 ];
 
+export type StampTemplate = {
+  url: string;
+  fileName?: string;
+  companyName?: string;
+  updatedAt?: string;
+};
+
 export type AllSettings = {
   surfaceProcesses: Option[];
   surfaceColors: Option[];
   processingOperations: Option[];
-  processingModifiers: Option[];
   discountRates: DiscountRates;
   pricingFields: PricingField[];
   carriers: string[];
+  stampTemplate: StampTemplate | null;
 };
 
 export type PricingConfigMap = { [K in keyof typeof PRICING_CONFIG]: number };
@@ -93,17 +93,20 @@ export async function loadSettings(): Promise<AllSettings> {
     surfaceProcesses: map.get("surfaceProcesses") ?? DEFAULT_SURFACE_PROCESSES,
     surfaceColors: map.get("surfaceColors") ?? DEFAULT_SURFACE_COLORS,
     processingOperations: map.get("processingOperations") ?? DEFAULT_PROCESSING_OPERATIONS,
-    processingModifiers: map.get("processingModifiers") ?? DEFAULT_PROCESSING_MODIFIERS,
     discountRates: map.get("discountRates") ?? DEFAULT_DISCOUNT_RATES,
     pricingFields: map.get("pricingFields") ?? DEFAULT_PRICING_FIELDS,
     carriers: map.get("carriers") ?? DEFAULT_CARRIERS,
+    stampTemplate: (map.get("stampTemplate") as StampTemplate | undefined) ?? null,
   };
 }
 
 export async function saveSetting(key: string, value: any, updatedBy?: string) {
+  // Prisma requires Prisma.JsonNull for JSON null literals on a non-nullable Json column.
+  const { Prisma } = await import("@prisma/client");
+  const v = value === null ? Prisma.JsonNull : value;
   return prisma.systemSetting.upsert({
     where: { key },
-    create: { key, value, updatedBy },
-    update: { value, updatedBy },
+    create: { key, value: v, updatedBy },
+    update: { value: v, updatedBy },
   });
 }

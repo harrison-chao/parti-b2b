@@ -20,6 +20,9 @@ export function NewPOForm({ suppliers, workshops, products }: { suppliers: Suppl
   const [workshopId, setWorkshopId] = useState(workshops[0]?.id ?? "");
   const [expectedDate, setExpectedDate] = useState("");
   const [remark, setRemark] = useState("");
+  const [receiverName, setReceiverName] = useState("");
+  const [receiverPhone, setReceiverPhone] = useState("");
+  const [receiverAddress, setReceiverAddress] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [search, setSearch] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -73,6 +76,9 @@ export function NewPOForm({ suppliers, workshops, products }: { suppliers: Suppl
           workshopId,
           expectedDate: expectedDate || null,
           remark: remark || null,
+          receiverName: receiverName || null,
+          receiverPhone: receiverPhone || null,
+          receiverAddress: receiverAddress || null,
           lines: rows.map((r) => ({
             sku: r.sku,
             productName: r.productName,
@@ -179,6 +185,26 @@ export function NewPOForm({ suppliers, workshops, products }: { suppliers: Suppl
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>收货仓库</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <Label>收货联系人</Label>
+            <Input value={receiverName} onChange={(e) => setReceiverName(e.target.value)} placeholder="如 仓库主管 张师傅" />
+          </div>
+          <div>
+            <Label>联系电话</Label>
+            <Input value={receiverPhone} onChange={(e) => setReceiverPhone(e.target.value)} placeholder="如 13800000000" />
+          </div>
+          <div className="md:col-span-3">
+            <Label>收货地址</Label>
+            <Input value={receiverAddress} onChange={(e) => setReceiverAddress(e.target.value)} placeholder="省市区 + 详细地址" />
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="flex items-center gap-3">
         <Button onClick={submit} disabled={submitting || rows.length === 0}>{submitting ? "提交中..." : "保存为草稿"}</Button>

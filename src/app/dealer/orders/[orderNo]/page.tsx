@@ -29,6 +29,14 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
           <p className="text-sm text-muted-foreground">创建于 {formatDateTime(order.createdAt)}</p>
         </div>
         <div className="flex items-center gap-3">
+          <a
+            href={`/print/quote/${order.orderNo}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center h-9 px-4 rounded-md border border-slate-300 bg-white text-sm hover:bg-slate-50"
+          >
+            导出报价单 PDF
+          </a>
           <Badge className={ORDER_STATUS_COLOR[order.orderStatus] + " text-base px-3 py-1"}>{ORDER_STATUS_LABEL[order.orderStatus]}</Badge>
           {(order.orderStatus === "DRAFT" || order.orderStatus === "MODIFYING") && <SubmitBtn orderNo={order.orderNo} />}
         </div>

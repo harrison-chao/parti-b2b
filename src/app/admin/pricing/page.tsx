@@ -25,11 +25,11 @@ type Full = {
   discountPercent: number;
 };
 
-const LEVELS = ["A", "B", "C", "D", "E"] as const;
+const LEVELS = ["A", "B", "C"] as const;
 
 export default function OpsPricingPage() {
   const [lengthMm, setLengthMm] = useState(600);
-  const [level, setLevel] = useState<"A" | "B" | "C" | "D" | "E">("C");
+  const [level, setLevel] = useState<"A" | "B" | "C">("C");
   const [data, setData] = useState<Full | null>(null);
   const [loading, setLoading] = useState(false);
 

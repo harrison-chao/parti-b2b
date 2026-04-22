@@ -150,7 +150,9 @@ export function ProductManager({ products }: { products: P[] }) {
                 </label>
               </>
             )}
-            <div><Label>零售价</Label><Input type="number" step="0.01" value={form.retailPrice} onChange={(e) => setForm({ ...form, retailPrice: e.target.value })} /></div>
+            {tab !== "PROFILE" && (
+              <div><Label>零售价</Label><Input type="number" step="0.01" value={form.retailPrice} onChange={(e) => setForm({ ...form, retailPrice: e.target.value })} /></div>
+            )}
             <div><Label>采购成本（可选）</Label><Input type="number" step="0.01" value={form.purchasePrice} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} /></div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.drawingRequired} onChange={(e) => setForm({ ...form, drawingRequired: e.target.checked })} />
@@ -169,7 +171,8 @@ export function ProductManager({ products }: { products: P[] }) {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b"><tr className="text-left">
               <th className="p-3">SKU</th><th className="p-3">名称</th><th className="p-3">系列</th>
-              <th className="p-3">规格</th>{tab === "PROFILE" && <th className="p-3">原料规则</th>}<th className="p-3 text-right">零售价</th>
+              <th className="p-3">规格</th>{tab === "PROFILE" && <th className="p-3">原料规则</th>}
+              {tab !== "PROFILE" && <th className="p-3 text-right">零售价</th>}
               <th className="p-3 text-right">采购成本</th><th className="p-3">图纸</th>
               <th className="p-3">状态</th><th className="p-3"></th>
             </tr></thead>
@@ -189,9 +192,11 @@ export function ProductManager({ products }: { products: P[] }) {
                       ) : <span className="text-muted-foreground">非原料</span>}
                     </td>
                   )}
-                  <td className="p-3 text-right cursor-pointer hover:underline" onClick={() => editPrice(p)}>
-                    {formatMoney(p.retailPrice)}
-                  </td>
+                  {tab !== "PROFILE" && (
+                    <td className="p-3 text-right cursor-pointer hover:underline" onClick={() => editPrice(p)}>
+                      {formatMoney(p.retailPrice)}
+                    </td>
+                  )}
                   <td className="p-3 text-right text-xs text-muted-foreground">{p.purchasePrice != null ? formatMoney(p.purchasePrice) : "-"}</td>
                   <td className="p-3 text-xs">{p.drawingRequired ? "必传" : "-"}</td>
                   <td className="p-3">
@@ -206,7 +211,7 @@ export function ProductManager({ products }: { products: P[] }) {
                   </td>
                 </tr>
               ))}
-              {list.length === 0 && <tr><td colSpan={tab === "PROFILE" ? 10 : 9} className="p-6 text-center text-muted-foreground">暂无</td></tr>}
+              {list.length === 0 && <tr><td colSpan={9} className="p-6 text-center text-muted-foreground">暂无</td></tr>}
             </tbody>
           </table>
         </CardContent>

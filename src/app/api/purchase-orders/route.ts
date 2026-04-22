@@ -18,6 +18,9 @@ const createSchema = z.object({
   workshopId: z.string().min(1),
   expectedDate: z.string().optional().nullable(),
   remark: z.string().optional().nullable(),
+  receiverName: z.string().optional().nullable(),
+  receiverPhone: z.string().optional().nullable(),
+  receiverAddress: z.string().optional().nullable(),
   lines: z.array(lineSchema).min(1),
 });
 
@@ -62,6 +65,9 @@ export async function POST(req: NextRequest) {
       expectedDate: d.expectedDate ? new Date(d.expectedDate) : null,
       totalAmount,
       remark: d.remark ?? null,
+      receiverName: d.receiverName ?? null,
+      receiverPhone: d.receiverPhone ?? null,
+      receiverAddress: d.receiverAddress ?? null,
       createdBy: session.user.name,
       lines: {
         create: d.lines.map((l, i) => ({

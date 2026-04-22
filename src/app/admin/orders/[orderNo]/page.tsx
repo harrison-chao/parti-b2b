@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatMoney, formatDate, formatDateTime, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR } from "@/lib/utils";
-import { calcPricing } from "@/lib/pricing";
+import { calcPricing, PRICE_TIER_LABEL } from "@/lib/pricing";
 import { loadSettings, pricingFieldsToConfig } from "@/lib/settings";
 import { ReviewPanel } from "./review-panel";
 import { OrderLineCostRow } from "./cost-row";
@@ -57,11 +57,19 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
   const byLineNo = new Map(lineCosts.map((c) => [c.lineNo, c]));
 
   const totalCost = order.lines.reduce((s, l) => {
+    if (!l.includedInProfit) return s;
     const c = byLineNo.get(l.lineNo)?.pricing;
-    return s + (c ? c.totalCost * l.quantity : 0);
+    if (c) return s + c.totalCost * l.quantity;
+    // Non-PROFILE lines (OUTSOURCED/HARDWARE) without pricing breakdown: treat unitPrice as cost pass-through
+    if (l.lineType === "OUTSOURCED" || l.lineType === "HARDWARE") return s + Number(l.unitPrice) * l.quantity;
+    return s;
   }, 0);
+  const profitRevenue = order.lines.reduce(
+    (s, l) => s + (l.includedInProfit ? Number(l.lineAmount) : 0),
+    0,
+  );
   const dealerTotal = Number(order.totalAmount);
-  const adminProfit = dealerTotal - totalCost;
+  const adminProfit = profitRevenue - totalCost;
 
   return (
     <div className="space-y-6">
@@ -92,7 +100,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
             <Card>
               <CardHeader><CardTitle>经销商 & 收货</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <Row k="经销商等级" v={order.dealer.priceLevel} />
+                <Row k="经销商等级" v={PRICE_TIER_LABEL[order.dealer.priceLevel as "A"|"B"|"C"] ?? order.dealer.priceLevel} />
                 <Row k="结算方式" v={PAYMENT_LABELS[order.dealer.paymentMethod] ?? order.dealer.paymentMethod} />
                 <Row k="信用余额" v={formatMoney(Number(order.dealer.creditBalance))} />
                 <div className="border-t pt-2 mt-2"></div>
@@ -123,8 +131,11 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
                     return (
                       <OrderLineCostRow
                         key={l.id}
+                        orderNo={order.orderNo}
                         line={{
+                          id: l.id,
                           lineNo: l.lineNo,
+                          lineType: l.lineType,
                           productName: l.productName,
                           sku: l.sku,
                           preprocessing: l.preprocessing,
@@ -133,6 +144,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
                           quantity: l.quantity,
                           unitPrice: Number(l.unitPrice),
                           lineAmount: Number(l.lineAmount),
+                          includedInProfit: l.includedInProfit,
                         }}
                         costBreakdown={c?.pricing ? {
                           totalCost: c.pricing.totalCost,
@@ -155,7 +167,12 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
                     <td></td>
                   </tr>
                   <tr>
-                    <td colSpan={7} className="p-3 text-right font-semibold">本单利润（从成本到经销商采购价）</td>
+                    <td colSpan={7} className="p-3 text-right font-semibold text-xs text-muted-foreground">纳入利润核算收入（勾选行合计）</td>
+                    <td className="p-3 text-right text-sm">{formatMoney(profitRevenue)}</td>
+                    <td></td>
+                  </tr>
+                  <tr>
+                    <td colSpan={7} className="p-3 text-right font-semibold">本单利润（核算收入 − 核算成本）</td>
                     <td className={`p-3 text-right font-bold text-lg ${adminProfit >= 0 ? "text-blue-700" : "text-red-600"}`}>{formatMoney(adminProfit)}</td>
                     <td></td>
                   </tr>

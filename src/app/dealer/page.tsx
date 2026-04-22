@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatMoney, formatDate, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR } from "@/lib/utils";
+import { PRICE_TIER_LABEL } from "@/lib/pricing";
 
 export default async function DealerHomePage() {
   const session = await auth();
@@ -22,7 +23,7 @@ export default async function DealerHomePage() {
       <div>
         <h1 className="text-2xl font-bold">欢迎，{dealer?.companyName}</h1>
         <p className="text-muted-foreground text-sm">
-          经销商编号 {dealer?.dealerNo} · 价格等级 {dealer?.priceLevel} · 结算方式 {dealer?.paymentMethod}
+          经销商编号 {dealer?.dealerNo} · 等级 {dealer ? (PRICE_TIER_LABEL[dealer.priceLevel as "A"|"B"|"C"] ?? dealer.priceLevel) : "-"} · 结算方式 {dealer?.paymentMethod}
         </p>
       </div>
 

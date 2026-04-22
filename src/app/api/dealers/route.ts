@@ -44,7 +44,7 @@ const createSchema = z.object({
   creditDays: z.number().int().nonnegative().optional(),
   allowOverCredit: z.boolean().optional(),
   remark: z.string().optional().nullable(),
-  priceLevel: z.enum(["A", "B", "C", "D", "E"]),
+  priceLevel: z.enum(["A", "B", "C"]),
   creditLimit: z.number().nonnegative(),
   paymentMethod: z.enum(["PREPAID", "DEPOSIT", "CREDIT"]),
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),

@@ -159,6 +159,7 @@ export async function POST(req: NextRequest) {
             drawingUrl: l.drawingUrl ?? null,
             drawingFileName: l.drawingFileName ?? null,
             isCustom: l.isCustom ?? (l.lineType === "PROFILE"),
+            includedInProfit: l.lineType !== "OUTSOURCED",
           })),
         },
       },
