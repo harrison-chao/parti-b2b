@@ -19,6 +19,9 @@ type UserRow = {
   updatedAt: string;
 };
 
+type DealerOption = { id: string; dealerNo: string; companyName: string };
+type WorkshopOption = { id: string; code: string; name: string };
+
 const ROLE_LABEL: Record<UserRow["role"], string> = {
   ADMIN: "管理员",
   DEALER: "经销商",
@@ -40,15 +43,20 @@ function generatePassword() {
 
 export function UsersManager({
   currentUserId,
+  dealers,
+  workshops,
   initial,
 }: {
   currentUserId: string;
+  dealers: DealerOption[];
+  workshops: WorkshopOption[];
   initial: UserRow[];
 }) {
   const [users, setUsers] = useState(initial);
   const [query, setQuery] = useState("");
   const [role, setRole] = useState("ALL");
   const [resetting, setResetting] = useState<UserRow | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -70,8 +78,9 @@ export function UsersManager({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold">账号管理</h1>
-          <p className="text-sm text-muted-foreground">管理员统一查看三端账号，并为他人重置登录密码。</p>
+          <p className="text-sm text-muted-foreground">管理员统一创建三端账号，并为他人重置登录密码。</p>
         </div>
+        <Button onClick={() => { setCreating(true); setResetting(null); }}>+ 创建登录账号</Button>
       </div>
 
       <Card>
@@ -94,6 +103,18 @@ export function UsersManager({
           onReset={(updatedAt) => {
             setUsers((prev) => prev.map((user) => user.id === resetting.id ? { ...user, updatedAt } : user));
             setResetting(null);
+          }}
+        />
+      )}
+
+      {creating && (
+        <CreateUserPanel
+          dealers={dealers}
+          workshops={workshops}
+          onCancel={() => setCreating(false)}
+          onCreated={(user) => {
+            setUsers([user, ...users]);
+            setCreating(false);
           }}
         />
       )}
@@ -158,6 +179,134 @@ export function UsersManager({
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function CreateUserPanel({
+  dealers,
+  workshops,
+  onCancel,
+  onCreated,
+}: {
+  dealers: DealerOption[];
+  workshops: WorkshopOption[];
+  onCancel: () => void;
+  onCreated: (user: UserRow) => void;
+}) {
+  const [role, setRole] = useState<UserRow["role"]>("WORKSHOP");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [dealerId, setDealerId] = useState("");
+  const [workshopId, setWorkshopId] = useState("");
+  const [password, setPassword] = useState(generatePassword());
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function create() {
+    setMessage("");
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role,
+          name,
+          email,
+          password,
+          dealerId: role === "DEALER" ? dealerId : null,
+          workshopId: role === "WORKSHOP" ? workshopId : null,
+        }),
+      });
+      const json = await res.json();
+      if (json.code !== 0) {
+        setMessage("✗ " + json.message);
+        return;
+      }
+      const user = json.data.user;
+      onCreated({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        dealer: user.dealer,
+        workshop: user.workshop,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card className="border-teal-200 bg-teal-50/80">
+      <CardContent className="space-y-4 pt-5 md:pt-6">
+        <div>
+          <h2 className="text-lg font-bold">创建登录账号</h2>
+          <p className="text-sm text-muted-foreground">
+            供应商当前仅作为内部主数据使用；经销商和车间需要登录时，在这里创建账号并发送初始密码。
+          </p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="space-y-1.5">
+            <Label>角色</Label>
+            <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={role} onChange={(e) => setRole(e.target.value as UserRow["role"])}>
+              <option value="WORKSHOP">车间</option>
+              <option value="DEALER">经销商</option>
+              <option value="ADMIN">管理员</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>姓名</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="联系人姓名" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>登录邮箱</Label>
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" />
+          </div>
+          {role === "DEALER" && (
+            <div className="space-y-1.5 md:col-span-2">
+              <Label>绑定经销商档案</Label>
+              <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={dealerId} onChange={(e) => setDealerId(e.target.value)}>
+                <option value="">请选择经销商</option>
+                {dealers.map((dealer) => (
+                  <option key={dealer.id} value={dealer.id}>{dealer.dealerNo} · {dealer.companyName}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {role === "WORKSHOP" && (
+            <div className="space-y-1.5 md:col-span-2">
+              <Label>绑定加工车间</Label>
+              <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={workshopId} onChange={(e) => setWorkshopId(e.target.value)}>
+                <option value="">请选择车间</option>
+                {workshops.map((workshop) => (
+                  <option key={workshop.id} value={workshop.id}>{workshop.code} · {workshop.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="space-y-1.5 md:col-span-2">
+            <Label>初始密码</Label>
+            <Input value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+          <div className="flex items-end">
+            <Button variant="outline" onClick={() => setPassword(generatePassword())}>生成强密码</Button>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            onClick={create}
+            disabled={saving || !name || !email || password.length < 10 || (role === "DEALER" && !dealerId) || (role === "WORKSHOP" && !workshopId)}
+          >
+            {saving ? "创建中..." : "创建账号"}
+          </Button>
+          <Button variant="outline" onClick={onCancel}>取消</Button>
+          {message && <span className="text-sm text-muted-foreground">{message}</span>}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

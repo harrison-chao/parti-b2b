@@ -13,10 +13,24 @@ export default async function AdminUsersPage() {
       workshop: { select: { code: true, name: true } },
     },
   });
+  const [dealers, workshops] = await Promise.all([
+    prisma.dealer.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: { dealerNo: "asc" },
+      select: { id: true, dealerNo: true, companyName: true },
+    }),
+    prisma.workshop.findMany({
+      where: { isActive: true },
+      orderBy: { code: "asc" },
+      select: { id: true, code: true, name: true },
+    }),
+  ]);
 
   return (
     <UsersManager
       currentUserId={session!.user.id}
+      dealers={dealers}
+      workshops={workshops}
       initial={users.map((user) => ({
         id: user.id,
         email: user.email,
