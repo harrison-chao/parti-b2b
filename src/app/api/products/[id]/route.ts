@@ -37,10 +37,30 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const session = await auth();
   if (!session) return fail("未登录", 401, 401);
   if (session.user.role !== "ADMIN") return fail("仅管理员可维护产品", 403, 403);
-  // soft delete only
-  const product = await prisma.product.update({
-    where: { id: params.id },
-    data: { isActive: false },
-  });
-  return ok(product);
+
+  const product = await prisma.product.findUnique({ where: { id: params.id } });
+  if (!product) return fail("产品不存在", 404, 404);
+
+  const [salesLines, purchaseLines, inventoryRows, movements] = await Promise.all([
+    prisma.salesOrderLine.count({
+      where: {
+        OR: [
+          { sku: product.sku },
+          { productId: product.id },
+          { rawProductId: product.id },
+        ],
+      },
+    }),
+    prisma.purchaseOrderLine.count({ where: { sku: product.sku } }),
+    prisma.workshopInventory.count({ where: { sku: product.sku } }),
+    prisma.stockMovement.count({ where: { sku: product.sku } }),
+  ]);
+
+  const references = salesLines + purchaseLines + inventoryRows + movements;
+  if (references > 0) {
+    return fail(`该 SKU 已有 ${references} 条业务引用，不能删除；请改为停用。`);
+  }
+
+  const deleted = await prisma.product.delete({ where: { id: params.id } });
+  return ok(deleted);
 }

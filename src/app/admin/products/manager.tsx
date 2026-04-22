@@ -117,6 +117,24 @@ export function ProductManager({ products }: { products: P[] }) {
     router.refresh();
   }
 
+  async function deleteProduct(p: P) {
+    const confirmed = confirm(`确认删除 SKU「${p.sku}」？\n\n仅未被订单、采购、库存或流水引用的 SKU 可以删除。`);
+    if (!confirmed) return;
+    setStatus("删除中...");
+    const r = await fetch(`/api/products/${p.id}`, { method: "DELETE" });
+    const j = await r.json();
+    if (j.code !== 0) {
+      setStatus("✗ " + j.message);
+      return;
+    }
+    setStatus(`✓ 已删除 ${p.sku}`);
+    if (editing?.id === p.id) {
+      setEditing(null);
+      resetForm();
+    }
+    router.refresh();
+  }
+
   async function editPrice(p: P) {
     const newRetail = prompt(`修改零售价（当前 ${p.retailPrice}）`, String(p.retailPrice));
     if (newRetail == null) return;
@@ -249,6 +267,9 @@ export function ProductManager({ products }: { products: P[] }) {
                       </button>
                       <button onClick={() => toggleActive(p)} className="text-xs text-blue-600 hover:underline">
                         {p.isActive ? "停用" : "启用"}
+                      </button>
+                      <button onClick={() => deleteProduct(p)} className="text-xs text-red-600 hover:underline">
+                        删除
                       </button>
                     </div>
                   </td>
