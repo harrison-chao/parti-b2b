@@ -29,6 +29,7 @@ export function ProductManager({ products }: { products: P[] }) {
   const router = useRouter();
   const [tab, setTab] = useState<"HARDWARE" | "PROFILE">("HARDWARE");
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<P | null>(null);
   const [form, setForm] = useState({
     sku: "",
     productName: "",
@@ -37,6 +38,7 @@ export function ProductManager({ products }: { products: P[] }) {
     lengthMm: "3600",
     retailPrice: "",
     purchasePrice: "",
+    unit: "根",
     drawingRequired: false,
     isRawMaterial: false,
     yieldRate: "0.95",
@@ -45,30 +47,64 @@ export function ProductManager({ products }: { products: P[] }) {
 
   const list = products.filter((p) => p.category === tab);
 
-  async function create() {
+  function resetForm() {
+    setForm({ sku: "", productName: "", series: "", spec: "", lengthMm: "3600", retailPrice: "", purchasePrice: "", unit: "根", drawingRequired: false, isRawMaterial: false, yieldRate: "0.95" });
+  }
+
+  function openCreate() {
+    setEditing(null);
+    resetForm();
+    setStatus("");
+    setCreating((v) => !v);
+  }
+
+  function openEdit(product: P) {
+    setTab(product.category as "HARDWARE" | "PROFILE");
+    setCreating(false);
+    setEditing(product);
+    setStatus("");
+    setForm({
+      sku: product.sku,
+      productName: product.productName,
+      series: product.series,
+      spec: product.spec ?? "",
+      lengthMm: product.lengthMm != null ? String(product.lengthMm) : "3600",
+      retailPrice: String(product.retailPrice),
+      purchasePrice: product.purchasePrice != null ? String(product.purchasePrice) : "",
+      unit: product.unit,
+      drawingRequired: product.drawingRequired,
+      isRawMaterial: product.isRawMaterial,
+      yieldRate: String(product.yieldRate ?? 0.95),
+    });
+  }
+
+  async function saveProduct() {
     setStatus("保存中...");
-    const r = await fetch("/api/products", {
-      method: "POST",
+    const category = editing ? editing.category : tab;
+    const r = await fetch(editing ? `/api/products/${editing.id}` : "/api/products", {
+      method: editing ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        sku: form.sku.trim(),
+        ...(!editing ? { sku: form.sku.trim() } : {}),
         productName: form.productName.trim(),
         series: form.series.trim(),
-        category: tab,
-        lengthMm: tab === "PROFILE" && form.lengthMm ? parseFloat(form.lengthMm) : null,
+        category,
+        lengthMm: category === "PROFILE" && form.lengthMm ? parseFloat(form.lengthMm) : null,
         spec: form.spec.trim() || null,
         retailPrice: parseFloat(form.retailPrice) || 0,
         purchasePrice: form.purchasePrice ? parseFloat(form.purchasePrice) : null,
+        unit: form.unit.trim() || "件",
         drawingRequired: form.drawingRequired,
-        isRawMaterial: tab === "PROFILE" ? form.isRawMaterial : false,
-        yieldRate: tab === "PROFILE" ? (parseFloat(form.yieldRate) || 0.95) : 0.95,
+        isRawMaterial: category === "PROFILE" ? form.isRawMaterial : false,
+        yieldRate: category === "PROFILE" ? (parseFloat(form.yieldRate) || 0.95) : 0.95,
       }),
     });
     const j = await r.json();
     if (j.code !== 0) { setStatus("✗ " + j.message); return; }
-    setStatus("✓ 已新增");
+    setStatus(editing ? "✓ 已保存修改" : "✓ 已新增");
     setCreating(false);
-    setForm({ sku: "", productName: "", series: "", spec: "", lengthMm: "3600", retailPrice: "", purchasePrice: "", drawingRequired: false, isRawMaterial: false, yieldRate: "0.95" });
+    setEditing(null);
+    resetForm();
     router.refresh();
   }
 
@@ -129,18 +165,18 @@ export function ProductManager({ products }: { products: P[] }) {
           </button>
         ))}
         <div className="flex-1" />
-        <Button size="sm" onClick={() => setCreating((v) => !v)}>{creating ? "取消" : "+ 新增"}</Button>
+        <Button size="sm" onClick={openCreate}>{creating ? "取消" : "+ 新增"}</Button>
       </div>
 
-      {creating && (
+      {(creating || editing) && (
         <Card>
-          <CardHeader><CardTitle>新增 {PRODUCT_CATEGORY_LABEL[tab]} SKU</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{editing ? "编辑" : "新增"} {PRODUCT_CATEGORY_LABEL[(editing?.category as "HARDWARE" | "PROFILE") ?? tab]} SKU</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <div><Label>SKU</Label><Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="如 OL2525" /></div>
+            <div><Label>SKU</Label><Input value={form.sku} disabled={!!editing} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="如 OL2525" /></div>
             <div><Label>产品名称</Label><Input value={form.productName} onChange={(e) => setForm({ ...form, productName: e.target.value })} /></div>
             <div><Label>系列</Label><Input value={form.series} onChange={(e) => setForm({ ...form, series: e.target.value })} placeholder="如 六通 / 层板托" /></div>
             <div className="col-span-2"><Label>规格</Label><Input value={form.spec} onChange={(e) => setForm({ ...form, spec: e.target.value })} placeholder="如 25x25" /></div>
-            {tab === "PROFILE" && (
+            {((editing?.category ?? tab) === "PROFILE") && (
               <>
                 <div><Label>原料棒长(mm)</Label><Input type="number" value={form.lengthMm} onChange={(e) => setForm({ ...form, lengthMm: e.target.value })} /></div>
                 <div><Label>生产良率(0-1)</Label><Input type="number" min="0.01" max="1" step="0.01" value={form.yieldRate} onChange={(e) => setForm({ ...form, yieldRate: e.target.value })} /></div>
@@ -150,16 +186,18 @@ export function ProductManager({ products }: { products: P[] }) {
                 </label>
               </>
             )}
-            {tab !== "PROFILE" && (
+            {((editing?.category ?? tab) !== "PROFILE") && (
               <div><Label>零售价</Label><Input type="number" step="0.01" value={form.retailPrice} onChange={(e) => setForm({ ...form, retailPrice: e.target.value })} /></div>
             )}
             <div><Label>采购成本（可选）</Label><Input type="number" step="0.01" value={form.purchasePrice} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} /></div>
+            <div><Label>单位</Label><Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="根 / 件 / 套" /></div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.drawingRequired} onChange={(e) => setForm({ ...form, drawingRequired: e.target.checked })} />
               下单时强制上传图纸（如定制六通）
             </label>
             <div className="col-span-full flex items-center gap-3">
-              <Button onClick={create}>保存</Button>
+              <Button onClick={saveProduct}>保存</Button>
+              <Button variant="outline" onClick={() => { setCreating(false); setEditing(null); resetForm(); }}>取消</Button>
               {status && <span className="text-sm">{status}</span>}
             </div>
           </CardContent>
@@ -205,9 +243,14 @@ export function ProductManager({ products }: { products: P[] }) {
                     </Badge>
                   </td>
                   <td className="p-3">
-                    <button onClick={() => toggleActive(p)} className="text-xs text-blue-600 hover:underline">
-                      {p.isActive ? "停用" : "启用"}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => openEdit(p)} className="text-xs text-blue-600 hover:underline">
+                        编辑
+                      </button>
+                      <button onClick={() => toggleActive(p)} className="text-xs text-blue-600 hover:underline">
+                        {p.isActive ? "停用" : "启用"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
