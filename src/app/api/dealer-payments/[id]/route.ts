@@ -29,12 +29,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     }
 
     await tx.dealerPayment.delete({ where: { id: params.id } });
-    if (exists.dealer.paymentMethod === "CREDIT") {
+    if (exists.dealer.paymentMethod === "CREDIT" && Number(exists.creditReleased) > 0) {
       await tx.dealer.update({
         where: { id: exists.dealerId },
         data: {
-          usedCredit: { increment: exists.amount },
-          creditBalance: { decrement: exists.amount },
+          usedCredit: { increment: exists.creditReleased },
+          creditBalance: { decrement: exists.creditReleased },
         },
       });
     }

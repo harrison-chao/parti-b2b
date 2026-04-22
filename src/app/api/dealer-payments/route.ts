@@ -37,10 +37,12 @@ export async function POST(req: NextRequest) {
   const dealer = await prisma.dealer.findUnique({ where: { id: d.dealerId } });
   if (!dealer) return fail("经销商不存在", 404, 404);
   const p = await prisma.$transaction(async (tx) => {
+    const creditReleased = dealer.paymentMethod === "CREDIT" ? Math.min(Number(dealer.usedCredit), d.amount) : 0;
     const created = await tx.dealerPayment.create({
       data: {
         dealerId: d.dealerId,
         amount: d.amount,
+        creditReleased,
         paidAt: new Date(d.paidAt),
         method: d.method ?? null,
         refNo: d.refNo ?? null,
@@ -49,17 +51,14 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (dealer.paymentMethod === "CREDIT") {
-      const release = Math.min(Number(dealer.usedCredit), d.amount);
-      if (release > 0) {
-        await tx.dealer.update({
-          where: { id: dealer.id },
-          data: {
-            usedCredit: { decrement: release },
-            creditBalance: { increment: release },
-          },
-        });
-      }
+    if (creditReleased > 0) {
+      await tx.dealer.update({
+        where: { id: dealer.id },
+        data: {
+          usedCredit: { decrement: creditReleased },
+          creditBalance: { increment: creditReleased },
+        },
+      });
     }
 
     let remaining = d.amount;

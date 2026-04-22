@@ -593,6 +593,7 @@ async function main() {
       data: {
         dealerId: dealer.id,
         amount: dealerPaymentAmount,
+        creditReleased: dealerPaymentAmount,
         paidAt: now,
         method: "BANK",
         refNo: `DP-${suffix}`,

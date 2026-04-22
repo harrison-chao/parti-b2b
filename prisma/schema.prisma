@@ -490,6 +490,7 @@ model DealerPayment {
   id         String   @id @default(cuid())
   dealerId   String
   amount     Decimal  @db.Decimal(12, 2)
+  creditReleased Decimal @default(0) @db.Decimal(12, 2)
   paidAt     DateTime
   method     String?
   refNo      String?
