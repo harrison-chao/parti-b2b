@@ -25,11 +25,40 @@ type P = {
   isActive: boolean;
 };
 
+type ProductRow = {
+  sku: string;
+  productName: string;
+  series: string;
+  spec: string;
+  lengthMm: string;
+  retailPrice: string;
+  purchasePrice: string;
+  unit: string;
+  drawingRequired: boolean;
+  isRawMaterial: boolean;
+  yieldRate: string;
+};
+
+const emptyRow = (category: "HARDWARE" | "PROFILE"): ProductRow => ({
+  sku: "",
+  productName: "",
+  series: "",
+  spec: "",
+  lengthMm: category === "PROFILE" ? "3600" : "",
+  retailPrice: "",
+  purchasePrice: "",
+  unit: category === "PROFILE" ? "根" : "件",
+  drawingRequired: false,
+  isRawMaterial: category === "PROFILE",
+  yieldRate: "0.95",
+});
+
 export function ProductManager({ products }: { products: P[] }) {
   const router = useRouter();
   const [tab, setTab] = useState<"HARDWARE" | "PROFILE">("HARDWARE");
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<P | null>(null);
+  const [bulkRows, setBulkRows] = useState<ProductRow[]>([emptyRow("HARDWARE"), emptyRow("HARDWARE"), emptyRow("HARDWARE")]);
   const [form, setForm] = useState({
     sku: "",
     productName: "",
@@ -47,6 +76,15 @@ export function ProductManager({ products }: { products: P[] }) {
 
   const list = products.filter((p) => p.category === tab);
 
+  function switchTab(category: "HARDWARE" | "PROFILE") {
+    setTab(category);
+    setBulkRows([emptyRow(category), emptyRow(category), emptyRow(category)]);
+    setCreating(false);
+    setEditing(null);
+    resetForm();
+    setStatus("");
+  }
+
   function resetForm() {
     setForm({ sku: "", productName: "", series: "", spec: "", lengthMm: "3600", retailPrice: "", purchasePrice: "", unit: "根", drawingRequired: false, isRawMaterial: false, yieldRate: "0.95" });
   }
@@ -54,8 +92,91 @@ export function ProductManager({ products }: { products: P[] }) {
   function openCreate() {
     setEditing(null);
     resetForm();
+    setBulkRows([emptyRow(tab), emptyRow(tab), emptyRow(tab)]);
     setStatus("");
     setCreating((v) => !v);
+  }
+
+  function patchBulkRow(index: number, patch: Partial<ProductRow>) {
+    setBulkRows((rows) => rows.map((row, i) => i === index ? { ...row, ...patch } : row));
+  }
+
+  function addBulkRow() {
+    setBulkRows((rows) => [...rows, emptyRow(tab)]);
+  }
+
+  function removeBulkRow(index: number) {
+    setBulkRows((rows) => rows.length <= 1 ? rows : rows.filter((_, i) => i !== index));
+  }
+
+  function pasteBulkRows(text: string) {
+    const parsed = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const cols = line.split(/\t|,/).map((col) => col.trim());
+        return {
+          ...emptyRow(tab),
+          sku: cols[0] ?? "",
+          productName: cols[1] ?? "",
+          series: cols[2] ?? "",
+          spec: cols[3] ?? "",
+          retailPrice: cols[4] ?? "",
+          purchasePrice: cols[5] ?? "",
+          unit: cols[6] || (tab === "PROFILE" ? "根" : "件"),
+          lengthMm: cols[7] || (tab === "PROFILE" ? "3600" : ""),
+          yieldRate: cols[8] || "0.95",
+          drawingRequired: ["1", "true", "是", "必传"].includes((cols[9] ?? "").toLowerCase()),
+          isRawMaterial: tab === "PROFILE" ? !["0", "false", "否", "非原料"].includes((cols[10] ?? "").toLowerCase()) : false,
+        };
+      });
+    if (parsed.length > 0) setBulkRows(parsed);
+  }
+
+  async function saveBulkProducts() {
+    const rows = bulkRows.filter((row) => row.sku.trim() || row.productName.trim() || row.series.trim());
+    if (rows.length === 0) {
+      setStatus("✗ 至少填写一行");
+      return;
+    }
+
+    const invalid = rows.find((row) => !row.sku.trim() || !row.productName.trim() || !row.series.trim());
+    if (invalid) {
+      setStatus("✗ SKU、名称、系列为必填");
+      return;
+    }
+
+    setStatus("批量保存中...");
+    const r = await fetch("/api/products", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        products: rows.map((row) => ({
+          sku: row.sku.trim(),
+          productName: row.productName.trim(),
+          series: row.series.trim(),
+          category: tab,
+          lengthMm: tab === "PROFILE" && row.lengthMm ? parseFloat(row.lengthMm) : null,
+          spec: row.spec.trim() || null,
+          retailPrice: parseFloat(row.retailPrice) || 0,
+          purchasePrice: row.purchasePrice ? parseFloat(row.purchasePrice) : null,
+          unit: row.unit.trim() || (tab === "PROFILE" ? "根" : "件"),
+          drawingRequired: row.drawingRequired,
+          isRawMaterial: tab === "PROFILE" ? row.isRawMaterial : false,
+          yieldRate: tab === "PROFILE" ? (parseFloat(row.yieldRate) || 0.95) : 0.95,
+        })),
+      }),
+    });
+    const j = await r.json();
+    if (j.code !== 0) {
+      setStatus("✗ " + j.message);
+      return;
+    }
+    setStatus(`✓ 已批量新增 ${j.data.count} 个 SKU`);
+    setBulkRows([emptyRow(tab), emptyRow(tab), emptyRow(tab)]);
+    setCreating(false);
+    router.refresh();
   }
 
   function openEdit(product: P) {
@@ -176,7 +297,7 @@ export function ProductManager({ products }: { products: P[] }) {
         {(["HARDWARE", "PROFILE"] as const).map((c) => (
           <button
             key={c}
-            onClick={() => setTab(c)}
+            onClick={() => switchTab(c)}
             className={`px-4 py-2 rounded-md text-sm font-medium ${tab === c ? "bg-slate-900 text-white" : "bg-white border"}`}
           >
             {PRODUCT_CATEGORY_LABEL[c]} · {products.filter((p) => p.category === c).length}
@@ -186,9 +307,73 @@ export function ProductManager({ products }: { products: P[] }) {
         <Button size="sm" onClick={openCreate}>{creating ? "取消" : "+ 新增"}</Button>
       </div>
 
-      {(creating || editing) && (
+      {creating && !editing && (
         <Card>
-          <CardHeader><CardTitle>{editing ? "编辑" : "新增"} {PRODUCT_CATEGORY_LABEL[(editing?.category as "HARDWARE" | "PROFILE") ?? tab]} SKU</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>批量新增 {PRODUCT_CATEGORY_LABEL[tab]} SKU</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-2xl border bg-white/60 p-3 text-xs leading-6 text-muted-foreground">
+              可从 Excel 复制多行粘贴。列顺序：SKU、名称、系列、规格、零售价、采购成本、单位、原料棒长、良率、图纸必传、是否原料。
+            </div>
+            <textarea
+              className="min-h-20 w-full rounded-xl border border-input bg-white/75 p-3 text-sm shadow-sm"
+              placeholder="粘贴多行数据，例如：SKU<Tab>名称<Tab>系列<Tab>规格..."
+              onPaste={(e) => {
+                const text = e.clipboardData.getData("text");
+                if (text.includes("\n") || text.includes("\t")) {
+                  e.preventDefault();
+                  pasteBulkRows(text);
+                }
+              }}
+            />
+            <div className="overflow-x-auto rounded-2xl border bg-white">
+              <table className="w-full min-w-[1180px] text-xs">
+                <thead className="border-b bg-slate-50">
+                  <tr className="text-left">
+                    <th className="p-2">SKU*</th><th className="p-2">名称*</th><th className="p-2">系列*</th><th className="p-2">规格</th>
+                    <th className="p-2">零售价</th><th className="p-2">采购成本</th><th className="p-2">单位</th>
+                    {tab === "PROFILE" && <><th className="p-2">原料棒长</th><th className="p-2">良率</th><th className="p-2">原料</th></>}
+                    <th className="p-2">图纸</th><th className="p-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bulkRows.map((row, index) => (
+                    <tr key={index} className="border-b">
+                      <td className="p-2"><Input value={row.sku} onChange={(e) => patchBulkRow(index, { sku: e.target.value })} /></td>
+                      <td className="p-2"><Input value={row.productName} onChange={(e) => patchBulkRow(index, { productName: e.target.value })} /></td>
+                      <td className="p-2"><Input value={row.series} onChange={(e) => patchBulkRow(index, { series: e.target.value })} /></td>
+                      <td className="p-2"><Input value={row.spec} onChange={(e) => patchBulkRow(index, { spec: e.target.value })} /></td>
+                      <td className="p-2"><Input type="number" value={row.retailPrice} onChange={(e) => patchBulkRow(index, { retailPrice: e.target.value })} /></td>
+                      <td className="p-2"><Input type="number" value={row.purchasePrice} onChange={(e) => patchBulkRow(index, { purchasePrice: e.target.value })} /></td>
+                      <td className="p-2"><Input value={row.unit} onChange={(e) => patchBulkRow(index, { unit: e.target.value })} /></td>
+                      {tab === "PROFILE" && (
+                        <>
+                          <td className="p-2"><Input type="number" value={row.lengthMm} onChange={(e) => patchBulkRow(index, { lengthMm: e.target.value })} /></td>
+                          <td className="p-2"><Input type="number" min="0.01" max="1" step="0.01" value={row.yieldRate} onChange={(e) => patchBulkRow(index, { yieldRate: e.target.value })} /></td>
+                          <td className="p-2 text-center"><input type="checkbox" checked={row.isRawMaterial} onChange={(e) => patchBulkRow(index, { isRawMaterial: e.target.checked })} /></td>
+                        </>
+                      )}
+                      <td className="p-2 text-center"><input type="checkbox" checked={row.drawingRequired} onChange={(e) => patchBulkRow(index, { drawingRequired: e.target.checked })} /></td>
+                      <td className="p-2"><button className="text-red-600 hover:underline" onClick={() => removeBulkRow(index)}>删除行</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="outline" onClick={addBulkRow}>+ 增加一行</Button>
+              <Button onClick={saveBulkProducts}>批量保存</Button>
+              <Button variant="outline" onClick={() => { setCreating(false); setBulkRows([emptyRow(tab), emptyRow(tab), emptyRow(tab)]); }}>取消</Button>
+              {status && <span className="text-sm">{status}</span>}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {editing && (
+        <Card>
+          <CardHeader><CardTitle>编辑 {PRODUCT_CATEGORY_LABEL[editing.category as "HARDWARE" | "PROFILE"]} SKU</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <div><Label>SKU</Label><Input value={form.sku} disabled={!!editing} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="如 OL2525" /></div>
             <div><Label>产品名称</Label><Input value={form.productName} onChange={(e) => setForm({ ...form, productName: e.target.value })} /></div>
