@@ -25,15 +25,6 @@ export default function LoginPage() {
     window.location.href = "/";
   }
 
-  function fill(kind: "admin" | "dealer") {
-    const map = {
-      admin: ["admin@parti.com", "admin123"],
-      dealer: ["dealer@parti.com", "dealer123"],
-    };
-    setEmail(map[kind][0]);
-    setPassword(map[kind][1]);
-  }
-
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
       <div className="absolute left-8 top-10 hidden max-w-xl md:block">
@@ -70,13 +61,9 @@ export default function LoginPage() {
               {loading ? "登录中..." : "登录"}
             </Button>
           </form>
-          <div className="mt-6 space-y-2 border-t border-slate-900/10 pt-4">
-            <p className="text-xs text-muted-foreground">演示账号（点击快速填入）:</p>
-            <div className="flex gap-2 flex-wrap">
-              <Button type="button" size="sm" variant="outline" onClick={() => fill("admin")}>管理员</Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => fill("dealer")}>经销商</Button>
-            </div>
-          </div>
+          <p className="mt-6 border-t border-slate-900/10 pt-4 text-xs leading-5 text-muted-foreground">
+            请使用管理员分配的账号登录。经销商与车间账号可在后台主数据中创建。
+          </p>
         </CardContent>
       </Card>
     </div>
