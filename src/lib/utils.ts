@@ -165,3 +165,55 @@ export const ORDER_STATUS_COLOR: Record<string, string> = {
   CANCELLED: "bg-gray-200 text-gray-600",
   REJECTED: "bg-red-100 text-red-700",
 };
+
+export const CRM_CUSTOMER_STAGE_LABEL: Record<string, string> = {
+  LEAD: "线索",
+  POTENTIAL: "潜客",
+  QUOTED: "已报价",
+  DEAL: "已成交",
+  LOST: "战败/流失",
+};
+
+export const CRM_CUSTOMER_STAGE_COLOR: Record<string, string> = {
+  LEAD: "bg-slate-100 text-slate-700",
+  POTENTIAL: "bg-sky-100 text-sky-700",
+  QUOTED: "bg-amber-100 text-amber-700",
+  DEAL: "bg-emerald-100 text-emerald-700",
+  LOST: "bg-rose-100 text-rose-700",
+};
+
+export const CRM_CUSTOMER_TYPE_LABEL: Record<string, string> = {
+  INDIVIDUAL: "个人业主",
+  COMPANY: "公司/装企",
+  DESIGNER: "设计师",
+  CONTRACTOR: "工装总包",
+};
+
+export const CRM_INTENT_LEVEL_LABEL: Record<string, string> = {
+  HIGH: "高意向",
+  MEDIUM: "中意向",
+  LOW: "低意向",
+};
+
+export const CRM_CONTACT_METHOD_LABEL: Record<string, string> = {
+  PHONE: "电话",
+  WECHAT: "微信",
+  VISIT: "到店",
+  ONSITE: "上门",
+  MEETING: "会议",
+  OTHER: "其他",
+};
+
+export const CRM_OPPORTUNITY_STAGE_LABEL: Record<string, string> = {
+  DISCOVERY: "需求沟通",
+  PROPOSAL: "出方案/报价",
+  NEGOTIATION: "谈判",
+  WON: "赢单",
+  LOST: "输单",
+};
+
+export const CRM_TASK_STATUS_LABEL: Record<string, string> = {
+  PENDING: "待办",
+  DONE: "已完成",
+  CANCELLED: "已取消",
+};

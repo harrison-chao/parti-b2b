@@ -19,6 +19,11 @@ export default async function QuotePage() {
     where: { category: "PROFILE", isRawMaterial: true, isActive: true },
     orderBy: [{ series: "asc" }, { sku: "asc" }],
   });
+  const crmCustomers = await prisma.crmCustomer.findMany({
+    where: { dealerId: dealer!.id, stage: { not: "LOST" } },
+    orderBy: [{ nextFollowAt: "asc" }, { updatedAt: "desc" }],
+    include: { opportunities: { where: { stage: { notIn: ["WON", "LOST"] } }, orderBy: { updatedAt: "desc" } } },
+  });
   const discount = LEVEL_DISCOUNT[dealer!.priceLevel];
 
   return (
@@ -59,6 +64,17 @@ export default async function QuotePage() {
         series: p.series,
         spec: p.spec,
         lengthMm: p.lengthMm ? Number(p.lengthMm) : null,
+      }))}
+      crmCustomers={crmCustomers.map((customer) => ({
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        stage: customer.stage,
+        opportunities: customer.opportunities.map((opportunity) => ({
+          id: opportunity.id,
+          title: opportunity.title,
+          stage: opportunity.stage,
+        })),
       }))}
     />
   );

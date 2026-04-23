@@ -108,10 +108,10 @@ enum SupplierCategory {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  password  String
+  id         String   @id @default(cuid())
+  email      String   @unique
+  name       String
+  password   String
   role       UserRole @default(DEALER)
   dealerId   String?
   workshopId String?
@@ -179,39 +179,40 @@ model WorkOrderEvent {
 }
 
 model Dealer {
-  id            String        @id @default(cuid())
-  dealerNo      String        @unique
-  companyName   String
-  contactName   String
-  contactPhone  String
-  legalName     String?
-  taxNo         String?
-  invoiceTitle  String?
-  invoiceType   String?
-  bankName      String?
-  bankAccount   String?
-  region        String?
-  industry      String?
-  source        String?
-  salesOwner    String?
-  creditDays    Int           @default(0)
-  allowOverCredit Boolean     @default(false)
-  remark        String?
-  priceLevel    PriceLevel    @default(C)
-  stampUrl      String?
-  creditLimit   Decimal       @default(0) @db.Decimal(12, 2)
-  creditBalance Decimal       @default(0) @db.Decimal(12, 2)
-  usedCredit    Decimal       @default(0) @db.Decimal(12, 2)
-  paymentMethod PaymentMethod @default(PREPAID)
-  status        DealerStatus  @default(ACTIVE)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id              String        @id @default(cuid())
+  dealerNo        String        @unique
+  companyName     String
+  contactName     String
+  contactPhone    String
+  legalName       String?
+  taxNo           String?
+  invoiceTitle    String?
+  invoiceType     String?
+  bankName        String?
+  bankAccount     String?
+  region          String?
+  industry        String?
+  source          String?
+  salesOwner      String?
+  creditDays      Int           @default(0)
+  allowOverCredit Boolean       @default(false)
+  remark          String?
+  priceLevel      PriceLevel    @default(C)
+  stampUrl        String?
+  creditLimit     Decimal       @default(0) @db.Decimal(12, 2)
+  creditBalance   Decimal       @default(0) @db.Decimal(12, 2)
+  usedCredit      Decimal       @default(0) @db.Decimal(12, 2)
+  paymentMethod   PaymentMethod @default(PREPAID)
+  status          DealerStatus  @default(ACTIVE)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
-  users       User[]
-  addresses   DealerAddress[]
-  contacts    DealerContact[]
-  salesOrders SalesOrder[]
-  payments    DealerPayment[]
+  users        User[]
+  addresses    DealerAddress[]
+  contacts     DealerContact[]
+  salesOrders  SalesOrder[]
+  payments     DealerPayment[]
+  crmCustomers CrmCustomer[]
 }
 
 model DealerContact {
@@ -293,13 +294,17 @@ model SalesOrder {
   receiverAddress       String
   remark                String?
   internalRemark        String?
+  crmCustomerId         String?
+  crmOpportunityId      String?
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
-  dealer    Dealer           @relation(fields: [dealerId], references: [id])
-  lines     SalesOrderLine[]
-  workOrder WorkOrder?
+  dealer             Dealer                    @relation(fields: [dealerId], references: [id])
+  lines              SalesOrderLine[]
+  workOrder          WorkOrder?
   paymentAllocations DealerPaymentAllocation[]
+  crmCustomer        CrmCustomer?              @relation(fields: [crmCustomerId], references: [id], onDelete: SetNull)
+  crmOpportunity     CrmOpportunity?           @relation(fields: [crmOpportunityId], references: [id], onDelete: SetNull)
 }
 
 model SystemSetting {
@@ -340,25 +345,25 @@ model SalesOrderLine {
 }
 
 model Supplier {
-  id            String   @id @default(cuid())
-  supplierNo    String   @unique
-  name          String
-  category      SupplierCategory @default(OTHER)
-  contactName   String?
-  contactPhone  String?
-  address       String?
-  taxNo         String?
-  invoiceType   String?
-  bankName      String?
-  bankAccount   String?
-  paymentTerms  String?
-  paymentDays   Int      @default(0)
-  defaultLeadTimeDays Int @default(0)
-  serviceScope  String?
-  remark        String?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                  String           @id @default(cuid())
+  supplierNo          String           @unique
+  name                String
+  category            SupplierCategory @default(OTHER)
+  contactName         String?
+  contactPhone        String?
+  address             String?
+  taxNo               String?
+  invoiceType         String?
+  bankName            String?
+  bankAccount         String?
+  paymentTerms        String?
+  paymentDays         Int              @default(0)
+  defaultLeadTimeDays Int              @default(0)
+  serviceScope        String?
+  remark              String?
+  isActive            Boolean          @default(true)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 
   purchaseOrders PurchaseOrder[]
   payments       SupplierPayment[]
@@ -401,35 +406,35 @@ model PurchaseOrder {
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
-  supplier Supplier            @relation(fields: [supplierId], references: [id])
-  workshop Workshop            @relation(fields: [workshopId], references: [id])
-  lines    PurchaseOrderLine[]
+  supplier           Supplier                    @relation(fields: [supplierId], references: [id])
+  workshop           Workshop                    @relation(fields: [workshopId], references: [id])
+  lines              PurchaseOrderLine[]
   paymentAllocations SupplierPaymentAllocation[]
 }
 
 model PurchaseOrderLine {
-  id            String  @id @default(cuid())
-  poNo          String
-  lineNo        Int
-  sku           String
-  productName   String
-  spec          String?
-  quantity      Int
-  receivedQty   Int     @default(0)
-  unitPrice     Decimal @db.Decimal(10, 2)
-  lineAmount    Decimal @db.Decimal(12, 2)
+  id          String  @id @default(cuid())
+  poNo        String
+  lineNo      Int
+  sku         String
+  productName String
+  spec        String?
+  quantity    Int
+  receivedQty Int     @default(0)
+  unitPrice   Decimal @db.Decimal(10, 2)
+  lineAmount  Decimal @db.Decimal(12, 2)
 
   po PurchaseOrder @relation(fields: [poNo], references: [poNo], onDelete: Cascade)
 }
 
 model WorkshopInventory {
-  id                 String   @id @default(cuid())
-  workshopId         String
-  sku                String
-  productName        String
-  quantity           Int      @default(0)
-  lowStockThreshold  Int      @default(0)
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(cuid())
+  workshopId        String
+  sku               String
+  productName       String
+  quantity          Int      @default(0)
+  lowStockThreshold Int      @default(0)
+  updatedAt         DateTime @updatedAt
 
   workshop Workshop @relation(fields: [workshopId], references: [id], onDelete: Cascade)
 
@@ -458,17 +463,17 @@ model StockMovement {
 }
 
 model StockCount {
-  id           String           @id @default(cuid())
-  countNo      String           @unique
-  workshopId   String
-  status       StockCountStatus @default(DRAFT)
-  remark       String?
-  submittedBy  String?
-  submittedAt  DateTime?
-  approvedBy   String?
-  approvedAt   DateTime?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  id          String           @id @default(cuid())
+  countNo     String           @unique
+  workshopId  String
+  status      StockCountStatus @default(DRAFT)
+  remark      String?
+  submittedBy String?
+  submittedAt DateTime?
+  approvedBy  String?
+  approvedAt  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   workshop Workshop         @relation(fields: [workshopId], references: [id])
   lines    StockCountLine[]
@@ -487,18 +492,18 @@ model StockCountLine {
 }
 
 model DealerPayment {
-  id         String   @id @default(cuid())
-  dealerId   String
-  amount     Decimal  @db.Decimal(12, 2)
-  creditReleased Decimal @default(0) @db.Decimal(12, 2)
-  paidAt     DateTime
-  method     String?
-  refNo      String?
-  note       String?
-  recordedBy String?
-  createdAt  DateTime @default(now())
+  id             String   @id @default(cuid())
+  dealerId       String
+  amount         Decimal  @db.Decimal(12, 2)
+  creditReleased Decimal  @default(0) @db.Decimal(12, 2)
+  paidAt         DateTime
+  method         String?
+  refNo          String?
+  note           String?
+  recordedBy     String?
+  createdAt      DateTime @default(now())
 
-  dealer Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  dealer      Dealer                    @relation(fields: [dealerId], references: [id], onDelete: Cascade)
   allocations DealerPaymentAllocation[]
 
   @@index([dealerId, paidAt])
@@ -529,7 +534,7 @@ model SupplierPayment {
   recordedBy String?
   createdAt  DateTime @default(now())
 
-  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  supplier    Supplier                    @relation(fields: [supplierId], references: [id], onDelete: Cascade)
   allocations SupplierPaymentAllocation[]
 
   @@index([supplierId, paidAt])
@@ -547,4 +552,153 @@ model SupplierPaymentAllocation {
 
   @@index([paymentId])
   @@index([poNo])
+}
+
+// =======================================================================
+// CRM (Phase 1)
+// =======================================================================
+
+enum CustomerStage {
+  LEAD
+  POTENTIAL
+  QUOTED
+  DEAL
+  LOST
+}
+
+enum CustomerType {
+  INDIVIDUAL
+  COMPANY
+  DESIGNER
+  CONTRACTOR
+}
+
+enum IntentLevel {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum ContactMethod {
+  PHONE
+  WECHAT
+  VISIT
+  ONSITE
+  MEETING
+  OTHER
+}
+
+enum OpportunityStage {
+  DISCOVERY
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum CrmTaskStatus {
+  PENDING
+  DONE
+  CANCELLED
+}
+
+model CrmCustomer {
+  id            String        @id @default(cuid())
+  dealerId      String
+  customerType  CustomerType  @default(INDIVIDUAL)
+  name          String
+  phone         String
+  email         String?
+  wechat        String?
+  address       String?
+  region        String?
+  source        String?
+  tags          String[]      @default([])
+  stage         CustomerStage @default(LEAD)
+  intentLevel   IntentLevel?
+  budget        Decimal?      @db.Decimal(12, 2)
+  demand        String?
+  nextFollowAt  DateTime?
+  lastContactAt DateTime?
+  remark        String?
+  ownerUserId   String?
+  createdBy     String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  dealer        Dealer           @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  contactLogs   CrmContactLog[]
+  opportunities CrmOpportunity[]
+  tasks         CrmTask[]
+  salesOrders   SalesOrder[]
+
+  @@index([dealerId, stage])
+  @@index([dealerId, nextFollowAt])
+  @@index([dealerId, phone])
+}
+
+model CrmContactLog {
+  id            String        @id @default(cuid())
+  dealerId      String
+  customerId    String
+  opportunityId String?
+  method        ContactMethod @default(PHONE)
+  content       String
+  outcome       String?
+  nextAction    String?
+  attachmentUrl String?
+  createdBy     String?
+  createdAt     DateTime      @default(now())
+
+  customer    CrmCustomer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  opportunity CrmOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+
+  @@index([dealerId, createdAt])
+  @@index([customerId, createdAt])
+}
+
+model CrmOpportunity {
+  id                String           @id @default(cuid())
+  dealerId          String
+  customerId        String
+  title             String
+  stage             OpportunityStage @default(DISCOVERY)
+  estimatedBudget   Decimal?         @db.Decimal(12, 2)
+  expectedCloseDate DateTime?
+  actualAmount      Decimal          @default(0) @db.Decimal(12, 2)
+  wonAt             DateTime?
+  lostReason        String?
+  remark            String?
+  createdBy         String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  customer    CrmCustomer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contactLogs CrmContactLog[]
+  tasks       CrmTask[]
+  salesOrders SalesOrder[]
+
+  @@index([dealerId, stage])
+  @@index([customerId])
+}
+
+model CrmTask {
+  id              String        @id @default(cuid())
+  dealerId        String
+  customerId      String?
+  opportunityId   String?
+  title           String
+  dueAt           DateTime
+  reminderContent String?
+  status          CrmTaskStatus @default(PENDING)
+  completedAt     DateTime?
+  assigneeUserId  String?
+  createdBy       String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  customer    CrmCustomer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  opportunity CrmOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+
+  @@index([dealerId, status, dueAt])
 }

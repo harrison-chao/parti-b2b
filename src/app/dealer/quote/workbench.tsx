@@ -20,6 +20,13 @@ type HardwareItem = {
 type RawProfileItem = {
   id: string; sku: string; productName: string; series: string; spec: string | null; lengthMm: number | null;
 };
+type CrmCustomerOption = {
+  id: string;
+  name: string;
+  phone: string;
+  stage: string;
+  opportunities: { id: string; title: string; stage: string }[];
+};
 
 // ── 行类型 ───────────────────────────────────────────────
 type ProfileRow = {
@@ -111,13 +118,14 @@ function rawProfileLabel(raw: RawProfileItem) {
 }
 
 export function QuoteWorkbench({
-  dealer, addresses, options, hardwareCatalog, rawProfileCatalog,
+  dealer, addresses, options, hardwareCatalog, rawProfileCatalog, crmCustomers,
 }: {
   dealer: { id: string; companyName: string; priceLevel: string; paymentMethod: string; creditBalance: number };
   addresses: Address[];
   options: { surfaceProcesses: Option[]; surfaceColors: Option[]; processingOperations: Option[] };
   hardwareCatalog: HardwareItem[];
   rawProfileCatalog: RawProfileItem[];
+  crmCustomers: CrmCustomerOption[];
 }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"PROFILE" | "HARDWARE" | "OUTSOURCED">("PROFILE");
@@ -131,6 +139,8 @@ export function QuoteWorkbench({
     const d = new Date(); d.setDate(d.getDate() + 14); return d.toISOString().slice(0, 10);
   });
   const [remark, setRemark] = useState("");
+  const [crmCustomerId, setCrmCustomerId] = useState("");
+  const [crmOpportunityId, setCrmOpportunityId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -247,7 +257,16 @@ export function QuoteWorkbench({
     try {
       const r = await fetch("/api/orders", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetDeliveryDate: targetDate, receiverName, receiverPhone, receiverAddress, remark, lines }),
+        body: JSON.stringify({
+          targetDeliveryDate: targetDate,
+          receiverName,
+          receiverPhone,
+          receiverAddress,
+          remark,
+          crmCustomerId: crmCustomerId || null,
+          crmOpportunityId: crmOpportunityId || null,
+          lines,
+        }),
       });
       const j = await r.json();
       if (j.code !== 0) { setError(j.message); return; }
@@ -405,6 +424,37 @@ export function QuoteWorkbench({
             <CardHeader><CardTitle>订单信息</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div><Label>期望交期</Label><Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} /></div>
+              <div>
+                <Label>关联 CRM 客户</Label>
+                <select
+                  className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm"
+                  value={crmCustomerId}
+                  onChange={(e) => {
+                    setCrmCustomerId(e.target.value);
+                    setCrmOpportunityId("");
+                  }}
+                >
+                  <option value="">不关联客户</option>
+                  {crmCustomers.map((customer) => (
+                    <option key={customer.id} value={customer.id}>{customer.name} · {customer.phone}</option>
+                  ))}
+                </select>
+              </div>
+              {crmCustomerId && (
+                <div>
+                  <Label>关联商机</Label>
+                  <select
+                    className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm"
+                    value={crmOpportunityId}
+                    onChange={(e) => setCrmOpportunityId(e.target.value)}
+                  >
+                    <option value="">不关联商机</option>
+                    {(crmCustomers.find((customer) => customer.id === crmCustomerId)?.opportunities ?? []).map((opportunity) => (
+                      <option key={opportunity.id} value={opportunity.id}>{opportunity.title}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div><Label>订单备注</Label><Textarea value={remark} onChange={(e) => setRemark(e.target.value)} placeholder="整单级别备注" /></div>
             </CardContent>
           </Card>

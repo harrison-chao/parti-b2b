@@ -31,6 +31,8 @@ const createSchema = z.object({
   receiverPhone: z.string().min(1),
   receiverAddress: z.string().min(1),
   remark: z.string().optional().nullable(),
+  crmCustomerId: z.string().optional().nullable(),
+  crmOpportunityId: z.string().optional().nullable(),
   lines: z.array(lineSchema).min(1),
 });
 
@@ -119,6 +121,14 @@ export async function POST(req: NextRequest) {
   if (dealer.status !== "ACTIVE") {
     return fail("经销商已停用，不能创建新订单");
   }
+  if (data.crmCustomerId) {
+    const customer = await prisma.crmCustomer.findFirst({ where: { id: data.crmCustomerId, dealerId } });
+    if (!customer) return fail("CRM 客户不存在或不属于当前经销商");
+  }
+  if (data.crmOpportunityId) {
+    const opportunity = await prisma.crmOpportunity.findFirst({ where: { id: data.crmOpportunityId, dealerId, customerId: data.crmCustomerId ?? undefined } });
+    if (!opportunity) return fail("CRM 商机不存在或不属于当前经销商");
+  }
   if (dealer.paymentMethod === "CREDIT" && !dealer.allowOverCredit && Number(dealer.creditBalance) < totalAmount) {
     return fail(`信用额度不足（可用 ${Number(dealer.creditBalance).toFixed(2)}，订单 ${totalAmount.toFixed(2)}）`);
   }
@@ -136,6 +146,8 @@ export async function POST(req: NextRequest) {
         receiverPhone: data.receiverPhone,
         receiverAddress: data.receiverAddress,
         remark: data.remark ?? null,
+        crmCustomerId: data.crmCustomerId ?? null,
+        crmOpportunityId: data.crmOpportunityId ?? null,
         totalAmount,
         orderStatus: "DRAFT",
         paymentStatus: "UNPAID",
@@ -165,6 +177,23 @@ export async function POST(req: NextRequest) {
       },
       include: { lines: true },
     });
+    if (data.crmCustomerId) {
+      await prisma.crmCustomer.update({
+        where: { id: data.crmCustomerId },
+        data: { stage: "QUOTED", lastContactAt: new Date() },
+      });
+      await prisma.crmContactLog.create({
+        data: {
+          dealerId,
+          customerId: data.crmCustomerId,
+          opportunityId: data.crmOpportunityId ?? null,
+          method: "OTHER",
+          content: `已创建报价/订单草稿 ${created.orderNo}，金额 ${totalAmount.toFixed(2)}`,
+          outcome: "已生成报价",
+          createdBy: session.user.name,
+        },
+      });
+    }
     return ok(created);
   } catch (e: any) {
     return fail("创建失败: " + (e?.message ?? e));
