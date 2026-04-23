@@ -17,7 +17,7 @@ import {
   formatDateTime,
   formatMoney,
 } from "@/lib/utils";
-import { CrmCustomerActions } from "./actions";
+import { CrmCustomerActions, CrmOpportunityStageControl, CrmTaskStatusControls } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -70,8 +70,26 @@ export default async function CrmCustomerDetailPage({ params }: { params: { id: 
         </Card>
 
         <CrmCustomerActions
+          customer={{
+            id: customer.id,
+            customerType: customer.customerType,
+            name: customer.name,
+            phone: customer.phone,
+            email: customer.email,
+            wechat: customer.wechat,
+            address: customer.address,
+            region: customer.region,
+            source: customer.source,
+            tags: customer.tags,
+            stage: customer.stage,
+            intentLevel: customer.intentLevel,
+            budget: customer.budget == null ? null : Number(customer.budget),
+            demand: customer.demand,
+            nextFollowAt: customer.nextFollowAt?.toISOString() ?? null,
+            remark: customer.remark,
+          }}
           customerId={customer.id}
-          opportunities={customer.opportunities.map((opportunity) => ({ id: opportunity.id, title: opportunity.title }))}
+          opportunities={customer.opportunities.map((opportunity) => ({ id: opportunity.id, title: opportunity.title, stage: opportunity.stage }))}
         />
       </div>
 
@@ -108,6 +126,7 @@ export default async function CrmCustomerDetailPage({ params }: { params: { id: 
                   预计预算 {opportunity.estimatedBudget != null ? formatMoney(Number(opportunity.estimatedBudget)) : "-"} · 预计成交 {formatDate(opportunity.expectedCloseDate)}
                 </div>
                 {opportunity.remark && <p className="mt-2 text-xs">{opportunity.remark}</p>}
+                <CrmOpportunityStageControl opportunity={{ id: opportunity.id, title: opportunity.title, stage: opportunity.stage }} />
               </div>
             ))}
             {customer.opportunities.length === 0 && <p className="text-sm text-muted-foreground">暂无商机。</p>}
@@ -126,6 +145,7 @@ export default async function CrmCustomerDetailPage({ params }: { params: { id: 
                   <span className="text-xs text-muted-foreground">{CRM_TASK_STATUS_LABEL[task.status]} · {formatDateTime(task.dueAt)}</span>
                 </div>
                 {task.reminderContent && <p className="mt-2 text-xs text-muted-foreground">{task.reminderContent}</p>}
+                <CrmTaskStatusControls task={{ id: task.id, status: task.status }} />
               </div>
             ))}
             {customer.tasks.length === 0 && <p className="text-sm text-muted-foreground">暂无任务。</p>}
