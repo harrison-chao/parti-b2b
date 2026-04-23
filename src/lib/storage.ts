@@ -76,3 +76,10 @@ export async function uploadJsonBackup(path: string, payload: unknown): Promise<
   if (error) throw new Error(error.message);
   return { bucket: BACKUP_BUCKET, path };
 }
+
+export async function createBackupDownloadUrl(path: string, expiresIn = 60 * 10): Promise<string> {
+  const client = getStorageClient();
+  const { data, error } = await client.storage.from(BACKUP_BUCKET).createSignedUrl(path, expiresIn);
+  if (error) throw new Error(error.message);
+  return data.signedUrl;
+}

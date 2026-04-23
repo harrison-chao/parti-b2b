@@ -1,11 +1,22 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { AllSettings, Option, PricingField } from "@/lib/settings";
 import { PRICE_TIERS, PRICE_TIER_LABEL } from "@/lib/pricing";
+
+type BackupRow = {
+  id: string;
+  bucket: string;
+  path: string;
+  status: "SUCCESS" | "FAILED";
+  generatedAt: string;
+  generatedBy: string;
+  error?: string;
+  counts?: Record<string, number>;
+};
 
 export function SettingsForm({ initial }: { initial: AllSettings }) {
   const [surfaceProcesses, setSurfaceProcesses] = useState<Option[]>(initial.surfaceProcesses);
@@ -18,6 +29,11 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
   const [stampUploading, setStampUploading] = useState(false);
   const [status, setStatus] = useState<Record<string, string>>({});
   const [backupStatus, setBackupStatus] = useState("");
+  const [backups, setBackups] = useState<BackupRow[]>([]);
+
+  useEffect(() => {
+    void loadBackups();
+  }, []);
 
   async function uploadStamp(file: File) {
     setStampUploading(true);
@@ -52,6 +68,12 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
     setTimeout(() => setStatus((s) => ({ ...s, [key]: "" })), 3000);
   }
 
+  async function loadBackups() {
+    const r = await fetch("/api/admin/backups", { cache: "no-store" });
+    const j = await r.json();
+    if (j.code === 0) setBackups(j.data.backups);
+  }
+
   async function runBackup() {
     setBackupStatus("备份中...");
     const r = await fetch("/api/cron/daily-backup");
@@ -61,6 +83,19 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
       return;
     }
     setBackupStatus(`✓ 已备份到 ${j.data.bucket}/${j.data.path}`);
+    await loadBackups();
+  }
+
+  async function downloadBackup(path: string) {
+    setBackupStatus("生成下载链接...");
+    const r = await fetch(`/api/admin/backups/download?path=${encodeURIComponent(path)}`);
+    const j = await r.json();
+    if (j.code !== 0) {
+      setBackupStatus("✗ " + j.message);
+      return;
+    }
+    setBackupStatus("✓ 下载链接已生成，10 分钟内有效");
+    window.open(j.data.url, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -81,7 +116,43 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
           <Button onClick={runBackup}>立即执行备份</Button>
+          <Button variant="outline" onClick={loadBackups}>刷新记录</Button>
           {backupStatus && <span className="text-sm text-muted-foreground">{backupStatus}</span>}
+          <div className="w-full overflow-x-auto pt-2">
+            <table className="w-full min-w-[880px] text-sm">
+              <thead className="border-b bg-white/40">
+                <tr className="text-left">
+                  <th className="p-2">状态</th>
+                  <th className="p-2">时间</th>
+                  <th className="p-2">触发人</th>
+                  <th className="p-2">数据量</th>
+                  <th className="p-2">路径</th>
+                  <th className="p-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {backups.slice(0, 8).map((backup) => (
+                  <tr key={backup.id} className="border-b">
+                    <td className="p-2">
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${backup.status === "SUCCESS" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                        {backup.status === "SUCCESS" ? "成功" : "失败"}
+                      </span>
+                    </td>
+                    <td className="p-2 text-xs text-muted-foreground">{new Date(backup.generatedAt).toLocaleString("zh-CN")}</td>
+                    <td className="p-2 text-xs">{backup.generatedBy}</td>
+                    <td className="p-2 text-xs text-muted-foreground">
+                      客户 {backup.counts?.crmCustomers ?? 0} · 订单 {backup.counts?.salesOrders ?? 0} · 库存流水 {backup.counts?.stockMovements ?? 0}
+                    </td>
+                    <td className="max-w-[280px] truncate p-2 font-mono text-xs" title={backup.error || backup.path}>{backup.error || backup.path}</td>
+                    <td className="p-2 text-right">
+                      <Button size="sm" variant="outline" disabled={backup.status !== "SUCCESS"} onClick={() => downloadBackup(backup.path)}>下载</Button>
+                    </td>
+                  </tr>
+                ))}
+                {backups.length === 0 && <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">暂无备份记录，点击“立即执行备份”生成第一份。</td></tr>}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
 

@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { ok, fail } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { uploadJsonBackup } from "@/lib/storage";
+import { appendBackupHistory } from "@/lib/backups";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -131,8 +132,27 @@ export async function GET(req: NextRequest) {
 
   try {
     const result = await uploadJsonBackup(`daily/${ymd}/${stamp}.json`, data);
+    await appendBackupHistory({
+      id: stamp,
+      bucket: result.bucket,
+      path: result.path,
+      status: "SUCCESS",
+      generatedAt: now.toISOString(),
+      generatedBy: session?.user.email ?? "vercel-cron",
+      counts: data.metadata.counts,
+    });
     return ok({ ...result, metadata: data.metadata });
   } catch (error: any) {
+    await appendBackupHistory({
+      id: stamp,
+      bucket: "backups",
+      path: `daily/${ymd}/${stamp}.json`,
+      status: "FAILED",
+      generatedAt: now.toISOString(),
+      generatedBy: session?.user.email ?? "vercel-cron",
+      error: error?.message ?? "备份失败",
+      counts: data.metadata.counts,
+    });
     return fail(error?.message ?? "备份失败", 500, 500);
   }
 }
