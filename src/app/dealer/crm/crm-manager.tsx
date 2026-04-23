@@ -57,6 +57,8 @@ export function CrmManager({
   const [stage, setStage] = useState("ALL");
   const [creating, setCreating] = useState(false);
   const [status, setStatus] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
   const [form, setForm] = useState({
     customerType: "INDIVIDUAL",
     name: "",
@@ -107,6 +109,29 @@ export function CrmManager({
     router.refresh();
   }
 
+  async function importCustomers() {
+    if (!importFile) return;
+    setStatus("导入中...");
+    const body = new FormData();
+    body.append("file", importFile);
+    const res = await fetch("/api/crm/customers/import", {
+      method: "POST",
+      body,
+    });
+    const json = await res.json();
+    if (json.code !== 0) {
+      setStatus("✗ " + json.message);
+      return;
+    }
+    const { created, skipped, errors } = json.data;
+    setStatus(`✓ 已导入 ${created} 条，跳过 ${skipped} 条${errors.length ? `；${errors[0]}` : ""}`);
+    setImporting(false);
+    setImportFile(null);
+    router.refresh();
+  }
+
+  const exportHref = `/api/crm/customers/export?stage=${encodeURIComponent(stage)}&q=${encodeURIComponent(query.trim())}`;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -114,7 +139,11 @@ export function CrmManager({
           <h1 className="text-2xl font-bold">客户 CRM</h1>
           <p className="text-sm text-muted-foreground">沉淀线索、客户、商机与跟进任务，把客户经营接到报价订单。</p>
         </div>
-        <Button onClick={() => setCreating((v) => !v)}>{creating ? "取消" : "+ 新增客户/线索"}</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setImporting((v) => !v)}>{importing ? "收起导入" : "批量导入 CSV"}</Button>
+          <Button variant="outline" asChild><a href={exportHref}>导出当前筛选</a></Button>
+          <Button onClick={() => setCreating((v) => !v)}>{creating ? "取消" : "+ 新增客户/线索"}</Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -164,6 +193,25 @@ export function CrmManager({
             <div className="flex items-center gap-3 md:col-span-3">
               <Button onClick={createCustomer} disabled={!form.name || !form.phone}>保存</Button>
               {status && <span className="text-sm text-muted-foreground">{status}</span>}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {importing && (
+        <Card>
+          <CardHeader><CardTitle>批量导入客户</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <div className="rounded-2xl border bg-slate-50/80 p-4 text-sm text-muted-foreground">
+              支持从 Excel 另存为 CSV 后上传。建议表头：客户名称、电话、客户类型、微信、邮箱、地区、地址、来源、标签、阶段、意向等级、预算、需求描述、备注、下次跟进时间。
+              系统会按手机号去重，重复客户会跳过，不会覆盖已有客户资料。
+            </div>
+            <Input type="file" accept=".csv,text/csv" onChange={(e) => setImportFile(e.target.files?.[0] ?? null)} />
+            <div className="flex flex-wrap items-center gap-3">
+              <Button onClick={importCustomers} disabled={!importFile}>开始导入</Button>
+              <Button variant="outline" asChild>
+                <a href="/api/crm/customers/export">下载现有数据作模板</a>
+              </Button>
             </div>
           </CardContent>
         </Card>
