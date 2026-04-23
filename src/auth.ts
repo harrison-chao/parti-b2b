@@ -14,6 +14,7 @@ declare module "next-auth" {
       role: UserRole;
       dealerId?: string | null;
       workshopId?: string | null;
+      mustChangePassword?: boolean;
     };
   }
   interface User {
@@ -21,6 +22,7 @@ declare module "next-auth" {
     role?: UserRole;
     dealerId?: string | null;
     workshopId?: string | null;
+    mustChangePassword?: boolean;
   }
 }
 
@@ -44,6 +46,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           role: user.role,
           dealerId: user.dealerId,
           workshopId: user.workshopId,
+          mustChangePassword: user.mustChangePassword,
         };
       },
     }),

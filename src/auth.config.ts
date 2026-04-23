@@ -12,6 +12,7 @@ export const authConfig: NextAuthConfig = {
         (token as any).role = (user as any).role;
         (token as any).dealerId = (user as any).dealerId ?? null;
         (token as any).workshopId = (user as any).workshopId ?? null;
+        (token as any).mustChangePassword = (user as any).mustChangePassword ?? false;
       }
       return token;
     },
@@ -21,6 +22,7 @@ export const authConfig: NextAuthConfig = {
         (session.user as any).role = (token as any).role;
         (session.user as any).dealerId = (token as any).dealerId ?? null;
         (session.user as any).workshopId = (token as any).workshopId ?? null;
+        (session.user as any).mustChangePassword = (token as any).mustChangePassword ?? false;
       }
       return session;
     },

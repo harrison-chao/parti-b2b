@@ -8,11 +8,15 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isAuthed = !!req.auth;
   const role = (req.auth?.user as any)?.role;
+  const mustChangePassword = Boolean((req.auth?.user as any)?.mustChangePassword);
 
-  const publicPaths = ["/login", "/api/auth", "/api/cron"];
+  const publicPaths = ["/login", "/activate", "/api/auth", "/api/activate", "/api/cron"];
   if (publicPaths.some((p) => pathname.startsWith(p))) return NextResponse.next();
 
   if (!isAuthed) return NextResponse.redirect(new URL("/login", req.url));
+  if (mustChangePassword && pathname !== "/account/force-password" && !pathname.startsWith("/api/account/force-password")) {
+    return NextResponse.redirect(new URL("/account/force-password", req.url));
+  }
 
   const home = role === "ADMIN" ? "/admin" : role === "WORKSHOP" ? "/workshop" : "/dealer";
 

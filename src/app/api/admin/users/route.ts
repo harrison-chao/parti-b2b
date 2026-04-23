@@ -4,6 +4,8 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { fail, ok } from "@/lib/api";
+import { activationExpiresAt, buildActivationLink, createActivationToken } from "@/lib/account-activation";
+import { logAudit } from "@/lib/audit";
 
 const createSchema = z.object({
   email: z.string().trim().email("邮箱格式不正确").max(120, "邮箱过长"),
@@ -39,6 +41,8 @@ export async function POST(req: NextRequest) {
     if (!workshop) return fail("加工车间不存在", 404, 404);
   }
 
+  const activation = createActivationToken();
+  const expiresAt = activationExpiresAt();
   const user = await prisma.user.create({
     data: {
       email,
@@ -47,11 +51,27 @@ export async function POST(req: NextRequest) {
       role: data.role,
       dealerId: data.role === "DEALER" ? data.dealerId! : null,
       workshopId: data.role === "WORKSHOP" ? data.workshopId! : null,
+      mustChangePassword: true,
+      activationTokenHash: activation.tokenHash,
+      activationTokenExpiresAt: expiresAt,
+      activationTokenCreatedAt: new Date(),
     },
     include: {
       dealer: { select: { dealerNo: true, companyName: true } },
       workshop: { select: { code: true, name: true } },
     },
+  });
+
+  await logAudit({
+    action: "USER_CREATE",
+    entityType: "User",
+    entityId: user.id,
+    targetUserId: user.id,
+    targetDealerId: user.dealerId,
+    targetWorkshopId: user.workshopId,
+    summary: `管理员创建账号：${user.email}`,
+    detail: { targetEmail: user.email, targetName: user.name, targetRole: user.role, activationExpiresAt: expiresAt.toISOString() },
+    actor: session.user,
   });
 
   return ok({
@@ -64,6 +84,9 @@ export async function POST(req: NextRequest) {
       workshop: user.workshop,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      mustChangePassword: user.mustChangePassword,
+      activationTokenExpiresAt: user.activationTokenExpiresAt,
     },
+    activationLink: buildActivationLink(activation.token),
   });
 }

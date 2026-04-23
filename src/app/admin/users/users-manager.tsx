@@ -15,6 +15,8 @@ type UserRow = {
   role: "ADMIN" | "DEALER" | "WORKSHOP";
   dealer: { dealerNo: string; companyName: string } | null;
   workshop: { code: string; name: string } | null;
+  mustChangePassword: boolean;
+  activationTokenExpiresAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -57,6 +59,7 @@ export function UsersManager({
   const [role, setRole] = useState("ALL");
   const [resetting, setResetting] = useState<UserRow | null>(null);
   const [creating, setCreating] = useState(false);
+  const [latestActivation, setLatestActivation] = useState<{ title: string; link: string } | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -96,12 +99,21 @@ export function UsersManager({
         </CardContent>
       </Card>
 
+      {latestActivation && <ActivationLinkBox title={latestActivation.title} link={latestActivation.link} />}
+
       {resetting && (
         <ResetPasswordPanel
           user={resetting}
           onCancel={() => setResetting(null)}
-          onReset={(updatedAt) => {
-            setUsers((prev) => prev.map((user) => user.id === resetting.id ? { ...user, updatedAt } : user));
+          onReset={({ updatedAt, activationTokenExpiresAt, activationLink }) => {
+            setUsers((prev) =>
+              prev.map((user) =>
+                user.id === resetting.id
+                  ? { ...user, mustChangePassword: true, activationTokenExpiresAt, updatedAt }
+                  : user,
+              ),
+            );
+            setLatestActivation({ title: `重置密码启用链接：${resetting.name}`, link: activationLink });
             setResetting(null);
           }}
         />
@@ -114,6 +126,9 @@ export function UsersManager({
           onCancel={() => setCreating(false)}
           onCreated={(user) => {
             setUsers([user, ...users]);
+            if (user.activationLink) {
+              setLatestActivation({ title: `新账号启用链接：${user.name}`, link: user.activationLink });
+            }
             setCreating(false);
           }}
         />
@@ -138,6 +153,7 @@ export function UsersManager({
                   <td className="p-3">
                     <div className="font-semibold">{user.name}</div>
                     <div className="font-mono text-xs text-muted-foreground">{user.email}</div>
+                    {user.mustChangePassword && <div className="mt-1 text-xs text-amber-700">待启用 / 待改密</div>}
                   </td>
                   <td className="p-3">
                     <Badge className={ROLE_TONE[user.role]}>{ROLE_LABEL[user.role]}</Badge>
@@ -191,7 +207,7 @@ function CreateUserPanel({
   dealers: DealerOption[];
   workshops: WorkshopOption[];
   onCancel: () => void;
-  onCreated: (user: UserRow) => void;
+  onCreated: (user: UserRow & { activationLink?: string }) => void;
 }) {
   const [role, setRole] = useState<UserRow["role"]>("WORKSHOP");
   const [name, setName] = useState("");
@@ -231,8 +247,11 @@ function CreateUserPanel({
         role: user.role,
         dealer: user.dealer,
         workshop: user.workshop,
+        mustChangePassword: user.mustChangePassword,
+        activationTokenExpiresAt: user.activationTokenExpiresAt,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        activationLink: json.data.activationLink,
       });
     } finally {
       setSaving(false);
@@ -317,7 +336,7 @@ function ResetPasswordPanel({
 }: {
   user: UserRow;
   onCancel: () => void;
-  onReset: (updatedAt: string) => void;
+  onReset: (result: { updatedAt: string; activationTokenExpiresAt: string | null; activationLink: string }) => void;
 }) {
   const [password, setPassword] = useState(generatePassword());
   const [confirmPassword, setConfirmPassword] = useState(password);
@@ -343,8 +362,12 @@ function ResetPasswordPanel({
         setMessage("✗ " + json.message);
         return;
       }
-      setMessage("✓ 密码已重置，请把新密码安全发送给对方。");
-      setTimeout(() => onReset(json.data.user.updatedAt), 700);
+      setMessage("✓ 已生成新临时密码和启用链接。对方可用链接设置密码，或用临时密码登录后强制改密。");
+      onReset({
+        updatedAt: json.data.user.updatedAt,
+        activationTokenExpiresAt: json.data.user.activationTokenExpiresAt,
+        activationLink: json.data.activationLink,
+      });
     } finally {
       setSaving(false);
     }
@@ -385,5 +408,24 @@ function ResetPasswordPanel({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function ActivationLinkBox({ title = "一次性启用链接", link }: { title?: string; link: string }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    await navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-white/80 p-3">
+      <div className="mb-2 text-sm font-semibold">{title}</div>
+      <div className="break-all font-mono text-xs text-muted-foreground">{link}</div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="outline" onClick={copy}>{copied ? "已复制" : "复制链接"}</Button>
+        <span className="text-xs text-muted-foreground">链接 7 天内有效，只能使用一次。</span>
+      </div>
+    </div>
   );
 }

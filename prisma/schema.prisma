@@ -108,18 +108,25 @@ enum SupplierCategory {
 }
 
 model User {
-  id         String   @id @default(cuid())
-  email      String   @unique
-  name       String
-  password   String
-  role       UserRole @default(DEALER)
-  dealerId   String?
-  workshopId String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id                       String    @id @default(cuid())
+  email                    String    @unique
+  name                     String
+  password                 String
+  role                     UserRole  @default(DEALER)
+  dealerId                 String?
+  workshopId               String?
+  mustChangePassword       Boolean   @default(false)
+  passwordChangedAt        DateTime?
+  activationTokenHash      String?
+  activationTokenExpiresAt DateTime?
+  activationTokenCreatedAt DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
   dealer   Dealer?   @relation(fields: [dealerId], references: [id])
   workshop Workshop? @relation(fields: [workshopId], references: [id])
+
+  @@index([activationTokenHash])
 }
 
 model Workshop {

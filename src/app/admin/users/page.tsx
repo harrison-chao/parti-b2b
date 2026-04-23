@@ -38,6 +38,8 @@ export default async function AdminUsersPage() {
         role: user.role,
         dealer: user.dealer ? { dealerNo: user.dealer.dealerNo, companyName: user.dealer.companyName } : null,
         workshop: user.workshop ? { code: user.workshop.code, name: user.workshop.name } : null,
+        mustChangePassword: user.mustChangePassword,
+        activationTokenExpiresAt: user.activationTokenExpiresAt?.toISOString() ?? null,
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
       }))}
