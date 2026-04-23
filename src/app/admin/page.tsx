@@ -98,12 +98,14 @@ export default async function OpsHomePage() {
               </CardContent>
             </Card>
           </Link>
-          <Card className={lowStock > 0 ? "border-amber-400" : ""}>
-            <CardContent className="p-3">
-              <div className="text-xs text-muted-foreground">低库存 SKU</div>
-              <div className={`text-2xl font-bold ${lowStock > 0 ? "text-amber-600" : "text-muted-foreground"}`}>{lowStock}</div>
-            </CardContent>
-          </Card>
+          <Link href="/admin/inventory" className="block">
+            <Card className={`h-full hover:shadow-md transition ${lowStock > 0 ? "border-amber-400" : ""}`}>
+              <CardContent className="p-3">
+                <div className="text-xs text-muted-foreground">低库存 SKU</div>
+                <div className={`text-2xl font-bold ${lowStock > 0 ? "text-amber-600" : "text-muted-foreground"}`}>{lowStock}</div>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       </div>
 

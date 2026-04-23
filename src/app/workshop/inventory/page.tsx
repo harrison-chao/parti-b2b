@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime, STOCK_MOVEMENT_TYPE_LABEL } from "@/lib/utils";
+import { ThresholdEditor } from "./threshold-editor";
 
 export default async function WorkshopInventoryPage() {
   const session = await auth();
@@ -54,7 +55,7 @@ export default async function WorkshopInventoryPage() {
                     <td className="p-3 font-mono text-xs">{i.sku}</td>
                     <td className="p-3">{i.productName}</td>
                     <td className={`p-3 text-right font-medium ${isNeg ? "text-red-600" : isLow ? "text-amber-700" : ""}`}>{i.quantity}</td>
-                    <td className="p-3 text-right text-xs text-muted-foreground">{i.lowStockThreshold > 0 ? i.lowStockThreshold : "-"}</td>
+                    <td className="p-3 text-right"><ThresholdEditor id={i.id} initial={i.lowStockThreshold} /></td>
                     <td className="p-3">
                       {isNeg ? <Badge className="bg-red-100 text-red-700">负库存</Badge>
                         : isLow ? <Badge className="bg-amber-100 text-amber-800">低库存</Badge>
