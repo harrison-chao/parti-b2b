@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { buildCrmInsights } from "@/lib/crm-insights";
 import {
   CRM_CONTACT_METHOD_LABEL,
   CRM_CUSTOMER_STAGE_COLOR,
@@ -33,6 +34,25 @@ export default async function CrmCustomerDetailPage({ params }: { params: { id: 
     },
   });
   if (!customer) notFound();
+  const insights = buildCrmInsights(
+    {
+      stage: customer.stage,
+      intentLevel: customer.intentLevel,
+      budget: customer.budget == null ? null : Number(customer.budget),
+      demand: customer.demand,
+      nextFollowAt: customer.nextFollowAt,
+      lastContactAt: customer.lastContactAt,
+    },
+    customer.opportunities.map((opportunity) => ({
+      stage: opportunity.stage,
+      estimatedBudget: opportunity.estimatedBudget,
+      expectedCloseDate: opportunity.expectedCloseDate,
+    })),
+    customer.tasks.map((task) => ({
+      status: task.status,
+      dueAt: task.dueAt,
+    }))
+  );
 
   return (
     <div className="space-y-6">
@@ -44,6 +64,20 @@ export default async function CrmCustomerDetailPage({ params }: { params: { id: 
         </div>
         <Badge className={CRM_CUSTOMER_STAGE_COLOR[customer.stage]}>{CRM_CUSTOMER_STAGE_LABEL[customer.stage]}</Badge>
       </div>
+
+      <Card className="overflow-hidden border-sky-200 bg-gradient-to-br from-sky-50 via-white to-emerald-50">
+        <CardHeader>
+          <CardTitle>智能经营建议</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2">
+          {insights.map((insight) => (
+            <div key={insight.title} className={`rounded-2xl border p-4 text-sm ${insightToneClass[insight.tone]}`}>
+              <div className="font-semibold">{insight.title}</div>
+              <p className="mt-2 text-xs leading-5 text-slate-600">{insight.body}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <Card>
@@ -171,6 +205,14 @@ export default async function CrmCustomerDetailPage({ params }: { params: { id: 
     </div>
   );
 }
+
+const insightToneClass: Record<string, string> = {
+  emerald: "border-emerald-200 bg-emerald-50/75",
+  amber: "border-amber-200 bg-amber-50/75",
+  rose: "border-rose-200 bg-rose-50/75",
+  sky: "border-sky-200 bg-sky-50/75",
+  slate: "border-slate-200 bg-white/75",
+};
 
 function Info({ label, value }: { label: string; value: React.ReactNode }) {
   return (

@@ -81,6 +81,45 @@ export function CrmManager({
 
   const highIntent = customers.filter((customer) => customer.intentLevel === "HIGH").length;
   const dueSoon = customers.filter((customer) => customer.nextFollowAt && new Date(customer.nextFollowAt) <= new Date()).length;
+  const priorityCustomers = useMemo(() => {
+    const now = new Date();
+    return [...customers]
+      .filter((customer) => customer.stage !== "DEAL" && customer.stage !== "LOST")
+      .map((customer) => {
+        const nextFollowAt = customer.nextFollowAt ? new Date(customer.nextFollowAt) : null;
+        const lastContactAt = customer.lastContactAt ? new Date(customer.lastContactAt) : null;
+        let score = 0;
+        const reasons: string[] = [];
+        if (customer.intentLevel === "HIGH") {
+          score += 30;
+          reasons.push("高意向");
+        }
+        if (customer.stage === "QUOTED") {
+          score += 24;
+          reasons.push("已报价待反馈");
+        }
+        if (nextFollowAt && nextFollowAt <= now) {
+          score += 28;
+          reasons.push("到期跟进");
+        }
+        if (!nextFollowAt) {
+          score += 10;
+          reasons.push("未设下次跟进");
+        }
+        if (lastContactAt && now.getTime() - lastContactAt.getTime() > 7 * 24 * 60 * 60 * 1000) {
+          score += 18;
+          reasons.push("沉默超 7 天");
+        }
+        if (customer.counts.opportunities > 0) {
+          score += 8;
+          reasons.push("已有商机");
+        }
+        return { customer, score, reasons };
+      })
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+  }, [customers]);
 
   async function createCustomer() {
     setStatus("保存中...");
@@ -161,6 +200,23 @@ export function CrmManager({
               <Link key={task.id} href={task.customer ? `/dealer/crm/${task.customer.id}` : "/dealer/crm"} className="rounded-2xl border bg-white/75 p-3 text-sm hover:border-amber-400">
                 <div className="font-semibold">{task.title}</div>
                 <div className="text-xs text-muted-foreground">{task.customer?.name ?? "未关联客户"} · {formatDate(task.dueAt)}</div>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {priorityCustomers.length > 0 && (
+        <Card className="border-sky-200 bg-gradient-to-br from-sky-50/90 to-white">
+          <CardHeader><CardTitle>智能优先客户</CardTitle></CardHeader>
+          <CardContent className="grid gap-2 md:grid-cols-2">
+            {priorityCustomers.map(({ customer, score, reasons }) => (
+              <Link key={customer.id} href={`/dealer/crm/${customer.id}`} className="rounded-2xl border bg-white/80 p-3 text-sm hover:border-sky-400">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-semibold">{customer.name}</span>
+                  <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700">{score}</span>
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">{customer.phone} · {reasons.slice(0, 3).join(" / ")}</div>
               </Link>
             ))}
           </CardContent>
