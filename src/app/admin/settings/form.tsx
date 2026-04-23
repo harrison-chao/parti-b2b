@@ -17,6 +17,7 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
   const [stamp, setStamp] = useState(initial.stampTemplate);
   const [stampUploading, setStampUploading] = useState(false);
   const [status, setStatus] = useState<Record<string, string>>({});
+  const [backupStatus, setBackupStatus] = useState("");
 
   async function uploadStamp(file: File) {
     setStampUploading(true);
@@ -51,6 +52,17 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
     setTimeout(() => setStatus((s) => ({ ...s, [key]: "" })), 3000);
   }
 
+  async function runBackup() {
+    setBackupStatus("备份中...");
+    const r = await fetch("/api/cron/daily-backup");
+    const j = await r.json();
+    if (j.code !== 0) {
+      setBackupStatus("✗ " + j.message);
+      return;
+    }
+    setBackupStatus(`✓ 已备份到 ${j.data.bucket}/${j.data.path}`);
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -59,6 +71,19 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
           管理员专用 · 表面处理码 = 工艺码-色码（如 A-SV），加工码 = 操作-修饰（如 L-600MM）
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>数据备份</CardTitle>
+          <CardDescription>
+            系统会在北京时间每天 02:10 自动备份运营数据到 Supabase private bucket：backups。备份不包含用户密码哈希。
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center gap-3">
+          <Button onClick={runBackup}>立即执行备份</Button>
+          {backupStatus && <span className="text-sm text-muted-foreground">{backupStatus}</span>}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
