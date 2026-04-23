@@ -17,6 +17,10 @@ export function nextWorkOrderStatus(current: WorkOrderStatus, qcRequired: boolea
   return flow[i + 1];
 }
 
+export function isNextWorkOrderStatus(current: WorkOrderStatus, target: WorkOrderStatus, qcRequired: boolean): boolean {
+  return nextWorkOrderStatus(current, qcRequired) === target;
+}
+
 export function salesOrderStatusFor(ws: WorkOrderStatus): OrderStatus {
   switch (ws) {
     case "SCHEDULED":
