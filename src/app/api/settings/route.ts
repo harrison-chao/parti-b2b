@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { loadSettings, saveSetting } from "@/lib/settings";
 import { ok, fail } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 
 export async function GET() {
   const session = await auth();
@@ -39,5 +40,13 @@ export async function PUT(req: NextRequest) {
   if (value === null && key !== "stampTemplate") return fail("value 不能为空");
 
   await saveSetting(key, value, session.user.email);
+  await logAudit({
+    action: "SYSTEM_SETTING_UPDATE",
+    entityType: "SystemSetting",
+    entityId: key,
+    summary: `管理员修改系统设置：${key}`,
+    detail: { key },
+    actor: session.user,
+  });
   return ok({ key, value });
 }

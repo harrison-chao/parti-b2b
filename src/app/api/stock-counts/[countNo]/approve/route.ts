@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
 import { applyStockMovement } from "@/lib/inventory";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(_req: NextRequest, { params }: { params: { countNo: string } }) {
   const session = await auth();
@@ -46,6 +47,19 @@ export async function POST(_req: NextRequest, { params }: { params: { countNo: s
           approvedAt: new Date(),
         },
       });
+      await logAudit({
+        action: "STOCK_COUNT_APPROVE",
+        entityType: "StockCount",
+        entityId: sc.id,
+        targetWorkshopId: sc.workshopId,
+        summary: `审核通过盘点单：${sc.countNo}`,
+        detail: {
+          countNo: sc.countNo,
+          lineCount: sc.lines.length,
+          changedLineCount: sc.lines.filter((line) => line.diff !== 0).length,
+        },
+        actor: session.user,
+      }, tx);
     }, { timeout: 120_000, maxWait: 120_000 });
   } catch (error: any) {
     return fail(error?.message ?? "盘点审核失败");

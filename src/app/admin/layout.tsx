@@ -23,6 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/reconcile/dealers", label: "经销商对账" },
     { href: "/admin/reconcile/suppliers", label: "供应商对账" },
     { href: "/admin/pricing", label: "报价成本" },
+    { href: "/admin/audit", label: "审计日志" },
     { href: "/admin/settings", label: "系统设置" },
     { href: "/admin/account", label: "我的账号" },
   ];

@@ -314,6 +314,28 @@ model SystemSetting {
   updatedBy String?
 }
 
+model AuditLog {
+  id               String    @id @default(cuid())
+  action           String
+  entityType       String
+  entityId         String?
+  summary          String
+  detail           Json?
+  actorUserId      String?
+  actorName        String?
+  actorEmail       String?
+  actorRole        UserRole?
+  targetUserId     String?
+  targetDealerId   String?
+  targetWorkshopId String?
+  createdAt        DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@index([entityType, entityId])
+  @@index([actorUserId, createdAt])
+}
+
 model SalesOrderLine {
   id               String        @id @default(cuid())
   orderNo          String

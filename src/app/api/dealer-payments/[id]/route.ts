@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth();
@@ -38,6 +39,21 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
         },
       });
     }
+    await logAudit({
+      action: "DEALER_PAYMENT_DELETE",
+      entityType: "DealerPayment",
+      entityId: exists.id,
+      targetDealerId: exists.dealerId,
+      summary: `删除经销商收款记录：${exists.refNo || exists.id}`,
+      detail: {
+        refNo: exists.refNo,
+        dealerNo: exists.dealer.dealerNo,
+        dealerName: exists.dealer.companyName,
+        amount: Number(exists.amount),
+        allocationCount: exists.allocations.length,
+      },
+      actor: session.user,
+    }, tx);
   }, { timeout: 120_000, maxWait: 120_000 });
   return ok({ ok: true });
 }

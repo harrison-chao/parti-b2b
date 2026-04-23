@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
 import { isNextWorkOrderStatus, nextWorkOrderStatus, salesOrderStatusFor } from "@/lib/workorder";
 import { applyStockMovement } from "@/lib/inventory";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
 const schema = z.object({
@@ -139,6 +140,24 @@ export async function POST(req: NextRequest, { params }: { params: { workOrderNo
         }
       }
     }
+
+    await logAudit({
+      action: "WORK_ORDER_STATUS_ADVANCE",
+      entityType: "WorkOrder",
+      entityId: wo.id,
+      targetWorkshopId: wo.workshopId,
+      summary: `推进加工单状态：${wo.workOrderNo} ${wo.status} → ${target}`,
+      detail: {
+        workOrderNo: wo.workOrderNo,
+        orderNo: wo.orderNo,
+        fromStatus: wo.status,
+        toStatus: target,
+        note,
+        carrier,
+        trackingNo,
+      },
+      actor: session.user,
+    }, tx);
 
       return u;
     }, { timeout: 120_000, maxWait: 120_000 });
