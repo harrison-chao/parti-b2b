@@ -9,7 +9,7 @@ export default auth((req) => {
   const isAuthed = !!req.auth;
   const role = (req.auth?.user as any)?.role;
 
-  const publicPaths = ["/login", "/api/auth"];
+  const publicPaths = ["/login", "/api/auth", "/api/cron"];
   if (publicPaths.some((p) => pathname.startsWith(p))) return NextResponse.next();
 
   if (!isAuthed) return NextResponse.redirect(new URL("/login", req.url));
