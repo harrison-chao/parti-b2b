@@ -2,7 +2,8 @@ import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
-import { genOrderNo } from "@/lib/utils";
+import { genOrderNo, genDisplayOrderNo } from "@/lib/order-no";
+import { genWorkOrderNo } from "@/lib/utils";
 import { LEVEL_DISCOUNT, calcPricing } from "@/lib/pricing";
 import { loadSettings, pricingFieldsToConfig } from "@/lib/settings";
 import { z } from "zod";
@@ -17,6 +18,11 @@ const lineSchema = z.object({
   cutLengthMm: z.number().int().positive().optional().nullable(),
   surfaceTreatment: z.string().optional().nullable(),
   preprocessing: z.string().optional().nullable(),
+  // W1 新口径：工序多选存码、表面处理拆两码、Base 原始尺寸文本
+  processCodes: z.array(z.string()).optional().nullable(),
+  surfaceProcessCode: z.string().optional().nullable(),
+  surfaceColorCode: z.string().optional().nullable(),
+  legacyRawSize: z.string().optional().nullable(),
   spec: z.string().optional().nullable(),
   quantity: z.number().int().positive(),
   unitPrice: z.number().nonnegative(),
@@ -32,11 +38,15 @@ const lineSchema = z.object({
 });
 
 const createSchema = z.object({
+  // W1: ADMIN 代下单时必传 dealerId；DEALER 自助下单忽略此字段
+  dealerId: z.string().optional().nullable(),
   targetDeliveryDate: z.string(),
   receiverName: z.string().min(1),
   receiverPhone: z.string().min(1),
   receiverAddress: z.string().min(1),
   remark: z.string().optional().nullable(),
+  // W1: 内部单价格备注（D2：算价走引擎，微信谈的实价差异写这里）
+  priceNote: z.string().optional().nullable(),
   crmCustomerId: z.string().optional().nullable(),
   crmOpportunityId: z.string().optional().nullable(),
   lines: z.array(lineSchema).min(1),
@@ -75,13 +85,17 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return fail("未登录", 401, 401);
-  if (session.user.role !== "DEALER") return fail("仅经销商可创建订单", 403, 403);
-  const dealerId = session.user.dealerId!;
+  // W1: 双入口——DEALER 门户自助下单；ADMIN 内部代下单（指定 dealerId，免审，自动派单）
+  const isInternal = session.user.role === "ADMIN";
+  if (!isInternal && session.user.role !== "DEALER") return fail("无权创建订单", 403, 403);
 
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return fail("参数错误: " + parsed.error.message);
   const data = parsed.data;
+  if (isInternal && !data.dealerId) return fail("内部代下单必须指定客户 dealerId");
+
+  const dealerId = isInternal ? data.dealerId! : session.user.dealerId!;
 
   const dealer = await prisma.dealer.findUnique({ where: { id: dealerId } });
   if (!dealer) return fail("经销商不存在", 404, 404);
@@ -134,26 +148,29 @@ export async function POST(req: NextRequest) {
 
   const totalAmount = resolvedLines.reduce((s, l) => s + l.quantity * l.unitPrice, 0);
   if (dealer.status !== "ACTIVE") {
-    return fail("经销商已停用，不能创建新订单");
+    return fail("客户已停用，不能创建新订单");
   }
-  if (data.crmCustomerId) {
+  if (data.crmCustomerId && !isInternal) {
     const customer = await prisma.crmCustomer.findFirst({ where: { id: data.crmCustomerId, dealerId } });
     if (!customer) return fail("CRM 客户不存在或不属于当前经销商");
   }
-  if (data.crmOpportunityId) {
+  if (data.crmOpportunityId && !isInternal) {
     const opportunity = await prisma.crmOpportunity.findFirst({ where: { id: data.crmOpportunityId, dealerId, customerId: data.crmCustomerId ?? undefined } });
     if (!opportunity) return fail("CRM 商机不存在或不属于当前经销商");
   }
-  if (dealer.paymentMethod === "CREDIT" && !dealer.allowOverCredit && Number(dealer.creditBalance) < totalAmount) {
+  // 信用额度仅约束经销商门户自助单；内部代下单的款项在系统外沟通（D2），不做拦截
+  if (!isInternal && dealer.paymentMethod === "CREDIT" && !dealer.allowOverCredit && Number(dealer.creditBalance) < totalAmount) {
     return fail(`信用额度不足（可用 ${Number(dealer.creditBalance).toFixed(2)}，订单 ${totalAmount.toFixed(2)}）`);
   }
 
   const orderNo = genOrderNo();
+  const displayOrderNo = await genDisplayOrderNo();
 
   try {
     const created = await prisma.salesOrder.create({
       data: {
         orderNo,
+        displayOrderNo,
         dealerId,
         targetDeliveryDate: new Date(data.targetDeliveryDate),
         dealerAccount: session.user.email,
@@ -161,11 +178,15 @@ export async function POST(req: NextRequest) {
         receiverPhone: data.receiverPhone,
         receiverAddress: data.receiverAddress,
         remark: data.remark ?? null,
-        crmCustomerId: data.crmCustomerId ?? null,
-        crmOpportunityId: data.crmOpportunityId ?? null,
+        crmCustomerId: isInternal ? null : (data.crmCustomerId ?? null),
+        crmOpportunityId: isInternal ? null : (data.crmOpportunityId ?? null),
         totalAmount,
-        orderStatus: "DRAFT",
+        // W1: 内部单免审直接确认（D2/D6 决策）；门户单保持草稿→提交审核
+        orderStatus: isInternal ? "CONFIRMED" : "DRAFT",
         paymentStatus: "UNPAID",
+        createdVia: isInternal ? "INTERNAL" : "PORTAL",
+        createdByUserId: isInternal ? session.user.id : null,
+        priceNote: isInternal ? (data.priceNote ?? null) : null,
         lines: {
           create: resolvedLines.map((l, idx) => ({
             lineNo: idx + 1,
@@ -178,6 +199,10 @@ export async function POST(req: NextRequest) {
             lengthMm: l.lengthMm ?? null,
             surfaceTreatment: l.surfaceTreatment ?? null,
             preprocessing: l.preprocessing ?? null,
+            processCodes: l.processCodes ?? [],
+            surfaceProcessCode: l.surfaceProcessCode ?? null,
+            surfaceColorCode: l.surfaceColorCode ?? null,
+            legacyRawSize: l.legacyRawSize ?? null,
             spec: l.spec ?? null,
             quantity: l.quantity,
             unitPrice: l.unitPrice,
@@ -192,7 +217,43 @@ export async function POST(req: NextRequest) {
       },
       include: { lines: true },
     });
-    if (data.crmCustomerId) {
+
+    // W1: 内部单自动派单到唯一活跃车间（单车间现实），无审核动作
+    let workOrderNo: string | null = null;
+    if (isInternal) {
+      const producible = created.lines.some((l) => l.lineType !== "OUTSOURCED");
+      if (producible) {
+        const workshop = await prisma.workshop.findFirst({ where: { isActive: true }, orderBy: { createdAt: "asc" } });
+        if (!workshop) return fail("没有活跃车间，无法自动派单（订单已创建，请手动派单）", 200, 200);
+        workOrderNo = genWorkOrderNo();
+        await prisma.$transaction(async (tx) => {
+          await tx.workOrder.create({
+            data: {
+              workOrderNo: workOrderNo!,
+              orderNo,
+              workshopId: workshop.id,
+              status: "PENDING_START",
+              committedDeliveryDate: new Date(data.targetDeliveryDate),
+              qcRequired: false,
+              currentNote: "内部代下单自动派单",
+              assignedBy: session.user.name,
+            },
+          });
+          await tx.workOrderEvent.create({
+            data: {
+              workOrderId: (await tx.workOrder.findUniqueOrThrow({ where: { workOrderNo: workOrderNo! } })).id,
+              fromStatus: null,
+              toStatus: "PENDING_START",
+              note: `内部代下单自动派发至 ${workshop.name}`,
+              operatorUserId: session.user.id,
+              operatorName: session.user.name,
+            },
+          });
+          await tx.salesOrder.update({ where: { orderNo }, data: { orderStatus: "PRODUCING" } });
+        });
+      }
+    }
+    if (!isInternal && data.crmCustomerId) {
       await prisma.crmCustomer.update({
         where: { id: data.crmCustomerId },
         data: { stage: "QUOTED", lastContactAt: new Date() },
@@ -209,7 +270,7 @@ export async function POST(req: NextRequest) {
         },
       });
     }
-    return ok(created);
+    return ok({ ...created, autoDispatchedWorkOrderNo: workOrderNo ?? null });
   } catch (e: any) {
     return fail("创建失败: " + (e?.message ?? e));
   }

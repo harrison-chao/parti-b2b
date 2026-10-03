@@ -76,9 +76,11 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold font-mono">{order.orderNo}</h1>
+          {order.displayOrderNo && <span className="text-sm text-gray-500">对外单号 {order.displayOrderNo}</span>}
           <p className="text-sm text-muted-foreground">{order.dealer.companyName} · {order.dealer.dealerNo}</p>
         </div>
         <Badge className={ORDER_STATUS_COLOR[order.orderStatus] + " text-base px-3 py-1"}>{ORDER_STATUS_LABEL[order.orderStatus]}</Badge>
+          <a href={`/admin/orders/new?copy=${order.orderNo}`} className="text-sm text-blue-600 hover:underline">再来一单</a>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

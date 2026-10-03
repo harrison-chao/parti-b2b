@@ -7,11 +7,15 @@ export type DiscountRates = Record<"A" | "B" | "C" | "D" | "E", number>;
 export type ThreeTierDiscount = Record<"A" | "B" | "C", number>;
 
 // Surface: two dropdowns — process × color → combined code
+// W1: 补 NP本色/MP磁力抛光/CR镀铬（Base 迁移 18 个颜色选项所需）
 export const DEFAULT_SURFACE_PROCESSES: Option[] = [
   { code: "A", label: "硬质阳极氧化" },
   { code: "P", label: "静电喷粉" },
   { code: "W", label: "水性漆喷涂" },
   { code: "T", label: "热转印" },
+  { code: "MP", label: "磁力抛光" },
+  { code: "CR", label: "镀铬" },
+  { code: "NP", label: "本色/无处理" },
 ];
 export const DEFAULT_SURFACE_COLORS: Option[] = [
   { code: "SV", label: "太空银" },
@@ -33,9 +37,11 @@ export const DEFAULT_SURFACE_COLORS: Option[] = [
   { code: "RAL7016", label: "灰色 RAL7016" },
 ];
 // Processing: two dropdowns — operation × modifier
+// W1: 新增 EM 预埋连接件（Base 实证：77% 铝管行需要，与 D 钻/铣销子孔 82% 并列为默认工序）
 export const DEFAULT_PROCESSING_OPERATIONS: Option[] = [
   { code: "L", label: "截断" },
-  { code: "D", label: "钻销子孔" },
+  { code: "D", label: "铣销子孔" },
+  { code: "EM", label: "预埋连接件" },
   { code: "T", label: "攻丝" },
   { code: "CH", label: "倒角" },
 ];
