@@ -16,7 +16,8 @@
     "db:reset": "prisma migrate reset --force",
     "db:clear-demo": "tsx scripts/clear-demo-data.ts",
     "init:prod": "tsx scripts/init-production.ts",
-    "test:matrix": "tsx scripts/test-status-matrix.ts"
+    "test:matrix": "tsx scripts/test-status-matrix.ts",
+    "test:combos": "tsx scripts/test-combos.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

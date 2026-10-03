@@ -419,6 +419,21 @@ model SalesOrderLine {
   shipmentLines ShipmentLine[]
 }
 
+// W2: 收藏常用组合（下单快捷插入；候选可由历史 69% 重复组合自动归集）
+model OrderCombo {
+  id            String    @id @default(cuid())
+  name          String
+  lines         Json      // [{lineType, rawProductId?, productId?, sku, productName, cutLengthMm?, processCodes[], surfaceProcessCode?, surfaceColorCode?, quantity}]
+  signature     String    @unique
+  source        String    @default("manual") // manual | auto-history
+  usageCount    Int       @default(0)
+  lastUsedAt    DateTime?
+  createdByUserId String?
+  createdAt     DateTime  @default(now())
+
+  @@index([source, usageCount])
+}
+
 // W1: Shipment 发货事件流（一单多张=补发/部分发；多单合发；到付；外协厂直发）
 model Shipment {
   id              String           @id @default(cuid())

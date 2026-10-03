@@ -33,6 +33,12 @@ type OrderLineRow = {
   processCodes: string[]; surfaceProcessCode: string; surfaceColorCode: string;
   unitPrice: number | null;
 };
+type ComboLine = {
+  lineType: "PROFILE" | "HARDWARE"; rawProductId?: string | null; productId?: string | null;
+  sku: string; productName: string; cutLengthMm?: number | null; processCodes: string[];
+  surfaceProcessCode?: string | null; surfaceColorCode?: string | null; quantity: number;
+};
+type Combo = { id: string; name: string; lines: ComboLine[]; source: string; usageCount: number };
 type RecentOrder = {
   orderNo: string; displayOrderNo?: string | null; createdAt: string;
   targetDeliveryDate: string; totalAmount: string; lines: { lineNo: number }[];
@@ -68,6 +74,8 @@ export default function NewInternalOrderPage() {
   const [remark, setRemark] = useState("");
   const [rows, setRows] = useState<OrderLineRow[]>([]);
   const [recent, setRecent] = useState<RecentOrder[]>([]);
+  const [combos, setCombos] = useState<Combo[]>([]);
+  const [comboBusy, setComboBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -90,6 +98,78 @@ export default function NewInternalOrderPage() {
       setOperations(st.processingOperations ?? []);
     })().catch((e) => setErr(String(e)));
   }, []);
+
+  async function loadCombos() {
+    const d = await j(await fetch("/api/combos"));
+    let list: Combo[] = d.combos ?? [];
+    if (!list.length) {
+      await fetch("/api/combos/generate", { method: "POST" });
+      const d2 = await j(await fetch("/api/combos"));
+      list = d2.combos ?? [];
+    }
+    setCombos(list);
+  }
+  useEffect(() => { loadCombos().catch(() => null); }, []);
+
+  function comboToRows(cl: ComboLine[]): OrderLineRow[] {
+    return cl.map((l) => ({
+      key: Math.random().toString(36).slice(2),
+      lineType: l.lineType,
+      rawProductId: l.rawProductId ?? undefined,
+      productId: l.productId ?? undefined,
+      productName: l.productName, sku: l.sku,
+      cutMm: l.cutLengthMm ? String(l.cutLengthMm) : "",
+      cutInch: l.cutLengthMm ? (l.cutLengthMm / 25.4).toFixed(1) : "",
+      unit: "mm",
+      quantity: String(l.quantity),
+      processCodes: (l.processCodes ?? []).filter((c) => c !== "L"),
+      surfaceProcessCode: l.surfaceProcessCode ?? "A",
+      surfaceColorCode: l.surfaceColorCode ?? "SV",
+      unitPrice: null,
+    }));
+  }
+
+  async function insertCombo(c: Combo) {
+    setRows((rs) => [...rs, ...comboToRows(c.lines)]);
+    void fetch(`/api/combos/${c.id}/use`, { method: "POST" });
+    setMsg(`已插入「${c.name}」（${c.lines.length} 行），改数量后提交`);
+  }
+
+  async function saveCurrentAsCombo() {
+    if (!rows.length) return setErr("当前没有明细可保存");
+    setComboBusy(true);
+    try {
+      const lines = rows.map((r) => r.lineType === "PROFILE"
+        ? { lineType: "PROFILE" as const, rawProductId: r.rawProductId ?? null, productId: null,
+            sku: r.sku, productName: r.productName, cutLengthMm: r.cutMm ? Number(r.cutMm) : null,
+            processCodes: ["L", ...r.processCodes], surfaceProcessCode: r.surfaceProcessCode,
+            surfaceColorCode: r.surfaceColorCode, quantity: Number(r.quantity) || 1 }
+        : { lineType: "HARDWARE" as const, rawProductId: null, productId: r.productId ?? null,
+            sku: r.sku, productName: r.productName, cutLengthMm: null, processCodes: [],
+            surfaceProcessCode: null, surfaceColorCode: null, quantity: Number(r.quantity) || 1 });
+      const res = await fetch("/api/combos", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lines }),
+      });
+      const rj = await res.json();
+      if (!rj.ok) return setErr(rj.message ?? "保存失败");
+      setMsg(`已存为常用组合「${rj.data.name}」`);
+      await loadCombos();
+    } finally { setComboBusy(false); }
+  }
+
+  async function regenCombos() {
+    setComboBusy(true);
+    try {
+      const d = await j(await fetch("/api/combos/generate", { method: "POST" }));
+      setMsg(`从历史归集：新增 ${d.created} 个候选（跳过已存在 ${d.skipped}）`);
+      await loadCombos();
+    } finally { setComboBusy(false); }
+  }
+
+  async function delCombo(id: string) {
+    await fetch(`/api/combos/${id}`, { method: "DELETE" });
+    await loadCombos();
+  }
 
   // 选客户 → 拉地址与最近订单
   useEffect(() => {
@@ -328,6 +408,32 @@ export default function NewInternalOrderPage() {
           <div><Label>目标交期</Label><Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} /></div>
           <div><Label>价格备注（实价与报价差异，可选）</Label><Input value={priceNote} onChange={(e) => setPriceNote(e.target.value)} placeholder="如：微信已收 300" /></div>
           <div className="md:col-span-2"><Label>备注</Label><Input value={remark} onChange={(e) => setRemark(e.target.value)} /></div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-base">常用组合（{combos.length}）</CardTitle>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={comboBusy} onClick={saveCurrentAsCombo}>存当前明细</Button>
+              <Button variant="outline" size="sm" disabled={comboBusy} onClick={regenCombos}>从历史生成</Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {combos.map((c) => (
+              <span key={c.id} className="border rounded px-2 py-1 text-xs flex items-center gap-1">
+                <button className="hover:bg-blue-50 rounded px-1" onClick={() => insertCombo(c)} title="一键插入明细">
+                  {c.source === "auto-history" ? "📋 " : "⭐ "}{c.name}
+                  {c.usageCount > 0 && <span className="text-gray-400"> ·{c.usageCount}</span>}
+                </button>
+                <button className="text-gray-300 hover:text-red-500" onClick={() => delCombo(c.id)} title="删除">×</button>
+              </span>
+            ))}
+            {!combos.length && !comboBusy && <span className="text-xs text-gray-400">暂无组合——点「从历史生成」归集高频规格，或填好明细后「存当前明细」</span>}
+          </div>
         </CardContent>
       </Card>
 
