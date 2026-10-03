@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 /**
  * 发货登记（W3）：多单合发 / 行级部分数量 / 到付 / 外协厂直发。
@@ -83,8 +84,9 @@ export function ShipmentForm() {
         }),
       });
       const rj = await res.json();
-      if (!rj.ok) return setErr(rj.message ?? "发货登记失败");
+      if (!rj.ok) { toast.error(rj.message ?? "发货登记失败"); return setErr(rj.message ?? "发货登记失败"); }
       setMsg(`发货单 ${rj.data.shipmentNo} 已登记（${sel.length} 行）`);
+      toast.success(`发货单 ${rj.data.shipmentNo} 已登记`);
       setSel([]); setTrackingNo(""); setNote("");
       await load();
     } finally {

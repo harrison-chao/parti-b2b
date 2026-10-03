@@ -40,7 +40,7 @@ export default async function OpsOrdersPage({ searchParams }: { searchParams: { 
           {orders.length === 0 ? (
             <p className="p-6 text-muted-foreground text-sm">无订单</p>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="w-full text-sm">
               <thead className="bg-slate-50 border-b"><tr className="text-left">
                 <th className="p-3">订单号</th><th className="p-3">经销商</th>
                 <th className="p-3">下单</th><th className="p-3">交期</th>
@@ -61,7 +61,7 @@ export default async function OpsOrdersPage({ searchParams }: { searchParams: { 
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           )}
         </CardContent>
       </Card>

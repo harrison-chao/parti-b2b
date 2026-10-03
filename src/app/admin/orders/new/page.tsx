@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { toast } from "sonner";
 
 /**
  * 内部代下单（W1/D6）：陈超/李奇莉把微信/电话接的单 60 秒录入系统。
@@ -130,9 +133,12 @@ export default function NewInternalOrderPage() {
   }
 
   async function insertCombo(c: Combo) {
-    setRows((rs) => [...rs, ...comboToRows(c.lines)]);
+    const newRows = comboToRows(c.lines);
+    setRows((rs) => [...rs, ...newRows]);
+    for (const r of newRows) if (r.lineType === "PROFILE" && r.cutMm) void fetchPrice(r);
     void fetch(`/api/combos/${c.id}/use`, { method: "POST" });
     setMsg(`已插入「${c.name}」（${c.lines.length} 行），改数量后提交`);
+    toast.success(`已插入「${c.name}」`);
   }
 
   async function saveCurrentAsCombo() {
@@ -151,8 +157,9 @@ export default function NewInternalOrderPage() {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lines }),
       });
       const rj = await res.json();
-      if (!rj.ok) return setErr(rj.message ?? "保存失败");
+      if (!rj.ok) { toast.error(rj.message ?? "保存失败"); return setErr(rj.message ?? "保存失败"); }
       setMsg(`已存为常用组合「${rj.data.name}」`);
+      toast.success(`已存为常用组合「${rj.data.name}」`);
       await loadCombos();
     } finally { setComboBusy(false); }
   }
@@ -227,6 +234,7 @@ export default function NewInternalOrderPage() {
     setReceiverAddress(`${a.province}${a.city}${a.district}${a.detailAddress}`);
   }
 
+  const selectedDealer = useMemo(() => dealers.find((d) => d.id === dealerId), [dealers, dealerId]);
   const filteredDealers = useMemo(() => {
     const q = dealerQuery.trim().toLowerCase();
     if (!q) return dealers.slice(0, 12);
@@ -343,7 +351,8 @@ export default function NewInternalOrderPage() {
         }),
       });
       const rj = await res.json();
-      if (!rj.ok) return setErr(rj.message ?? "创建失败");
+      if (!rj.ok) { toast.error(rj.message ?? "创建失败"); return setErr(rj.message ?? "创建失败"); }
+      toast.success(`订单 ${rj.data.displayOrderNo ?? rj.data.orderNo} 已创建${rj.data.autoDispatchedWorkOrderNo ? "，已派车间" : ""}`);
       router.push(`/admin/orders/${rj.data.orderNo}`);
     } finally {
       setSubmitting(false);
@@ -362,17 +371,36 @@ export default function NewInternalOrderPage() {
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-base">① 客户</CardTitle></CardHeader>
         <CardContent className="space-y-2">
-          <Input placeholder="搜索公司名/昵称/编号/电话…" value={dealerQuery} onChange={(e) => setDealerQuery(e.target.value)} />
-          <div className="flex flex-wrap gap-2">
-            {filteredDealers.map((d) => (
-              <button key={d.id} onClick={() => setDealerId(d.id)}
-                className={`border rounded px-3 py-1.5 text-sm ${dealerId === d.id ? "border-blue-500 bg-blue-50" : "hover:bg-gray-50"}`}>
-                {d.nickname || d.companyName}
-                {d.customerType === "WALK_IN" && <span className="ml-1 text-xs text-gray-400">散客</span>}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="w-full border rounded p-2 text-left text-sm flex items-center justify-between hover:bg-gray-50">
+                {dealerId
+                  ? <span>{selectedDealer ? (selectedDealer.nickname || selectedDealer.companyName) : "…"}
+                      {selectedDealer?.customerType === "WALK_IN" && <span className="ml-1 text-xs text-gray-400">散客</span>}
+                      {selectedDealer && <span className="ml-2 text-xs text-gray-400 font-mono">{selectedDealer.dealerNo}</span>}</span>
+                  : <span className="text-gray-400">点击选择客户（可搜公司/昵称/编号/电话）</span>}
+                <span className="text-gray-300">▼</span>
               </button>
-            ))}
-            {!filteredDealers.length && <span className="text-sm text-gray-400">无匹配客户，先到「经销商」页建档（散客选 WALK_IN）</span>}
-          </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="搜索客户…" value={dealerQuery} onValueChange={setDealerQuery} />
+                <CommandList>
+                  <CommandEmpty>无匹配客户，先到「经销商」页建档（散客选 WALK_IN）</CommandEmpty>
+                  <CommandGroup>
+                    {filteredDealers.map((d) => (
+                      <CommandItem key={d.id} value={`${d.companyName} ${d.nickname ?? ""} ${d.dealerNo} ${d.contactName} ${d.contactPhone}`}
+                        onSelect={() => { setDealerId(d.id); setDealerQuery(""); }}>
+                        {d.nickname || d.companyName}
+                        {d.customerType === "WALK_IN" && <span className="ml-1 text-xs text-gray-400">散客</span>}
+                        <span className="ml-auto text-xs text-gray-400 font-mono">{d.dealerNo}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
           {dealerId && recent.length > 0 && (
             <div className="pt-2">
               <Label className="text-xs text-gray-500">复制历史订单（改数量即下单）</Label>

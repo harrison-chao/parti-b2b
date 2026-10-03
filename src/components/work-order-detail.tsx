@@ -185,7 +185,7 @@ export function WorkOrderDetail({
           <Card>
             <CardHeader><CardTitle>订单明细</CardTitle></CardHeader>
             <CardContent className="p-0">
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto"><table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b"><tr className="text-left">
                   <th className="p-3">#</th><th className="p-3">产品</th>
                   <th className="p-3">SKU</th><th className="p-3">表面</th>
@@ -209,7 +209,7 @@ export function WorkOrderDetail({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </CardContent>
           </Card>
 

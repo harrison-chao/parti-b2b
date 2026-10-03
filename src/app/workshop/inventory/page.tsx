@@ -38,7 +38,7 @@ export default async function WorkshopInventoryPage() {
       <Card>
         <CardHeader><CardTitle>现货（{items.length}）</CardTitle></CardHeader>
         <CardContent className="p-0">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead className="bg-slate-50 border-b"><tr className="text-left">
               <th className="p-3">SKU</th><th className="p-3">名称</th>
               <th className="p-3 text-right">现货数量</th>
@@ -67,14 +67,14 @@ export default async function WorkshopInventoryPage() {
               })}
               {items.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">尚无库存，等采购到货或盘点录入</td></tr>}
             </tbody>
-          </table>
+          </table></div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader><CardTitle>最近流水（50）</CardTitle></CardHeader>
         <CardContent className="p-0">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead className="bg-slate-50 border-b"><tr className="text-left">
               <th className="p-3">时间</th><th className="p-3">SKU</th>
               <th className="p-3">名称</th><th className="p-3">类型</th>
@@ -96,7 +96,7 @@ export default async function WorkshopInventoryPage() {
               ))}
               {recentMovements.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">暂无流水</td></tr>}
             </tbody>
-          </table>
+          </table></div>
         </CardContent>
       </Card>
     </div>
