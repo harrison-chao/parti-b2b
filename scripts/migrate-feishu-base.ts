@@ -52,7 +52,7 @@ const RAW_FAMILY: [RegExp, string][] = [
   [/2525/i, "RAW-P2525"], [/2550/i, "RAW-P2550"], [/5050/i, "RAW-P5050"], [/7575/i, "RAW-P7575"],
 ];
 // 附录 B：Base 颜色 → [工艺码, 颜色码]
-const COLOR_MAP: Record<string, [string, string | null]> = {
+const COLOR_MAP: Record<string, [string | null, string | null]> = {
   "Grey太空灰色-氧化": ["A", "GY"], "Silver太空银-氧化": ["A", "SV"], "Black曜石黑-氧化": ["A", "OB"],
   "Darkblue午夜蓝-氧化": ["A", "NB"], "Darkgrey深灰-氧化": ["A", "GY"], "Gold玫瑰金-氧化": ["A", "RG"],
   "Gold 古铜金-氧化": ["A", "AG"], "Orange活力橙-氧化": ["A", "OR"], "定制黄金色-氧化": ["A", "MG"],
@@ -84,7 +84,7 @@ async function main() {
   report.blankSkipped = rows.length - usable.length;
 
   const byId = new Map(usable.map((r) => [r._rid, r]));
-  const rootOf = (r: Row): Row | null => {
+  const rootOf = (r: Row): Row => {
     const m = r["父记录"].match(/(rec\w+)/);
     if (!m) return r;
     const parent = byId.get(m[1]);
@@ -137,7 +137,7 @@ async function main() {
   let soSeq = 0;
   for (const [rootId, group] of groups) {
     const root = byId.get(rootId)!;
-    const head = group[0] === root ? root : root; // root 即订单头（也常是第一行）
+    const head = root; // 根记录即订单头
     const baseNo = head["编号"];
     if (!baseNo) { flag(`组 ${rootId} 无加工编号，跳过`); continue; }
     const exists = await prisma.salesOrder.findUnique({ where: { legacyBaseNo: baseNo } });

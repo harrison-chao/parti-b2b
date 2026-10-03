@@ -219,3 +219,12 @@ export const CRM_TASK_STATUS_LABEL: Record<string, string> = {
   DONE: "已完成",
   CANCELLED: "已取消",
 };
+
+export function genShipmentNo(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const r = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+  return `SH-${y}${m}${day}-${r}`;
+}

@@ -10,6 +10,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin", label: "驾驶舱" },
     { href: "/admin/orders", label: "销售订单" },
     { href: "/admin/orders/new", label: "代下单" },
+    { href: "/admin/shipments/new", label: "发货登记" },
     { href: "/admin/work-orders", label: "加工制单" },
     { href: "/admin/dealers", label: "经销商" },
     { href: "/admin/products", label: "产品目录" },
