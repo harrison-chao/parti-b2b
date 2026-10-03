@@ -9,6 +9,7 @@ export default async function WorkshopLayout({ children }: { children: React.Rea
   const items = [
     { href: "/workshop", label: "我的加工单" },
     { href: "/workshop/ship", label: "发货登记" },
+    { href: "/workshop/cutlist", label: "截料清单" },
     { href: "/workshop/history", label: "历史加工" },
     { href: "/workshop/inventory", label: "库存" },
     { href: "/workshop/stock-count", label: "盘点" },
