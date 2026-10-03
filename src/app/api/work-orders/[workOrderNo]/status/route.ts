@@ -8,7 +8,7 @@ import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
 const schema = z.object({
-  toStatus: z.enum(["SCHEDULED", "PREPARING", "PROCESSING", "QC", "PACKING", "READY_TO_SHIP", "SHIPPED"]).optional(),
+  toStatus: z.enum(["PENDING_START", "PROCESSING", "OUTSOURCING", "QC", "PACKING", "READY_TO_SHIP", "SHIPPED"]).optional(),
   advance: z.boolean().optional(),
   note: z.string().optional().nullable(),
   carrier: z.string().optional().nullable(),

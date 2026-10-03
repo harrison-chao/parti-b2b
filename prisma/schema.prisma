@@ -14,10 +14,12 @@ enum UserRole {
   WORKSHOP
 }
 
+// W1/D3: 状态机收敛——SCHEDULED+PREPARING 合并为 PENDING_START；新增 OUTSOURCING（外协中）
+// 流转：PENDING_START→PROCESSING→(OUTSOURCING↔)→[QC]→PACKING→READY_TO_SHIP→SHIPPED
 enum WorkOrderStatus {
-  SCHEDULED
-  PREPARING
+  PENDING_START
   PROCESSING
+  OUTSOURCING
   QC
   PACKING
   READY_TO_SHIP
@@ -179,7 +181,7 @@ model WorkOrder {
   workOrderNo           String          @unique
   orderNo               String          @unique
   workshopId            String
-  status                WorkOrderStatus @default(SCHEDULED)
+  status                WorkOrderStatus @default(PENDING_START)
   committedDeliveryDate DateTime?
   actualShippedAt       DateTime?
   carrier               String?

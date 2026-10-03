@@ -109,19 +109,19 @@ export const ORDER_LINE_TYPE_COLOR: Record<string, string> = {
 };
 
 export const WORK_ORDER_STATUS_LABEL: Record<string, string> = {
-  SCHEDULED: "已排产",
-  PREPARING: "备料中",
+  PENDING_START: "待开工",
   PROCESSING: "加工中",
+  OUTSOURCING: "外协中",
   QC: "质检中",
   PACKING: "打包中",
-  READY_TO_SHIP: "待出仓",
-  SHIPPED: "已出运",
+  READY_TO_SHIP: "待发货",
+  SHIPPED: "已发货",
 };
 
 export const WORK_ORDER_STATUS_COLOR: Record<string, string> = {
-  SCHEDULED: "bg-slate-100 text-slate-700",
-  PREPARING: "bg-amber-100 text-amber-700",
+  PENDING_START: "bg-slate-100 text-slate-700",
   PROCESSING: "bg-indigo-100 text-indigo-700",
+  OUTSOURCING: "bg-amber-100 text-amber-700",
   QC: "bg-fuchsia-100 text-fuchsia-700",
   PACKING: "bg-purple-100 text-purple-700",
   READY_TO_SHIP: "bg-cyan-100 text-cyan-700",
@@ -129,9 +129,9 @@ export const WORK_ORDER_STATUS_COLOR: Record<string, string> = {
 };
 
 export const WORK_ORDER_STATUS_FLOW: string[] = [
-  "SCHEDULED",
-  "PREPARING",
+  "PENDING_START",
   "PROCESSING",
+  "OUTSOURCING",
   "QC",
   "PACKING",
   "READY_TO_SHIP",
@@ -146,6 +146,7 @@ export const ORDER_STATUS_LABEL: Record<string, string> = {
   PARTIALLY_PAID: "部分付款",
   PRODUCING: "生产中",
   READY: "待发货",
+  PARTIALLY_SHIPPED: "部分发货",
   SHIPPED: "已发货",
   COMPLETED: "已完成",
   CANCELLED: "已取消",
@@ -160,6 +161,7 @@ export const ORDER_STATUS_COLOR: Record<string, string> = {
   PARTIALLY_PAID: "bg-cyan-100 text-cyan-700",
   PRODUCING: "bg-indigo-100 text-indigo-700",
   READY: "bg-purple-100 text-purple-700",
+  PARTIALLY_SHIPPED: "bg-teal-100 text-teal-700",
   SHIPPED: "bg-sky-100 text-sky-700",
   COMPLETED: "bg-green-100 text-green-700",
   CANCELLED: "bg-gray-200 text-gray-600",

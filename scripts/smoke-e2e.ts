@@ -438,7 +438,7 @@ async function main() {
         workOrderNo,
         orderNo: order.orderNo,
         workshopId: workshop.id,
-        status: "SCHEDULED",
+        status: "PENDING_START",
         committedDeliveryDate: targetDeliveryDate,
         qcRequired: true,
         currentNote: "smoke dispatch",
@@ -449,7 +449,7 @@ async function main() {
       data: {
         workOrderId: created.id,
         fromStatus: null,
-        toStatus: "SCHEDULED",
+        toStatus: "PENDING_START",
         note: `smoke dispatched to ${workshop.name}`,
         operatorUserId: admin.id,
         operatorName: admin.name,
@@ -461,9 +461,9 @@ async function main() {
     });
     return created;
   }, TX_OPTIONS);
-  check("Phase B admin dispatched confirmed order to WorkOrder", workOrder.status === "SCHEDULED", workOrder.workOrderNo);
+  check("Phase B admin dispatched confirmed order to WorkOrder", workOrder.status === "PENDING_START", workOrder.workOrderNo);
 
-  for (const status of ["PREPARING", "PROCESSING", "QC", "PACKING"] as WorkOrderStatus[]) {
+  for (const status of ["PROCESSING", "QC", "PACKING"] as WorkOrderStatus[]) {
     await moveWorkOrderTo(workOrder.workOrderNo, status, { id: workshopUser.id, name: workshopUser.name });
   }
 

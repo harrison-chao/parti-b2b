@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
         workOrderNo,
         orderNo,
         workshopId,
-        status: "SCHEDULED",
+        status: "PENDING_START",
         committedDeliveryDate: committedDeliveryDate ? new Date(committedDeliveryDate) : order.targetDeliveryDate,
         qcRequired: qcRequired ?? true,
         currentNote: note ?? null,
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       data: {
         workOrderId: created.id,
         fromStatus: null,
-        toStatus: "SCHEDULED",
+        toStatus: "PENDING_START",
         note: note ?? `派发至 ${workshop.name}`,
         operatorUserId: session.user.id,
         operatorName: session.user.name,
