@@ -3,7 +3,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
 import { genOrderNo } from "@/lib/utils";
-import { LEVEL_DISCOUNT } from "@/lib/pricing";
+import { LEVEL_DISCOUNT, calcPricing } from "@/lib/pricing";
+import { loadSettings, pricingFieldsToConfig } from "@/lib/settings";
 import { z } from "zod";
 
 const lineSchema = z.object({
@@ -20,7 +21,12 @@ const lineSchema = z.object({
   quantity: z.number().int().positive(),
   unitPrice: z.number().nonnegative(),
   targetPrice: z.number().nonnegative().optional().nullable(),
-  drawingUrl: z.string().url().optional().nullable(),
+  // 新上传走 /api/files 私有桶转发；http(s) 为兼容旧数据
+  drawingUrl: z
+    .string()
+    .refine((v) => v.startsWith("/api/files?path=") || /^https?:\/\//.test(v), "无效的图纸地址")
+    .optional()
+    .nullable(),
   drawingFileName: z.string().optional().nullable(),
   isCustom: z.boolean().optional(),
 });
@@ -79,7 +85,10 @@ export async function POST(req: NextRequest) {
 
   const dealer = await prisma.dealer.findUnique({ where: { id: dealerId } });
   if (!dealer) return fail("经销商不存在", 404, 404);
-  const discount = LEVEL_DISCOUNT[dealer.priceLevel];
+  // Pricing uses the admin-configured discount rates (falls back to built-in defaults).
+  const settings = await loadSettings();
+  const pricingConfig = pricingFieldsToConfig(settings.pricingFields);
+  const discount = settings.discountRates[dealer.priceLevel] ?? LEVEL_DISCOUNT[dealer.priceLevel];
 
   // Server-side authoritative pricing for HARDWARE (client-provided price is advisory).
   const hardwareIds = data.lines.filter((l) => l.lineType === "HARDWARE" && l.productId).map((l) => l.productId!);
@@ -99,6 +108,12 @@ export async function POST(req: NextRequest) {
     if (l.lineType === "PROFILE") {
       if (!l.rawProductId) throw new Error(`PROFILE 行缺原料型材`);
       if (!rawMap.has(l.rawProductId)) throw new Error(`原料型材不存在或非原料: ${l.rawProductId}`);
+      // Server-side authoritative pricing for PROFILE (client-provided price is advisory),
+      // using the same engine as GET /api/pricing/calculate.
+      const length = l.cutLengthMm ?? l.lengthMm;
+      if (!length || length <= 0) throw new Error(`PROFILE 行缺有效切长`);
+      const pricing = calcPricing(length, dealer.priceLevel, pricingConfig, settings.discountRates);
+      return { ...l, unitPrice: pricing.dealerPrice };
     }
     if (l.lineType === "HARDWARE") {
       if (!l.productId) throw new Error(`HARDWARE 行缺 productId`);

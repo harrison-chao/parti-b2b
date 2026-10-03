@@ -4,6 +4,9 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_PROD_DEMO_SEED !== "yes") {
+    throw new Error("拒绝在生产环境运行演示种子（含公开弱口令）。生产车间账号请用管理员后台创建。");
+  }
   const workshop = await prisma.workshop.upsert({
     where: { code: "WS-A" },
     update: {},
@@ -18,7 +21,7 @@ async function main() {
   console.log(`✓ workshop: ${workshop.code} (${workshop.id})`);
 
   const email = "workshop@parti.test";
-  const password = "123456";
+  const password = process.env.SEED_WORKSHOP_PASSWORD ?? "123456";
   const hash = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.upsert({

@@ -1,27 +1,63 @@
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = process.env.SUPABASE_URL ?? "https://gnyckydpydgxpgnxqeje.supabase.co";
+// Supabase Storage 配置必须显式提供；不再回退到硬编码项目地址。
+const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 const BUCKET = "drawings";
 const BACKUP_BUCKET = "backups";
 
+// bucket 私有性确保结果缓存（每进程一次）
+let bucketPrivacyEnsured = false;
+
+export function requireStorageConfig() {
+  if (!SUPABASE_URL || !SERVICE_KEY) {
+    throw new Error("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 未配置，无法访问对象存储");
+  }
+}
+
 export function getStorageClient() {
-  if (!SERVICE_KEY) throw new Error("SUPABASE_SERVICE_ROLE_KEY 未配置，无法上传图纸");
+  requireStorageConfig();
   return createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+}
+
+/**
+ * 确保 drawings 桶存在且为 private。
+ * 旧版本使用 public bucket + getPublicUrl，图纸/合同章可被任意持 URL 者永久访问；
+ * 现统一转为 private，读取一律走 /api/files 的鉴权签名转发。
+ */
+export async function ensureBucketPrivate(bucket: string = BUCKET) {
+  if (bucketPrivacyEnsured) return;
+  const client = getStorageClient();
+  const { data: found, error: getError } = await client.storage.getBucket(bucket);
+  if (getError && !/not\s*found/i.test(getError.message)) throw new Error(getError.message);
+  if (!found) {
+    const { error: createError } = await client.storage.createBucket(bucket, { public: false });
+    if (createError) throw new Error(createError.message);
+  } else if (found.public) {
+    const { error: updateError } = await client.storage.updateBucket(bucket, { public: false });
+    if (updateError) throw new Error(updateError.message);
+  }
+  bucketPrivacyEnsured = true;
+}
+
+/** 库中存储的稳定访问地址：走应用内鉴权路由，签名 URL 由该路由实时生成。 */
+export function filesRouteUrl(path: string): string {
+  return `/api/files?path=${encodeURIComponent(path)}`;
 }
 
 export async function uploadDrawing(file: File, prefix: string): Promise<{ url: string; path: string }> {
   const client = getStorageClient();
+  await ensureBucketPrivate();
   const safeName = file.name.replace(/[^\w.\-]/g, "_");
-  const path = `${prefix}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
+  const rand = globalThis.crypto?.randomUUID?.().replace(/-/g, "").slice(0, 16) ?? `${Date.now()}${Math.random().toString(36).slice(2, 10)}`;
+  const path = `${prefix}/${Date.now()}-${rand}-${safeName}`;
   const bytes = new Uint8Array(await file.arrayBuffer());
   const { error } = await client.storage.from(BUCKET).upload(path, bytes, {
     contentType: file.type || "application/octet-stream",
     upsert: false,
   });
   if (error) throw new Error(error.message);
-  const { data } = client.storage.from(BUCKET).getPublicUrl(path);
-  return { url: data.publicUrl, path };
+  return { url: filesRouteUrl(path), path };
 }
 
 export const ALLOWED_DRAWING_EXTS = [".pdf", ".dwg", ".step", ".stp"];
@@ -41,19 +77,20 @@ export function sniffImageType(bytes: Uint8Array): "image/png" | "image/jpeg" | 
 
 export async function uploadImage(file: File, prefix: string): Promise<{ url: string; path: string }> {
   const client = getStorageClient();
+  await ensureBucketPrivate();
   const bytes = new Uint8Array(await file.arrayBuffer());
   const sniffed = sniffImageType(bytes);
   if (!sniffed) throw new Error("文件不是有效的 PNG/JPEG/WebP 图片");
   const ext = sniffed === "image/png" ? ".png" : sniffed === "image/jpeg" ? ".jpg" : ".webp";
+  const rand = globalThis.crypto?.randomUUID?.().replace(/-/g, "").slice(0, 16) ?? `${Date.now()}${Math.random().toString(36).slice(2, 10)}`;
   // Server-generated filename — client name is never trusted for path construction.
-  const path = `${prefix}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+  const path = `${prefix}/${Date.now()}-${rand}${ext}`;
   const { error } = await client.storage.from(BUCKET).upload(path, bytes, {
     contentType: sniffed,
     upsert: false,
   });
   if (error) throw new Error(error.message);
-  const { data } = client.storage.from(BUCKET).getPublicUrl(path);
-  return { url: data.publicUrl, path };
+  return { url: filesRouteUrl(path), path };
 }
 
 export async function uploadJsonBackup(path: string, payload: unknown): Promise<{ bucket: string; path: string }> {
@@ -80,6 +117,14 @@ export async function uploadJsonBackup(path: string, payload: unknown): Promise<
 export async function createBackupDownloadUrl(path: string, expiresIn = 60 * 10): Promise<string> {
   const client = getStorageClient();
   const { data, error } = await client.storage.from(BACKUP_BUCKET).createSignedUrl(path, expiresIn);
+  if (error) throw new Error(error.message);
+  return data.signedUrl;
+}
+
+/** 为 drawings 桶中的对象生成短时签名 URL（由 /api/files 鉴权后调用）。 */
+export async function createDrawingSignedUrl(path: string, expiresIn = 300): Promise<string> {
+  const client = getStorageClient();
+  const { data, error } = await client.storage.from(BUCKET).createSignedUrl(path, expiresIn);
   if (error) throw new Error(error.message);
   return data.signedUrl;
 }
