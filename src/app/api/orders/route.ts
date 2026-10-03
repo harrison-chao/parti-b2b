@@ -275,7 +275,7 @@ export async function POST(req: NextRequest) {
       const dealer2 = await prisma.dealer.findUnique({ where: { id: dealerId }, select: { nickname: true, companyName: true } });
       void notifyFeishu("新加工单", [
         `单号 ${displayOrderNo}`,
-        `客户 ${(dealer2?.nickname || dealer2?.companyName ?? "").slice(0, 16)}`,
+        `客户 ${(dealer2?.nickname || dealer2?.companyName || "").slice(0, 16)}`,
         `交期 ${new Date(data.targetDeliveryDate).toLocaleDateString("zh-CN")}`,
         ...created.lines.slice(0, 8).map((l) => `${l.sku}${l.cutLengthMm ? " " + l.cutLengthMm + "mm" : ""} ×${l.quantity}`),
         ...(created.lines.length > 8 ? [`…共 ${created.lines.length} 行`] : []),
