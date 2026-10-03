@@ -128,15 +128,8 @@ export const WORK_ORDER_STATUS_COLOR: Record<string, string> = {
   SHIPPED: "bg-emerald-100 text-emerald-700",
 };
 
-export const WORK_ORDER_STATUS_FLOW: string[] = [
-  "PENDING_START",
-  "PROCESSING",
-  "OUTSOURCING",
-  "QC",
-  "PACKING",
-  "READY_TO_SHIP",
-  "SHIPPED",
-];
+// 单一来源：状态流转以 src/lib/workorder.ts 为准（W3b 收口，消除三处重复定义）
+export { WORK_ORDER_FLOW as WORK_ORDER_STATUS_FLOW } from "./workorder";
 
 export const ORDER_STATUS_LABEL: Record<string, string> = {
   DRAFT: "草稿",

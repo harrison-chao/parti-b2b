@@ -72,7 +72,7 @@ export function WorkOrderDetail({
   backHref: string;
 }) {
   const router = useRouter();
-  const flow = data.qcRequired ? WORK_ORDER_STATUS_FLOW : WORK_ORDER_STATUS_FLOW.filter((s) => s !== "QC");
+  const flow: string[] = data.qcRequired ? WORK_ORDER_STATUS_FLOW : WORK_ORDER_STATUS_FLOW.filter((s) => s !== "QC");
   const currentIdx = flow.indexOf(data.status);
   const nextStatus = currentIdx >= 0 && currentIdx < flow.length - 1 ? flow[currentIdx + 1] : null;
 

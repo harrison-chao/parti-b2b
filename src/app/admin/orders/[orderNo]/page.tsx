@@ -15,7 +15,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
   const order = await prisma.salesOrder.findUnique({
     where: { orderNo: params.orderNo },
     include: {
-      lines: { orderBy: { lineNo: "asc" } },
+      lines: { orderBy: { lineNo: "asc" }, include: { shipmentLines: { include: { shipment: true } } } },
       dealer: true,
       workOrder: { include: { workshop: true } },
     },
@@ -207,6 +207,45 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
             />
           )}
         </div>
+        <Card className="md:col-span-2">
+          <CardHeader className="pb-2"><CardTitle className="text-base">发货记录（Shipment）</CardTitle></CardHeader>
+          <CardContent>
+            {(() => {
+              const shipments = new Map<string, { shippedAt: Date; carrier: string; trackingNo: string | null; freightPayType: string; fromType: string; note: string | null; items: string[] }>();
+              for (const l of order.lines) {
+                for (const sl of l.shipmentLines) {
+                  const sh = sl.shipment;
+                  if (!shipments.has(sh.shipmentNo)) shipments.set(sh.shipmentNo, {
+                    shippedAt: sh.shippedAt, carrier: sh.carrier, trackingNo: sh.trackingNo,
+                    freightPayType: sh.freightPayType, fromType: sh.fromType, note: sh.note, items: [],
+                  });
+                  shipments.get(sh.shipmentNo)!.items.push(`${l.sku} ×${sl.quantity}`);
+                }
+              }
+              const list = [...shipments.entries()].sort((a, b) => b[1].shippedAt.getTime() - a[1].shippedAt.getTime());
+              if (!list.length) return <p className="text-sm text-muted-foreground">暂无发货记录</p>;
+              return (
+                <div className="space-y-3">
+                  {list.map(([no, sh]) => (
+                    <div key={no} className="border rounded p-3 text-sm">
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <span className="font-mono font-semibold">{no}</span>
+                        <span>{new Date(sh.shippedAt).toLocaleString("zh-CN")}</span>
+                        <span>{sh.carrier}{sh.trackingNo ? ` · ${sh.trackingNo}` : ""}</span>
+                        <span className="text-xs text-gray-400">
+                          {sh.freightPayType === "COD" ? "到付" : sh.freightPayType === "MONTHLY" ? "月结" : "寄付"}
+                          {sh.fromType === "OUTSOURCER" ? " · 外协直发" : ""}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">{sh.items.join("；")}</div>
+                      {sh.note && <div className="text-xs text-gray-400 mt-0.5">备注：{sh.note}</div>}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

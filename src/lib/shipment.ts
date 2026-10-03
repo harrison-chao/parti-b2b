@@ -95,10 +95,11 @@ export async function createShipment(tx: Tx, input: CreateShipmentInput) {
   // 每个受影响订单：判断是否全部行发完
   for (const orderNo of orderNos) {
     const order = await tx.salesOrder.findUniqueOrThrow({ where: { orderNo }, include: { lines: true } });
-    const allLines = order.lines as SalesOrderLine[];
-    const nowShipped = await shippedQtyByLine(tx, allLines.map((l) => l.id));
-    const fullyShipped = allLines.every((l) => (nowShipped.get(l.id) ?? 0) >= l.quantity);
-    const anyShipped = allLines.some((l) => (nowShipped.get(l.id) ?? 0) > 0);
+    // 外购行（OUTSOURCED）随单交付、不做数量追踪，不阻塞发货完成判定
+    const trackable = (order.lines as SalesOrderLine[]).filter((l) => l.lineType !== "OUTSOURCED");
+    const nowShipped = await shippedQtyByLine(tx, trackable.map((l) => l.id));
+    const fullyShipped = trackable.every((l) => (nowShipped.get(l.id) ?? 0) >= l.quantity);
+    const anyShipped = trackable.some((l) => (nowShipped.get(l.id) ?? 0) > 0);
 
     if (fullyShipped) {
       await tx.salesOrder.update({
