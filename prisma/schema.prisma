@@ -92,10 +92,36 @@ enum OrderStatus {
   PARTIALLY_PAID
   PRODUCING
   READY
+  PARTIALLY_SHIPPED
   SHIPPED
   COMPLETED
   CANCELLED
   REJECTED
+}
+
+// W1: 订单来源（经销商门户自助 / 内部代下单）
+enum OrderVia {
+  PORTAL
+  INTERNAL
+}
+
+// W1: 客户类型（经销商 / 直发散客）——注意与 CRM 的 CustomerType(COMPANY/INDIVIDUAL) 区分
+enum DealerCustomerType {
+  DEALER
+  WALK_IN
+}
+
+// W1: 发货运费口径
+enum FreightPayType {
+  PREPAID
+  COD
+  MONTHLY
+}
+
+// W1: 发货地（车间 或 外协厂直发）
+enum ShipmentFromType {
+  FACTORY
+  OUTSOURCER
 }
 
 enum SupplierCategory {
@@ -191,6 +217,10 @@ model Dealer {
   companyName     String
   contactName     String
   contactPhone    String
+  // W1: 客户类型与散客字段（D1 决策：散客复用 Dealer，不参与信用/等级）
+  customerType    DealerCustomerType @default(DEALER)
+  nickname        String?
+  internalOwnerUserId String?
   legalName       String?
   taxNo           String?
   invoiceTitle    String?
@@ -303,12 +333,20 @@ model SalesOrder {
   internalRemark        String?
   crmCustomerId         String?
   crmOpportunityId      String?
+  // W1: 内部代下单与 Base 迁移字段（D2/D4/D5 决策）
+  createdVia            OrderVia @default(PORTAL)
+  createdByUserId       String?
+  priceNote             String?
+  legacyBaseNo          String?  @unique
+  displayOrderNo        String?  @unique
+  needsReview           Boolean  @default(false)
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
   dealer             Dealer                    @relation(fields: [dealerId], references: [id])
   lines              SalesOrderLine[]
   workOrder          WorkOrder?
+  shipments          ShipmentLine[]
   paymentAllocations DealerPaymentAllocation[]
   crmCustomer        CrmCustomer?              @relation(fields: [crmCustomerId], references: [id], onDelete: SetNull)
   crmOpportunity     CrmOpportunity?           @relation(fields: [crmOpportunityId], references: [id], onDelete: SetNull)
@@ -356,6 +394,11 @@ model SalesOrderLine {
   lengthMm         Decimal?      @db.Decimal(8, 2)
   surfaceTreatment String?
   preprocessing    String?
+  // W1: 新口径字段（旧列过渡期保留）：工序多选存码；表面处理拆工艺码+颜色码；Base 原始尺寸文本
+  processCodes     String[]
+  surfaceProcessCode String?
+  surfaceColorCode String?
+  legacyRawSize    String?
   spec             String?
   quantity         Int
   unitPrice        Decimal       @db.Decimal(10, 2)
@@ -370,7 +413,45 @@ model SalesOrderLine {
   drawingFileName  String?
   createdAt        DateTime      @default(now())
 
-  order SalesOrder @relation(fields: [orderNo], references: [orderNo], onDelete: Cascade)
+  order         SalesOrder     @relation(fields: [orderNo], references: [orderNo], onDelete: Cascade)
+  shipmentLines ShipmentLine[]
+}
+
+// W1: Shipment 发货事件流（一单多张=补发/部分发；多单合发；到付；外协厂直发）
+model Shipment {
+  id              String           @id @default(cuid())
+  shipmentNo      String           @unique
+  carrier         String
+  trackingNo      String?
+  shippedAt       DateTime         @default(now())
+  freightPayType  FreightPayType   @default(PREPAID)
+  fromType        ShipmentFromType @default(FACTORY)
+  fromNote        String?
+  note            String?
+  createdByUserId String?
+  createdByName   String?
+  createdAt       DateTime         @default(now())
+
+  lines ShipmentLine[]
+
+  @@index([shippedAt])
+  @@index([carrier, trackingNo])
+}
+
+model ShipmentLine {
+  id         String     @id @default(cuid())
+  shipmentId String
+  orderNo    String
+  lineId     String
+  quantity   Int
+  createdAt  DateTime   @default(now())
+
+  shipment Shipment      @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  order    SalesOrder    @relation(fields: [orderNo], references: [orderNo], onDelete: Cascade)
+  line     SalesOrderLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+
+  @@index([shipmentId])
+  @@index([orderNo])
 }
 
 model Supplier {
