@@ -6,6 +6,7 @@ import { genOrderNo, genDisplayOrderNo } from "@/lib/order-no";
 import { genWorkOrderNo } from "@/lib/utils";
 import { LEVEL_DISCOUNT, calcPricing } from "@/lib/pricing";
 import { loadSettings, pricingFieldsToConfig } from "@/lib/settings";
+import { notifyFeishu } from "@/lib/feishu";
 import { z } from "zod";
 
 const lineSchema = z.object({
@@ -269,6 +270,16 @@ export async function POST(req: NextRequest) {
           createdBy: session.user.name,
         },
       });
+    }
+    if (isInternal) {
+      const dealer2 = await prisma.dealer.findUnique({ where: { id: dealerId }, select: { nickname: true, companyName: true } });
+      void notifyFeishu("新加工单", [
+        `单号 ${displayOrderNo}`,
+        `客户 ${(dealer2?.nickname || dealer2?.companyName ?? "").slice(0, 16)}`,
+        `交期 ${new Date(data.targetDeliveryDate).toLocaleDateString("zh-CN")}`,
+        ...created.lines.slice(0, 8).map((l) => `${l.sku}${l.cutLengthMm ? " " + l.cutLengthMm + "mm" : ""} ×${l.quantity}`),
+        ...(created.lines.length > 8 ? [`…共 ${created.lines.length} 行`] : []),
+      ]);
     }
     return ok({ ...created, autoDispatchedWorkOrderNo: workOrderNo ?? null });
   } catch (e: any) {
