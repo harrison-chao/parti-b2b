@@ -252,7 +252,10 @@ async function main() {
         paymentStatus: "UNPAID", createdVia: "INTERNAL",
         needsReview: overdue30 && !isCancelled,
         actualDeliveryDate: shipAt,
-        lines: { create: lineData },
+        lines: { create: lineData.map((l: any) => {
+          const { _cancelled, _remark, ...clean } = l;
+          return clean;
+        }) },
       },
       include: { lines: true },
     });
