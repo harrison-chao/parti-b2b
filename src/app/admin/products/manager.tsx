@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { formatMoney, PRODUCT_CATEGORY_LABEL } from "@/lib/utils";
 
+type Option = { code: string; label: string };
+
 type P = {
   id: string;
   sku: string;
@@ -16,6 +18,8 @@ type P = {
   category: string;
   lengthMm: number | null;
   spec: string | null;
+  surfaceProcessCode: string | null;
+  surfaceColorCode: string | null;
   retailPrice: number;
   purchasePrice: number | null;
   unit: string;
@@ -30,6 +34,8 @@ type ProductRow = {
   productName: string;
   series: string;
   spec: string;
+  surfaceProcessCode: string;
+  surfaceColorCode: string;
   lengthMm: string;
   retailPrice: string;
   purchasePrice: string;
@@ -44,6 +50,8 @@ const emptyRow = (category: "HARDWARE" | "PROFILE"): ProductRow => ({
   productName: "",
   series: "",
   spec: "",
+  surfaceProcessCode: "",
+  surfaceColorCode: "",
   lengthMm: category === "PROFILE" ? "3600" : "",
   retailPrice: "",
   purchasePrice: "",
@@ -53,7 +61,11 @@ const emptyRow = (category: "HARDWARE" | "PROFILE"): ProductRow => ({
   yieldRate: "0.95",
 });
 
-export function ProductManager({ products }: { products: P[] }) {
+export function ProductManager({ products, surfaceProcessOptions, surfaceColorOptions }: {
+  products: P[];
+  surfaceProcessOptions: Option[];
+  surfaceColorOptions: Option[];
+}) {
   const router = useRouter();
   const [tab, setTab] = useState<"HARDWARE" | "PROFILE">("HARDWARE");
   const [creating, setCreating] = useState(false);
@@ -64,6 +76,8 @@ export function ProductManager({ products }: { products: P[] }) {
     productName: "",
     series: "",
     spec: "",
+    surfaceProcessCode: "",
+    surfaceColorCode: "",
     lengthMm: "3600",
     retailPrice: "",
     purchasePrice: "",
@@ -86,7 +100,7 @@ export function ProductManager({ products }: { products: P[] }) {
   }
 
   function resetForm() {
-    setForm({ sku: "", productName: "", series: "", spec: "", lengthMm: "3600", retailPrice: "", purchasePrice: "", unit: "根", drawingRequired: false, isRawMaterial: false, yieldRate: "0.95" });
+    setForm({ sku: "", productName: "", series: "", spec: "", surfaceProcessCode: "", surfaceColorCode: "", lengthMm: "3600", retailPrice: "", purchasePrice: "", unit: "根", drawingRequired: false, isRawMaterial: false, yieldRate: "0.95" });
   }
 
   function openCreate() {
@@ -116,6 +130,24 @@ export function ProductManager({ products }: { products: P[] }) {
       .filter(Boolean)
       .map((line) => {
         const cols = line.split(/\t|,/).map((col) => col.trim());
+        if (tab === "PROFILE") {
+          // 型材简化列序：SKU、系列名称、表面处理码、颜色码、零售价、采购成本、单位、原料棒长、良率、图纸、原料
+          return {
+            ...emptyRow(tab),
+            sku: cols[0] ?? "",
+            series: cols[1] ?? "",
+            productName: cols[1] ?? "",
+            surfaceProcessCode: cols[2] ?? "",
+            surfaceColorCode: cols[3] ?? "",
+            retailPrice: cols[4] ?? "",
+            purchasePrice: cols[5] ?? "",
+            unit: cols[6] || "根",
+            lengthMm: cols[7] || "3600",
+            yieldRate: cols[8] || "0.95",
+            drawingRequired: ["1", "true", "是", "必传"].includes((cols[9] ?? "").toLowerCase()),
+            isRawMaterial: !["0", "false", "否", "非原料"].includes((cols[10] ?? "").toLowerCase()),
+          };
+        }
         return {
           ...emptyRow(tab),
           sku: cols[0] ?? "",
@@ -124,11 +156,11 @@ export function ProductManager({ products }: { products: P[] }) {
           spec: cols[3] ?? "",
           retailPrice: cols[4] ?? "",
           purchasePrice: cols[5] ?? "",
-          unit: cols[6] || (tab === "PROFILE" ? "根" : "件"),
-          lengthMm: cols[7] || (tab === "PROFILE" ? "3600" : ""),
-          yieldRate: cols[8] || "0.95",
+          unit: cols[6] || "件",
+          lengthMm: "",
+          yieldRate: "0.95",
           drawingRequired: ["1", "true", "是", "必传"].includes((cols[9] ?? "").toLowerCase()),
-          isRawMaterial: tab === "PROFILE" ? !["0", "false", "否", "非原料"].includes((cols[10] ?? "").toLowerCase()) : false,
+          isRawMaterial: false,
         };
       });
     if (parsed.length > 0) setBulkRows(parsed);
@@ -141,9 +173,10 @@ export function ProductManager({ products }: { products: P[] }) {
       return;
     }
 
-    const invalid = rows.find((row) => !row.sku.trim() || !row.productName.trim() || !row.series.trim());
+    const requiredLabel = tab === "PROFILE" ? "SKU、系列名称" : "SKU、名称、系列";
+    const invalid = rows.find((row) => !row.sku.trim() || !row.series.trim() || (tab !== "PROFILE" && !row.productName.trim()));
     if (invalid) {
-      setStatus("✗ SKU、名称、系列为必填");
+      setStatus(`✗ ${requiredLabel}为必填`);
       return;
     }
 
@@ -154,11 +187,13 @@ export function ProductManager({ products }: { products: P[] }) {
       body: JSON.stringify({
         products: rows.map((row) => ({
           sku: row.sku.trim(),
-          productName: row.productName.trim(),
+          productName: (tab === "PROFILE" ? row.series : row.productName).trim(),
           series: row.series.trim(),
           category: tab,
           lengthMm: tab === "PROFILE" && row.lengthMm ? parseFloat(row.lengthMm) : null,
-          spec: row.spec.trim() || null,
+          spec: tab === "PROFILE" ? null : (row.spec.trim() || null),
+          surfaceProcessCode: tab === "PROFILE" ? (row.surfaceProcessCode.trim().toUpperCase() || null) : null,
+          surfaceColorCode: tab === "PROFILE" ? (row.surfaceColorCode.trim().toUpperCase() || null) : null,
           retailPrice: parseFloat(row.retailPrice) || 0,
           purchasePrice: row.purchasePrice ? parseFloat(row.purchasePrice) : null,
           unit: row.unit.trim() || (tab === "PROFILE" ? "根" : "件"),
@@ -189,6 +224,8 @@ export function ProductManager({ products }: { products: P[] }) {
       productName: product.productName,
       series: product.series,
       spec: product.spec ?? "",
+      surfaceProcessCode: product.surfaceProcessCode ?? "",
+      surfaceColorCode: product.surfaceColorCode ?? "",
       lengthMm: product.lengthMm != null ? String(product.lengthMm) : "3600",
       retailPrice: String(product.retailPrice),
       purchasePrice: product.purchasePrice != null ? String(product.purchasePrice) : "",
@@ -207,11 +244,13 @@ export function ProductManager({ products }: { products: P[] }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...(!editing ? { sku: form.sku.trim() } : {}),
-        productName: form.productName.trim(),
+        productName: (category === "PROFILE" ? form.series : form.productName).trim(),
         series: form.series.trim(),
         category,
         lengthMm: category === "PROFILE" && form.lengthMm ? parseFloat(form.lengthMm) : null,
-        spec: form.spec.trim() || null,
+        spec: category === "PROFILE" ? null : (form.spec.trim() || null),
+        surfaceProcessCode: category === "PROFILE" ? (form.surfaceProcessCode || null) : null,
+        surfaceColorCode: category === "PROFILE" ? (form.surfaceColorCode || null) : null,
         retailPrice: parseFloat(form.retailPrice) || 0,
         purchasePrice: form.purchasePrice ? parseFloat(form.purchasePrice) : null,
         unit: form.unit.trim() || "件",
@@ -290,7 +329,7 @@ export function ProductManager({ products }: { products: P[] }) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">产品目录</h1>
-        <p className="text-sm text-muted-foreground">HARDWARE 标准零配件在此维护；PROFILE 非标型材动态生成 SKU，此处展示统计与原料母料</p>
+        <p className="text-sm text-muted-foreground">型材以「系列名称=型号」维护（如 MR2525 即名称即规格），可带默认表面处理与颜色；五金按名称/系列/规格维护</p>
       </div>
 
       <div className="flex items-center gap-2">
@@ -314,11 +353,13 @@ export function ProductManager({ products }: { products: P[] }) {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-2xl border bg-card/60 p-3 text-xs leading-6 text-muted-foreground">
-              可从 Excel 复制多行粘贴。列顺序：SKU、名称、系列、规格、零售价、采购成本、单位、原料棒长、良率、图纸必传、是否原料。
+              {tab === "PROFILE"
+                ? "可从 Excel 复制多行粘贴。型材列顺序：SKU、系列名称、表面处理码、颜色码、零售价、采购成本、单位、原料棒长、良率、图纸必传、是否原料。系列名称即型号（如 MR2525），名称与规格自动等于系列名称。"
+                : "可从 Excel 复制多行粘贴。五金列顺序：SKU、名称、系列、规格、零售价、采购成本、单位、图纸必传。"}
             </div>
             <textarea
               className="min-h-20 w-full rounded-xl border border-input bg-card/75 p-3 text-sm shadow-sm"
-              placeholder="粘贴多行数据，例如：SKU<Tab>名称<Tab>系列<Tab>规格..."
+              placeholder={tab === "PROFILE" ? "粘贴多行数据，例如：SKU<Tab>系列名称<Tab>表面码<Tab>颜色码..." : "粘贴多行数据，例如：SKU<Tab>名称<Tab>系列<Tab>规格..."}
               onPaste={(e) => {
                 const text = e.clipboardData.getData("text");
                 if (text.includes("\n") || text.includes("\t")) {
@@ -331,7 +372,10 @@ export function ProductManager({ products }: { products: P[] }) {
               <table className="w-full min-w-[1180px] text-xs">
                 <thead className="border-b bg-muted/50">
                   <tr className="text-left">
-                    <th className="p-2">SKU*</th><th className="p-2">名称*</th><th className="p-2">系列*</th><th className="p-2">规格</th>
+                    <th className="p-2">SKU*</th>
+                    {tab === "PROFILE"
+                      ? <><th className="p-2">系列名称*</th><th className="p-2">表面处理</th><th className="p-2">颜色</th></>
+                      : <><th className="p-2">名称*</th><th className="p-2">系列*</th><th className="p-2">规格</th></>}
                     <th className="p-2">零售价</th><th className="p-2">采购成本</th><th className="p-2">单位</th>
                     {tab === "PROFILE" && <><th className="p-2">原料棒长</th><th className="p-2">良率</th><th className="p-2">原料</th></>}
                     <th className="p-2">图纸</th><th className="p-2"></th>
@@ -341,9 +385,19 @@ export function ProductManager({ products }: { products: P[] }) {
                   {bulkRows.map((row, index) => (
                     <tr key={index} className="border-b">
                       <td className="p-2"><Input value={row.sku} onChange={(e) => patchBulkRow(index, { sku: e.target.value })} /></td>
-                      <td className="p-2"><Input value={row.productName} onChange={(e) => patchBulkRow(index, { productName: e.target.value })} /></td>
-                      <td className="p-2"><Input value={row.series} onChange={(e) => patchBulkRow(index, { series: e.target.value })} /></td>
-                      <td className="p-2"><Input value={row.spec} onChange={(e) => patchBulkRow(index, { spec: e.target.value })} /></td>
+                      {tab === "PROFILE" ? (
+                        <>
+                          <td className="p-2"><Input value={row.series} onChange={(e) => patchBulkRow(index, { series: e.target.value })} placeholder="如 MR2525" /></td>
+                          <td className="p-2"><Input value={row.surfaceProcessCode} onChange={(e) => patchBulkRow(index, { surfaceProcessCode: e.target.value.toUpperCase() })} placeholder="A/P/W" className="w-16" /></td>
+                          <td className="p-2"><Input value={row.surfaceColorCode} onChange={(e) => patchBulkRow(index, { surfaceColorCode: e.target.value.toUpperCase() })} placeholder="SV/BK" className="w-16" /></td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="p-2"><Input value={row.productName} onChange={(e) => patchBulkRow(index, { productName: e.target.value })} /></td>
+                          <td className="p-2"><Input value={row.series} onChange={(e) => patchBulkRow(index, { series: e.target.value })} /></td>
+                          <td className="p-2"><Input value={row.spec} onChange={(e) => patchBulkRow(index, { spec: e.target.value })} /></td>
+                        </>
+                      )}
                       <td className="p-2"><Input type="number" value={row.retailPrice} onChange={(e) => patchBulkRow(index, { retailPrice: e.target.value })} /></td>
                       <td className="p-2"><Input type="number" value={row.purchasePrice} onChange={(e) => patchBulkRow(index, { purchasePrice: e.target.value })} /></td>
                       <td className="p-2"><Input value={row.unit} onChange={(e) => patchBulkRow(index, { unit: e.target.value })} /></td>
@@ -375,10 +429,32 @@ export function ProductManager({ products }: { products: P[] }) {
         <Card>
           <CardHeader><CardTitle>编辑 {PRODUCT_CATEGORY_LABEL[editing.category as "HARDWARE" | "PROFILE"]} SKU</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <div><Label>SKU</Label><Input value={form.sku} disabled={!!editing} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="如 OL2525" /></div>
-            <div><Label>产品名称</Label><Input value={form.productName} onChange={(e) => setForm({ ...form, productName: e.target.value })} /></div>
-            <div><Label>系列</Label><Input value={form.series} onChange={(e) => setForm({ ...form, series: e.target.value })} placeholder="如 六通 / 层板托" /></div>
-            <div className="col-span-2"><Label>规格</Label><Input value={form.spec} onChange={(e) => setForm({ ...form, spec: e.target.value })} placeholder="如 25x25" /></div>
+            <div><Label>SKU</Label><Input value={form.sku} disabled={!!editing} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="如 RAW-MR2525" /></div>
+            {((editing?.category ?? tab) === "PROFILE") ? (
+              <>
+                <div><Label>系列名称</Label><Input value={form.series} onChange={(e) => setForm({ ...form, series: e.target.value })} placeholder="如 MR2525（即名称即规格）" /></div>
+                <div>
+                  <Label>表面处理</Label>
+                  <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={form.surfaceProcessCode} onChange={(e) => setForm({ ...form, surfaceProcessCode: e.target.value })}>
+                    <option value="">未指定</option>
+                    {surfaceProcessOptions.map((o) => <option key={o.code} value={o.code}>{o.code} · {o.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <Label>颜色</Label>
+                  <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={form.surfaceColorCode} onChange={(e) => setForm({ ...form, surfaceColorCode: e.target.value })}>
+                    <option value="">未指定</option>
+                    {surfaceColorOptions.map((o) => <option key={o.code} value={o.code}>{o.code} · {o.label}</option>)}
+                  </select>
+                </div>
+              </>
+            ) : (
+              <>
+                <div><Label>产品名称</Label><Input value={form.productName} onChange={(e) => setForm({ ...form, productName: e.target.value })} /></div>
+                <div><Label>系列</Label><Input value={form.series} onChange={(e) => setForm({ ...form, series: e.target.value })} placeholder="如 六通 / 层板托" /></div>
+                <div><Label>规格</Label><Input value={form.spec} onChange={(e) => setForm({ ...form, spec: e.target.value })} placeholder="如 25x25" /></div>
+              </>
+            )}
             {((editing?.category ?? tab) === "PROFILE") && (
               <>
                 <div><Label>原料棒长(mm)</Label><Input type="number" value={form.lengthMm} onChange={(e) => setForm({ ...form, lengthMm: e.target.value })} /></div>
@@ -411,8 +487,13 @@ export function ProductManager({ products }: { products: P[] }) {
         <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 border-b"><tr className="text-left">
-              <th className="p-3">SKU</th><th className="p-3">名称</th><th className="p-3">系列</th>
-              <th className="p-3">规格</th>{tab === "PROFILE" && <th className="p-3">原料规则</th>}
+              <th className="p-3">SKU</th>
+              {tab === "PROFILE" ? (
+                <><th className="p-3">系列名称</th><th className="p-3">表面处理 / 颜色</th></>
+              ) : (
+                <><th className="p-3">名称</th><th className="p-3">系列</th><th className="p-3">规格</th></>
+              )}
+              {tab === "PROFILE" && <th className="p-3">原料规则</th>}
               {tab !== "PROFILE" && <th className="p-3 text-right">零售价</th>}
               <th className="p-3 text-right">采购成本</th><th className="p-3">图纸</th>
               <th className="p-3">状态</th><th className="p-3"></th>
@@ -421,9 +502,27 @@ export function ProductManager({ products }: { products: P[] }) {
               {list.map((p) => (
                 <tr key={p.id} className="border-b hover:bg-muted/50">
                   <td className="p-3 font-mono">{p.sku}</td>
-                  <td className="p-3">{p.productName}</td>
-                  <td className="p-3 text-xs">{p.series}</td>
-                  <td className="p-3 text-xs text-muted-foreground">{p.spec ?? "-"}</td>
+                  {tab === "PROFILE" ? (
+                    <>
+                      <td className="p-3 font-semibold">{p.series}</td>
+                      <td className="p-3 text-xs">
+                        {p.surfaceProcessCode || p.surfaceColorCode ? (
+                          <span>
+                            {p.surfaceProcessCode
+                              ? <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-cyan-300 ring-1 ring-inset ring-cyan-400/20">{surfaceProcessOptions.find((o) => o.code === p.surfaceProcessCode)?.label ?? p.surfaceProcessCode}</span>
+                              : null}
+                            {p.surfaceColorCode && <span className="ml-1 rounded bg-fuchsia-500/15 px-1.5 py-0.5 text-fuchsia-300 ring-1 ring-inset ring-fuchsia-400/20">{surfaceColorOptions.find((o) => o.code === p.surfaceColorCode)?.label ?? p.surfaceColorCode}</span>}
+                          </span>
+                        ) : <span className="text-muted-foreground">-</span>}
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="p-3">{p.productName}</td>
+                      <td className="p-3 text-xs">{p.series}</td>
+                      <td className="p-3 text-xs text-muted-foreground">{p.spec ?? "-"}</td>
+                    </>
+                  )}
                   {tab === "PROFILE" && (
                     <td className="p-3 text-xs">
                       {p.isRawMaterial ? (
@@ -460,7 +559,7 @@ export function ProductManager({ products }: { products: P[] }) {
                   </td>
                 </tr>
               ))}
-              {list.length === 0 && <tr><td colSpan={9} className="p-6 text-center text-muted-foreground">暂无</td></tr>}
+              {list.length === 0 && <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">暂无</td></tr>}
             </tbody>
           </table>
         </CardContent>

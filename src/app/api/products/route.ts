@@ -6,11 +6,14 @@ import { z } from "zod";
 
 const createSchema = z.object({
   sku: z.string().min(1),
-  productName: z.string().min(1),
+  // 型材简化（MR2525 即名称即规格）：productName 可省略，缺省 = 系列/型号名
+  productName: z.string().optional(),
   series: z.string().min(1),
   category: z.enum(["PROFILE", "HARDWARE"]),
   lengthMm: z.number().positive().optional().nullable(),
   spec: z.string().optional().nullable(),
+  surfaceProcessCode: z.string().optional().nullable(),
+  surfaceColorCode: z.string().optional().nullable(),
   retailPrice: z.number().nonnegative(),
   purchasePrice: z.number().nonnegative().optional().nullable(),
   unit: z.string().optional(),
@@ -71,11 +74,13 @@ export async function POST(req: NextRequest) {
       rows.map((row) => prisma.product.create({
         data: {
           sku: row.sku,
-          productName: row.productName,
+          productName: row.productName || row.series,
           series: row.series,
           category: row.category,
           lengthMm: row.lengthMm ?? null,
           spec: row.spec ?? null,
+          surfaceProcessCode: row.surfaceProcessCode ?? null,
+          surfaceColorCode: row.surfaceColorCode ?? null,
           retailPrice: row.retailPrice,
           purchasePrice: row.purchasePrice ?? null,
           unit: row.unit ?? "根",
@@ -97,7 +102,7 @@ export async function POST(req: NextRequest) {
   const product = await prisma.product.create({
     data: {
       sku: d.sku,
-      productName: d.productName,
+      productName: d.productName || d.series,
       series: d.series,
       category: d.category,
       lengthMm: d.lengthMm ?? null,

@@ -10,6 +10,8 @@ const patchSchema = z.object({
   category: z.enum(["PROFILE", "HARDWARE"]).optional(),
   lengthMm: z.number().positive().optional().nullable(),
   spec: z.string().optional().nullable(),
+  surfaceProcessCode: z.string().optional().nullable(),
+  surfaceColorCode: z.string().optional().nullable(),
   retailPrice: z.number().nonnegative().optional(),
   purchasePrice: z.number().nonnegative().optional().nullable(),
   unit: z.string().optional(),

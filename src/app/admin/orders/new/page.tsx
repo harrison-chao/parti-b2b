@@ -27,6 +27,7 @@ type Address = {
 type Product = {
   id: string; sku: string; productName: string; category: "PROFILE" | "HARDWARE";
   isRawMaterial?: boolean; series?: string | null; spec?: string | null; retailPrice: string;
+  surfaceProcessCode?: string | null; surfaceColorCode?: string | null;
 };
 type Option = { code: string; label: string };
 type OrderLineRow = {
@@ -506,7 +507,12 @@ export default function NewInternalOrderPage() {
                     <select className="w-full border rounded p-2 text-sm" value={r.rawProductId}
                       onChange={(e) => {
                         const p = rawProducts.find((x) => x.id === e.target.value)!;
-                        patchRow(r.key, { rawProductId: p.id, productName: p.productName, sku: p.sku });
+                        // 型材档案带默认表面处理/颜色时预填（未选过才覆盖）
+                        patchRow(r.key, {
+                          rawProductId: p.id, productName: p.productName, sku: p.sku,
+                          ...(p.surfaceProcessCode ? { surfaceProcessCode: p.surfaceProcessCode } : {}),
+                          ...(p.surfaceColorCode ? { surfaceColorCode: p.surfaceColorCode } : {}),
+                        });
                       }}>
                       {rawProducts.map((p) => <option key={p.id} value={p.id}>{p.sku}</option>)}
                     </select>

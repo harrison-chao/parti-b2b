@@ -314,6 +314,9 @@ model Product {
   unit            String          @default("根")
   drawingRequired Boolean         @default(false)
   spec            String?
+  // 型材默认表面处理/颜色（可空=未指定）；代下选用到该原料时预填到订单行
+  surfaceProcessCode String?
+  surfaceColorCode   String?
   isRawMaterial   Boolean         @default(false)
   yieldRate       Decimal         @default(0.95) @db.Decimal(5, 4)
   isActive        Boolean         @default(true)
