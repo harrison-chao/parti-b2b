@@ -107,6 +107,8 @@ export async function POST(req: NextRequest) {
       category: d.category,
       lengthMm: d.lengthMm ?? null,
       spec: d.spec ?? null,
+      surfaceProcessCode: d.surfaceProcessCode ?? null,
+      surfaceColorCode: d.surfaceColorCode ?? null,
       retailPrice: d.retailPrice,
       purchasePrice: d.purchasePrice ?? null,
       unit: d.unit ?? "根",
