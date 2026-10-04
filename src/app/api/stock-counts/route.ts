@@ -49,6 +49,8 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   const session = await auth();
   if (!session) return fail("未登录", 401, 401);
+  // 盘点为内部管理数据：经销商无权查看
+  if (session.user.role === "DEALER") return fail("无权访问", 403, 403);
   const where: any = {};
   if (session.user.role === "WORKSHOP") where.workshopId = session.user.workshopId;
   const counts = await prisma.stockCount.findMany({

@@ -18,6 +18,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ code: 400, message: "非法路径" }, { status: 400 });
   }
 
+  // 资源归属：stamps/{dealerId}/... 合同章仅本人与管理员；
+  // 图纸按上传前缀（dealerId 或上传者 userId）隔离，经销商只能取自己前缀下的文件；
+  // 车间可看图纸（生产所需）但不可看任何合同章。
+  const role = session.user.role;
+  const isStamp = path.startsWith("stamps/");
+  if (role === "WORKSHOP" && isStamp) {
+    return NextResponse.json({ code: 403, message: "无权访问该文件" }, { status: 403 });
+  }
+  if (role === "DEALER") {
+    const ownStamp = `stamps/${session.user.dealerId}/`;
+    const ownDrawing = `${session.user.dealerId}/`;
+    if (isStamp ? !path.startsWith(ownStamp) : !path.startsWith(ownDrawing)) {
+      return NextResponse.json({ code: 403, message: "无权访问该文件" }, { status: 403 });
+    }
+  }
+
   try {
     const signed = await createDrawingSignedUrl(path, 300);
     return NextResponse.redirect(signed, 302);

@@ -23,6 +23,8 @@ const schema = z.object({
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return fail("未登录", 401, 401);
+  // 发货单含全部客户收货人/地址：经销商不可拉全局（门户如需自查走自己的订单接口）
+  if (session.user.role === "DEALER") return fail("无权访问", 403, 403);
   const q = req.nextUrl.searchParams.get("q")?.trim();
   if (q) return ok({ shipments: await searchShipments(prisma, q) });
   const shipments = await prisma.shipment.findMany({

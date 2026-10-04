@@ -2,6 +2,8 @@ import { Prisma, PrismaClient, type WorkOrderStatus } from "@prisma/client";
 import { applyStockMovement } from "../src/lib/inventory";
 import { salesOrderStatusFor } from "../src/lib/workorder";
 import { createShipment } from "../src/lib/shipment";
+import { consumeWorkOrderMaterials } from "../src/lib/stock-consume";
+import { RECEIVABLE_ORDER_STATUSES } from "../src/lib/reconcile";
 
 const prisma = new PrismaClient();
 
@@ -737,6 +739,85 @@ async function main() {
       );
     } catch { reShipBlocked = true; }
     check("Phase E re-shipment after full delivery blocked", reShipBlocked);
+  }
+
+  // ---------- Phase F: P0 正确性回归（外协直发扣料 / 应收口径 / 扣料幂等） ----------
+  {
+    // F1 部分发货必须计入应收口径（否则对账单漏掉最危险时点的应收）
+    check(
+      "Phase F PARTIALLY_SHIPPED counted as receivable",
+      (RECEIVABLE_ORDER_STATUSES as readonly string[]).includes("PARTIALLY_SHIPPED"),
+    );
+
+    // 外协直发场景：订单→工单停在 OUTSOURCING → 从外协厂直发 → 必须补扣原料
+    const orderNoF = stampNo("SOF", suffix);
+    const woNoF = stampNo("WOF", suffix);
+    await prisma.salesOrder.create({
+      data: {
+        orderNo: orderNoF,
+        displayOrderNo: stampNo("F", suffix),
+        dealerId: dealer.id,
+        targetDeliveryDate,
+        dealerAccount: "smoke",
+        receiverName: "Smoke F", receiverPhone: "13000000000", receiverAddress: "smoke",
+        totalAmount: money(500), orderStatus: "PRODUCING", paymentStatus: "UNPAID",
+        createdVia: "INTERNAL",
+        lines: {
+          create: [{
+            lineNo: 1, lineType: "PROFILE", sku: rawProfile.sku, productName: rawProfile.productName,
+            rawProductId: rawProfile.id, cutLengthMm: 900, quantity: 4,
+            unitPrice: money(50), lineAmount: money(200), includedInProfit: true,
+          }],
+        },
+      },
+    });
+    await prisma.workOrder.create({
+      data: {
+        workOrderNo: woNoF, orderNo: orderNoF, workshopId: workshop.id,
+        status: "OUTSOURCING", committedDeliveryDate: targetDeliveryDate, qcRequired: false,
+        assignedBy: "smoke",
+      },
+    });
+    // 备料 20 根
+    await applyStockMovement(prisma, {
+      workshopId: workshop.id, sku: rawProfile.sku, productName: rawProfile.productName,
+      delta: 20, type: "MANUAL_ADJUST", refType: "PO", refNo: `PO-${suffix}-F`,
+      note: "Phase F seed", operatorName: "smoke",
+    });
+    const invBefore = await getInventory(workshop.id, rawProfile.sku);
+    const lineF = (await prisma.salesOrderLine.findFirstOrThrow({ where: { orderNo: orderNoF } }));
+
+    const shF = await prisma.$transaction((tx) =>
+      createShipment(tx, {
+        carrier: "外协厂直发-顺丰", fromType: "OUTSOURCER", fromNote: "喷油厂直发",
+        lines: [{ orderNo: orderNoF, lineId: lineF.id, quantity: 4 }],
+        operatorName: "smoke",
+      }),
+    );
+    const consumesF = await prisma.stockMovement.count({
+      where: { refType: "WO", refNo: woNoF, type: "WORK_ORDER_CONSUME" },
+    });
+    check("Phase F outsourced direct shipment created", shF.lines.length === 1, shF.shipmentNo);
+    check("Phase F outsourced direct shipment consumed raw stock", consumesF === 1, `consume movements=${consumesF}`);
+    const invAfter = await getInventory(workshop.id, rawProfile.sku);
+    // 4 支 ×900mm = 3600mm；棒长 3600/良率 0.95 → ceil(3600/3600/0.95)=2 根
+    check(
+      "Phase F inventory decremented by outsourced shipment (2 bars)",
+      invBefore - invAfter === 2,
+      `before=${invBefore} after=${invAfter}`,
+    );
+    const orderFAfter = await prisma.salesOrder.findUniqueOrThrow({ where: { orderNo: orderNoF } });
+    check("Phase F order SHIPPED via outsourced direct shipment", orderFAfter.orderStatus === "SHIPPED", orderFAfter.orderStatus);
+
+    // 扣料幂等：对已扣过的工单再调用不会重复扣
+    const again = await prisma.$transaction((tx) =>
+      consumeWorkOrderMaterials(tx, {
+        workOrderNo: woNoF, orderNo: orderNoF, workshopId: workshop.id,
+        note: "Phase F idempotency probe", operatorName: "smoke",
+      }),
+    );
+    const invAfterProbe = await getInventory(workshop.id, rawProfile.sku);
+    check("Phase F consume idempotent (second call skipped)", again === false && invAfterProbe === invAfter);
   }
 
   console.log(`\nSmoke E2E passed: ${results.length} assertions`);

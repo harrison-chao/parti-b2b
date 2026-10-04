@@ -3,17 +3,23 @@ import { Prisma } from "@prisma/client";
 
 // Order statuses that count as a firm receivable (dealer owes us).
 // DRAFT/PENDING/MODIFYING = not yet confirmed; CANCELLED/REJECTED = void.
+// PARTIALLY_SHIPPED 必须在内：货已发一部分正是最需要挂应收的时点。
 export const RECEIVABLE_ORDER_STATUSES = [
   "CONFIRMED",
   "PARTIALLY_PAID",
   "PRODUCING",
   "READY",
+  "PARTIALLY_SHIPPED",
   "SHIPPED",
   "COMPLETED",
 ] as const;
 
 const D = (v: Prisma.Decimal | number | string | null | undefined) =>
   v == null ? new Prisma.Decimal(0) : new Prisma.Decimal(v as any);
+
+// 应收口径：审单确认金额优先，未确认为下单金额——与收款核销(dealer-payments)保持同一口径
+const receivableAmount = (o: { totalAmount: Prisma.Decimal; confirmedAmount?: Prisma.Decimal | null }) =>
+  o.confirmedAmount != null ? D(o.confirmedAmount) : D(o.totalAmount);
 
 export type DealerStatement = {
   dealerId: string;
@@ -34,13 +40,13 @@ export async function listDealerStatements(): Promise<DealerStatement[]> {
     include: {
       salesOrders: {
         where: { orderStatus: { in: RECEIVABLE_ORDER_STATUSES as any } },
-        select: { totalAmount: true },
+        select: { totalAmount: true, confirmedAmount: true },
       },
       payments: { select: { amount: true } },
     },
   });
   return dealers.map((d) => {
-    const receivable = d.salesOrders.reduce((s, o) => s.add(D(o.totalAmount)), new Prisma.Decimal(0));
+    const receivable = d.salesOrders.reduce((s, o) => s.add(receivableAmount(o)), new Prisma.Decimal(0));
     const paid = d.payments.reduce((s, p) => s.add(D(p.amount)), new Prisma.Decimal(0));
     return {
       dealerId: d.id,
@@ -65,7 +71,7 @@ export async function getDealerStatementDetail(dealerId: string) {
       where: { dealerId, orderStatus: { in: RECEIVABLE_ORDER_STATUSES as any } },
       orderBy: { orderDate: "desc" },
       select: {
-        orderNo: true, orderDate: true, orderStatus: true, totalAmount: true,
+        orderNo: true, orderDate: true, orderStatus: true, totalAmount: true, confirmedAmount: true,
         paidAmount: true, paymentStatus: true,
       },
     }),
@@ -73,7 +79,7 @@ export async function getDealerStatementDetail(dealerId: string) {
       where: { dealerId }, orderBy: { paidAt: "desc" },
     }),
   ]);
-  const receivable = orders.reduce((s, o) => s.add(D(o.totalAmount)), new Prisma.Decimal(0));
+  const receivable = orders.reduce((s, o) => s.add(receivableAmount(o)), new Prisma.Decimal(0));
   const paid = payments.reduce((s, p) => s.add(D(p.amount)), new Prisma.Decimal(0));
   return {
     dealer,

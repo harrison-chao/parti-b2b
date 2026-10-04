@@ -25,5 +25,5 @@ npm run dev
 ## 模块
 - `/login` 登录
 - `/dealer` 经销商工作台（报价/目录/订单）
-- `/ops` 运营后台（驾驶舱/审核/经销商）
+- `/admin` 运营后台（驾驶舱/代下单/客户/发货/对账）
 - `/api/pricing/*`, `/api/orders/*`, `/api/dealers/*`

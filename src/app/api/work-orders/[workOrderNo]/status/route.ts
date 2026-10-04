@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
 import { isNextWorkOrderStatus, nextWorkOrderStatus, salesOrderStatusFor } from "@/lib/workorder";
-import { applyStockMovement } from "@/lib/inventory";
+import { consumeWorkOrderMaterials } from "@/lib/stock-consume";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
@@ -95,53 +95,13 @@ export async function POST(req: NextRequest, { params }: { params: { workOrderNo
 
     // Auto-decrement inventory on first transition INTO PACKING. Idempotent via existing movement check.
     if (target === "PACKING") {
-      const alreadyConsumed = await tx.stockMovement.count({
-        where: { refType: "WO", refNo: wo.workOrderNo, type: "WORK_ORDER_CONSUME" },
+      await consumeWorkOrderMaterials(tx, {
+        workOrderNo: wo.workOrderNo,
+        orderNo: wo.orderNo,
+        workshopId: wo.workshopId,
+        note: "进入 PACKING 自动扣减",
+        operatorName: session.user.name,
       });
-      if (alreadyConsumed === 0) {
-        const lines = await tx.salesOrderLine.findMany({
-          where: { orderNo: wo.orderNo, lineType: { not: "OUTSOURCED" } },
-        });
-        // HARDWARE: consume by sku 1:1 with quantity. PROFILE with rawProductId: compute bars.
-        const hwAgg = new Map<string, { sku: string; productName: string; qty: number }>();
-        const rawAgg = new Map<string, { productId: string; totalMm: number }>();
-        for (const l of lines) {
-          if (l.lineType === "HARDWARE") {
-            const existing = hwAgg.get(l.sku) ?? { sku: l.sku, productName: l.productName, qty: 0 };
-            existing.qty += l.quantity;
-            hwAgg.set(l.sku, existing);
-          } else if (l.lineType === "PROFILE" && l.rawProductId && l.cutLengthMm) {
-            const existing = rawAgg.get(l.rawProductId) ?? { productId: l.rawProductId, totalMm: 0 };
-            existing.totalMm += l.cutLengthMm * l.quantity;
-            rawAgg.set(l.rawProductId, existing);
-          }
-        }
-        // Emit HARDWARE consumes
-        for (const { sku, productName, qty } of hwAgg.values()) {
-          await applyStockMovement(tx, {
-            workshopId: wo.workshopId, sku, productName,
-            delta: -qty, type: "WORK_ORDER_CONSUME",
-            refType: "WO", refNo: wo.workOrderNo,
-            note: `进入 PACKING 自动扣减`,
-            operatorName: session.user.name,
-          });
-        }
-        // Emit PROFILE raw bar consumes using the raw material's configured bar length and yield.
-        for (const { productId, totalMm } of rawAgg.values()) {
-          const raw = await tx.product.findUnique({ where: { id: productId } });
-          if (!raw) continue;
-          const barMm = Number(raw.lengthMm ?? 3600);
-          const yieldRate = Number(raw.yieldRate ?? 0.95);
-          const bars = Math.ceil(totalMm / barMm / yieldRate);
-          await applyStockMovement(tx, {
-            workshopId: wo.workshopId, sku: raw.sku, productName: raw.productName,
-            delta: -bars, type: "WORK_ORDER_CONSUME",
-            refType: "WO", refNo: wo.workOrderNo,
-            note: `PACKING 自动扣减 · 切长合计 ${totalMm}mm / 棒长 ${barMm}mm / 良率 ${yieldRate} = ${bars} 根`,
-            operatorName: session.user.name,
-          });
-        }
-      }
     }
 
     await logAudit({

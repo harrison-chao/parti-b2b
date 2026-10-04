@@ -49,7 +49,8 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
   const level = order.dealer.priceLevel;
 
   const lineCosts = order.lines.map((l) => {
-    const mm = l.lengthMm ? Number(l.lengthMm) : 0;
+    // 加工行按切长算成本（与下单算价同口径）；未记切长才回退型材标称长
+    const mm = l.cutLengthMm ? Number(l.cutLengthMm) : l.lengthMm ? Number(l.lengthMm) : 0;
     if (!mm) return { lineNo: l.lineNo, mm: 0, pricing: null as any };
     const p = calcPricing(mm, level, config, settings.discountRates);
     return { lineNo: l.lineNo, mm, pricing: p };

@@ -352,6 +352,10 @@ model SalesOrder {
   paymentAllocations DealerPaymentAllocation[]
   crmCustomer        CrmCustomer?              @relation(fields: [crmCustomerId], references: [id], onDelete: SetNull)
   crmOpportunity     CrmOpportunity?           @relation(fields: [crmOpportunityId], references: [id], onDelete: SetNull)
+
+  // P0(A5): 列表按客户/状态筛选与详情 join 的关键索引
+  @@index([dealerId, createdAt])
+  @@index([orderStatus])
 }
 
 model SystemSetting {
@@ -417,6 +421,8 @@ model SalesOrderLine {
 
   order         SalesOrder     @relation(fields: [orderNo], references: [orderNo], onDelete: Cascade)
   shipmentLines ShipmentLine[]
+
+  @@index([orderNo])
 }
 
 // W2: 收藏常用组合（下单快捷插入；候选可由历史 69% 重复组合自动归集）
@@ -552,6 +558,8 @@ model PurchaseOrderLine {
   lineAmount  Decimal @db.Decimal(12, 2)
 
   po PurchaseOrder @relation(fields: [poNo], references: [poNo], onDelete: Cascade)
+
+  @@index([poNo])
 }
 
 model WorkshopInventory {
