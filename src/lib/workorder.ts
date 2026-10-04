@@ -20,7 +20,7 @@ export const WORK_ORDER_FLOW: WorkOrderStatus[] = [
   "SHIPPED",
 ];
 
-/** 允许的状态转移表（有向） */
+/** 允许的状态转移表（有向）。CANCELLED 由订单取消专用端点联动写入，不属于正常流转（无出边）。 */
 export const WORK_ORDER_TRANSITIONS: Record<WorkOrderStatus, WorkOrderStatus[]> = {
   PENDING_START: ["PROCESSING"],
   PROCESSING: ["OUTSOURCING", "QC", "PACKING"],
@@ -29,6 +29,7 @@ export const WORK_ORDER_TRANSITIONS: Record<WorkOrderStatus, WorkOrderStatus[]> 
   PACKING: ["READY_TO_SHIP"],
   READY_TO_SHIP: ["SHIPPED"],
   SHIPPED: [],
+  CANCELLED: [],
 };
 
 /** "推进"快捷动作的默认下一态（车间一键走最常见路径） */
@@ -47,6 +48,7 @@ export function nextWorkOrderStatus(current: WorkOrderStatus, qcRequired: boolea
     case "READY_TO_SHIP":
       return "SHIPPED";
     case "SHIPPED":
+    case "CANCELLED":
       return null;
   }
 }
@@ -71,5 +73,7 @@ export function salesOrderStatusFor(ws: WorkOrderStatus): OrderStatus {
       return "READY";
     case "SHIPPED":
       return "SHIPPED";
+    case "CANCELLED":
+      return "CANCELLED";
   }
 }

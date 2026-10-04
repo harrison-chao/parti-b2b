@@ -1,6 +1,7 @@
 import { PrismaClient, Prisma, SalesOrderLine, WorkOrderStatus } from "@prisma/client";
 import { genShipmentNo } from "@/lib/utils";
 import { consumeWorkOrderMaterials } from "@/lib/stock-consume";
+import { prepayViolation } from "@/lib/payment-guard";
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
@@ -40,13 +41,19 @@ export async function createShipment(tx: Tx, input: CreateShipmentInput) {
   if (!input.carrier?.trim()) throw new Error("承运商必填");
 
   const lineIds = input.lines.map((l) => l.lineId);
-  const lines = await tx.salesOrderLine.findMany({ where: { id: { in: lineIds } }, include: { order: true } });
+  const lines = await tx.salesOrderLine.findMany({
+    where: { id: { in: lineIds } },
+    include: { order: { include: { dealer: { select: { paymentMethod: true, enforcePrepay: true } } } } },
+  });
   const lineMap = new Map(lines.map((l) => [l.id, l]));
   for (const l of input.lines) {
     const line = lineMap.get(l.lineId);
     if (!line) throw new Error(`发货行不存在: ${l.lineId}`);
     if (line.orderNo !== l.orderNo) throw new Error(`发货行 ${line.sku} 不属于订单 ${l.orderNo}`);
     if (line.order.orderStatus === "CANCELLED" || line.order.orderStatus === "REJECTED") throw new Error(`订单 ${l.orderNo} 已取消，不能发货`);
+    // P1-D: 先款后产（发货侧，外协直发同样拦截）
+    const prepayErr = prepayViolation(line.order, line.order.dealer, "SHIP");
+    if (prepayErr) throw new Error(prepayErr);
   }
 
   // 数量结余校验

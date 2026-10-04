@@ -3,6 +3,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
 import { genOrderNo, genDisplayOrderNo } from "@/lib/order-no";
+import { getMaterialShortages, formatShortages } from "@/lib/stock-consume";
+import { queueLoad, skuCycleStats, globalCycleStats, suggestDeliveryDays } from "@/lib/delivery-insight";
 import { genWorkOrderNo } from "@/lib/utils";
 import { LEVEL_DISCOUNT, calcPricing } from "@/lib/pricing";
 import { loadSettings, pricingFieldsToConfig } from "@/lib/settings";
@@ -235,12 +237,39 @@ export async function POST(req: NextRequest) {
 
   try {
     // W1: 内部单自动派单到唯一活跃车间（单车间现实），无审核动作
+    // P1: 自动派单同样执行交期校准与缺料提示（直销客户主流程不能绕过守卫）
     let workOrderNo: string | null = null;
+    let dispatchWarning: string | null = null;
     if (isInternal) {
       const producible = created.lines.some((l) => l.lineType !== "OUTSOURCED");
       if (producible) {
         const workshop = await prisma.workshop.findFirst({ where: { isActive: true }, orderBy: { createdAt: "asc" } });
         if (!workshop) return fail("没有活跃车间，无法自动派单（订单已创建，请手动派单）", 200, 200);
+
+        // 交期校准：客户要求早于产能建议 → 承诺自动上调到建议值（内部单即车间自己承诺，系统兜住现实）
+        const rawIds = [...new Set(created.lines.filter((l) => l.rawProductId).map((l) => l.rawProductId!))];
+        const [load, skuStats, globalStats] = await Promise.all([
+          queueLoad(),
+          rawIds.length ? skuCycleStats(rawIds) : Promise.resolve(new Map()),
+          globalCycleStats(),
+        ]);
+        const skuStat = rawIds.length === 1 ? (skuStats.get(rawIds[0]) ?? null) : (skuStats.size ? [...skuStats.values()][0] : null);
+        const suggestion = suggestDeliveryDays(skuStat ?? globalStats, load, new Date(data.targetDeliveryDate));
+        const suggestedDate = new Date(Date.now() + suggestion.days * 86400000);
+        const customerDate = new Date(data.targetDeliveryDate);
+        const committed = customerDate < suggestedDate ? suggestedDate : customerDate;
+        if (committed > customerDate) {
+          dispatchWarning = `承诺交期已按产能校准：${customerDate.toLocaleDateString("zh-CN")} → ${committed.toLocaleDateString("zh-CN")}（${suggestion.basis}）`;
+        }
+
+        // 缺料提示（不阻塞快速建单；开工处有硬校验）
+        const shortages = await getMaterialShortages(prisma, orderNo, workshop.id);
+        const noteParts = ["内部代下单自动派单"];
+        if (shortages.length) {
+          noteParts.push(`【缺料提示】${formatShortages(shortages)}`);
+          dispatchWarning = `${dispatchWarning ? dispatchWarning + "；" : ""}库存不足：${formatShortages(shortages)}（开工时将再校验）`;
+        }
+
         workOrderNo = genWorkOrderNo();
         await prisma.$transaction(async (tx) => {
           await tx.workOrder.create({
@@ -249,9 +278,10 @@ export async function POST(req: NextRequest) {
               orderNo,
               workshopId: workshop.id,
               status: "PENDING_START",
-              committedDeliveryDate: new Date(data.targetDeliveryDate),
+              committedDeliveryDate: committed,
+              committedOverrideReason: null,
               qcRequired: false,
-              currentNote: "内部代下单自动派单",
+              currentNote: noteParts.join(" · "),
               assignedBy: session.user.name,
             },
           });
@@ -260,7 +290,7 @@ export async function POST(req: NextRequest) {
               workOrderId: (await tx.workOrder.findUniqueOrThrow({ where: { workOrderNo: workOrderNo! } })).id,
               fromStatus: null,
               toStatus: "PENDING_START",
-              note: `内部代下单自动派发至 ${workshop.name}`,
+              note: `内部代下单自动派发至 ${workshop.name}${dispatchWarning ? "；" + dispatchWarning : ""}`,
               operatorUserId: session.user.id,
               operatorName: session.user.name,
             },
@@ -296,7 +326,7 @@ export async function POST(req: NextRequest) {
         ...(created.lines.length > 8 ? [`…共 ${created.lines.length} 行`] : []),
       ]);
     }
-    return ok({ ...created, autoDispatchedWorkOrderNo: workOrderNo ?? null });
+    return ok({ ...created, autoDispatchedWorkOrderNo: workOrderNo ?? null, dispatchWarning });
   } catch (e: any) {
     return fail("创建失败: " + (e?.message ?? e));
   }

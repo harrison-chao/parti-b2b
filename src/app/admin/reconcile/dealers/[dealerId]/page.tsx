@@ -18,10 +18,13 @@ export default async function DealerStatementPage({ params }: { params: { dealer
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{dealer.companyName}</h1>
+          <h1 className="text-2xl font-bold">{dealer.customerType === "WALK_IN" ? (dealer.nickname || dealer.companyName) : dealer.companyName}</h1>
           <p className="text-sm text-muted-foreground font-mono">{dealer.dealerNo} · {dealer.contactName} · {dealer.contactPhone}</p>
         </div>
-        <Link href="/admin/reconcile/dealers" className="text-sm text-sky-400 hover:underline">← 返回列表</Link>
+        <div className="flex items-center gap-4">
+          <Link href={`/print/statement/${dealer.id}`} target="_blank" className="text-sm text-cyan-300 hover:underline">打印对账单 ↗</Link>
+          <Link href="/admin/reconcile/dealers" className="text-sm text-sky-400 hover:underline">← 返回列表</Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -29,14 +32,24 @@ export default async function DealerStatementPage({ params }: { params: { dealer
           <CardContent className="text-2xl font-bold">¥{Number(receivable).toLocaleString("zh-CN", { minimumFractionDigits: 2 })}</CardContent></Card>
         <Card><CardHeader><CardTitle className="text-sm text-muted-foreground">已收</CardTitle></CardHeader>
           <CardContent className="text-2xl font-bold text-emerald-300">¥{Number(paid).toLocaleString("zh-CN", { minimumFractionDigits: 2 })}</CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm text-muted-foreground">余额</CardTitle></CardHeader>
-          <CardContent className={`text-2xl font-bold ${Number(balance) > 0 ? "text-red-400" : Number(balance) < 0 ? "text-amber-600" : "text-muted-foreground"}`}>¥{Number(balance).toLocaleString("zh-CN", { minimumFractionDigits: 2 })}</CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-sm text-muted-foreground">{Number(balance) < 0 ? "余额（预收）" : "余额"}</CardTitle></CardHeader>
+          <CardContent className={`text-2xl font-bold ${Number(balance) > 0 ? "text-red-400" : Number(balance) < 0 ? "text-amber-500" : "text-muted-foreground"}`}>¥{Number(balance).toLocaleString("zh-CN", { minimumFractionDigits: 2 })}</CardContent></Card>
       </div>
 
-      <DealerPaymentPanel dealerId={dealer.id} payments={payments.map((p) => ({
-        id: p.id, amount: p.amount.toString(), paidAt: p.paidAt.toISOString(),
-        method: p.method, refNo: p.refNo, note: p.note, recordedBy: p.recordedBy,
-      }))} />
+      <DealerPaymentPanel
+        dealerId={dealer.id}
+        openOrders={orders
+          .filter((o) => Number(o.confirmedAmount ?? o.totalAmount) - Number(o.paidAmount) > 0)
+          .map((o) => ({
+            orderNo: o.displayOrderNo ?? o.orderNo,
+            rawOrderNo: o.orderNo,
+            due: Number(o.confirmedAmount ?? o.totalAmount) - Number(o.paidAmount),
+          }))}
+        payments={payments.map((p) => ({
+          id: p.id, amount: p.amount.toString(), paidAt: p.paidAt.toISOString(),
+          method: p.method, refNo: p.refNo, note: p.note, recordedBy: p.recordedBy,
+        }))}
+      />
 
       <Card>
         <CardHeader><CardTitle>应收订单（{orders.length}）</CardTitle></CardHeader>

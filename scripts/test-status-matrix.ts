@@ -20,6 +20,8 @@ const EXPECTED: Record<WorkOrderStatus, WorkOrderStatus[]> = {
   PACKING: ["READY_TO_SHIP"],
   READY_TO_SHIP: ["SHIPPED"],
   SHIPPED: [],
+  // CANCELLED 不走正常流转（订单取消专用端点联动），无出边
+  CANCELLED: [],
 };
 for (const from of WORK_ORDER_FLOW) {
   check(`transitions[${from}]`, JSON.stringify(WORK_ORDER_TRANSITIONS[from] ?? []) === JSON.stringify(EXPECTED[from]));

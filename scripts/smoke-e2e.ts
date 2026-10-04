@@ -2,8 +2,13 @@ import { Prisma, PrismaClient, type WorkOrderStatus } from "@prisma/client";
 import { applyStockMovement } from "../src/lib/inventory";
 import { salesOrderStatusFor } from "../src/lib/workorder";
 import { createShipment } from "../src/lib/shipment";
+// WORK_ORDER_TRANSITIONS/nextWorkOrderStatus 在 Phase G 引入
 import { consumeWorkOrderMaterials } from "../src/lib/stock-consume";
 import { RECEIVABLE_ORDER_STATUSES } from "../src/lib/reconcile";
+import { prepayViolation } from "../src/lib/payment-guard";
+import { suggestDeliveryDays } from "../src/lib/delivery-insight";
+import { WORK_ORDER_TRANSITIONS, nextWorkOrderStatus } from "../src/lib/workorder";
+import { Prisma as PrismaNS } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -818,6 +823,42 @@ async function main() {
     );
     const invAfterProbe = await getInventory(workshop.id, rawProfile.sku);
     check("Phase F consume idempotent (second call skipped)", again === false && invAfterProbe === invAfter);
+  }
+
+  // ---------- Phase G: P1 纯函数回归（先款后产 / 交期建议 / CANCELLED 状态机） ----------
+  {
+    // G1 先款后产四象限：开关×单据维度
+    const mkOrder = (over: Partial<{ paidAmount: number; totalAmount: number; confirmedAmount: number; createdVia: "INTERNAL" | "PORTAL" }>) => ({
+      orderNo: "SO-G", createdVia: over.createdVia ?? "PORTAL",
+      paidAmount: new PrismaNS.Decimal(over.paidAmount ?? 0),
+      totalAmount: new PrismaNS.Decimal(over.totalAmount ?? 100),
+      confirmedAmount: over.confirmedAmount == null ? null : new PrismaNS.Decimal(over.confirmedAmount),
+    });
+    const onOff = { paymentMethod: "PREPAID", enforcePrepay: true };
+    const off = { paymentMethod: "PREPAID", enforcePrepay: false };
+    check("G1 prepay blocks underpaid portal order", prepayViolation(mkOrder({ paidAmount: 30 }), onOff, "DISPATCH") !== null);
+    check("G1 prepay allows fully paid portal order", prepayViolation(mkOrder({ paidAmount: 100 }), onOff, "SHIP") === null);
+    check("G1 prepay exempts internal orders (D2)", prepayViolation(mkOrder({ paidAmount: 0, createdVia: "INTERNAL" }), onOff, "DISPATCH") === null);
+    check("G1 prepay off by default", prepayViolation(mkOrder({ paidAmount: 0 }), off, "DISPATCH") === null);
+    check("G1 prepay uses confirmedAmount when set", prepayViolation(mkOrder({ paidAmount: 80, confirmedAmount: 80 }), onOff, "DISPATCH") === null);
+
+    // G2 交期建议：客户日期晚于产能→采用客户；队列紧→上浮
+    const cycle = { p50: 4, p90: 16, sample: 100 };
+    const light = { inProduction: 2, dueIn7d: 1, weeklyThroughput: 6.6 };
+    const far = new Date(Date.now() + 40 * 86400000);
+    const soon = new Date(Date.now() + 2 * 86400000);
+    const r1 = suggestDeliveryDays(cycle, light, far);
+    check("G2 customer date later than capacity → adopt customer", r1.days >= 39, `days=${r1.days}`);
+    const tight = { inProduction: 9, dueIn7d: 10, weeklyThroughput: 6.6 };
+    const r2 = suggestDeliveryDays(cycle, tight, soon);
+    check("G2 tight queue escalates to P95 band", r2.days >= 26 && r2.days <= 30, `days=${r2.days}`);
+    const r3 = suggestDeliveryDays(null, light, soon);
+    check("G2 no sample falls back to calibrated P90=16", r3.days === 16, `days=${r3.days}`);
+
+    // G3 CANCELLED 状态机：无出边、不可推进、映射订单取消
+    check("G3 CANCELLED has no outgoing transitions", (WORK_ORDER_TRANSITIONS.CANCELLED ?? []).length === 0);
+    check("G3 nextWorkOrderStatus(CANCELLED) is null", nextWorkOrderStatus("CANCELLED", true) === null);
+    check("G3 salesOrderStatusFor(CANCELLED) = CANCELLED", salesOrderStatusFor("CANCELLED") === "CANCELLED");
   }
 
   console.log(`\nSmoke E2E passed: ${results.length} assertions`);

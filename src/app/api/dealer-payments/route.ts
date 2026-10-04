@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
@@ -13,6 +14,8 @@ const createSchema = z.object({
   method: z.string().optional().nullable(),
   refNo: z.string().optional().nullable(),
   note: z.string().optional().nullable(),
+  // P1-E: 指定核销（可选）——先核销指定订单，剩余金额再走 FIFO
+  allocations: z.array(z.object({ orderNo: z.string().min(1), amount: z.number().positive() })).optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -63,6 +66,48 @@ export async function POST(req: NextRequest) {
     }
 
     let remaining = d.amount;
+
+    // 核销到单的共享逻辑（指定核销与 FIFO 复用）
+    const allocateToOrder = async (order: { orderNo: string; confirmedAmount: Prisma.Decimal | null; totalAmount: Prisma.Decimal; paidAmount: Prisma.Decimal }, alloc: number) => {
+      const receivable = Number(order.confirmedAmount ?? order.totalAmount);
+      const paid = Number(order.paidAmount);
+      const newPaid = paid + alloc;
+      await tx.dealerPaymentAllocation.create({
+        data: { paymentId: created.id, orderNo: order.orderNo, amount: alloc },
+      });
+      await tx.salesOrder.update({
+        where: { orderNo: order.orderNo },
+        data: {
+          paidAmount: { increment: alloc },
+          paymentStatus: newPaid >= receivable ? "PAID" : "PARTIAL",
+        },
+      });
+    };
+
+    // P1-E: 指定核销段（优先，超额/跨客户直接报错回滚）
+    if (d.allocations?.length) {
+      const specifiedTotal = d.allocations.reduce((s, a) => s + a.amount, 0);
+      if (specifiedTotal > d.amount + 1e-9) {
+        throw new Error(`指定核销合计 ¥${specifiedTotal.toFixed(2)} 超过收款金额 ¥${d.amount.toFixed(2)}`);
+      }
+      for (const a of d.allocations) {
+        const order = await tx.salesOrder.findUnique({ where: { orderNo: a.orderNo } });
+        if (!order) throw new Error(`指定核销订单不存在：${a.orderNo}`);
+        if (order.dealerId !== d.dealerId) throw new Error(`订单 ${a.orderNo} 不属于该客户`);
+        if (!(RECEIVABLE_ORDER_STATUSES as readonly string[]).includes(order.orderStatus)) {
+          throw new Error(`订单 ${a.orderNo} 状态 ${order.orderStatus} 不可核销`);
+        }
+        const receivable = Number(order.confirmedAmount ?? order.totalAmount);
+        const due = Math.max(0, receivable - Number(order.paidAmount));
+        if (a.amount > due + 1e-9) {
+          throw new Error(`订单 ${a.orderNo} 应收余额 ¥${due.toFixed(2)}，指定核销 ¥${a.amount.toFixed(2)} 超额`);
+        }
+        await allocateToOrder(order, a.amount);
+        remaining -= a.amount;
+      }
+    }
+
+    // FIFO 段（剩余金额按时间顺序核销；指定过的订单 due 已为 0 自然跳过）
     const orders = await tx.salesOrder.findMany({
       where: {
         dealerId: d.dealerId,
@@ -78,17 +123,7 @@ export async function POST(req: NextRequest) {
       const due = Math.max(0, receivable - paid);
       if (due <= 0) continue;
       const alloc = Math.min(due, remaining);
-      const newPaid = paid + alloc;
-      await tx.dealerPaymentAllocation.create({
-        data: { paymentId: created.id, orderNo: order.orderNo, amount: alloc },
-      });
-      await tx.salesOrder.update({
-        where: { orderNo: order.orderNo },
-        data: {
-          paidAmount: { increment: alloc },
-          paymentStatus: newPaid >= receivable ? "PAID" : "PARTIAL",
-        },
-      });
+      await allocateToOrder(order, alloc);
       remaining -= alloc;
     }
 
@@ -99,7 +134,10 @@ export async function POST(req: NextRequest) {
       entityId: created.id,
       targetDealerId: dealer.id,
       summary: `登记收款 ¥${d.amount.toFixed(2)}：${dealer.companyName}（${d.method ?? "未注明方式"}）`,
-      detail: { dealerNo: dealer.dealerNo, amount: d.amount, method: d.method ?? null, refNo: d.refNo ?? null, paidAt: d.paidAt },
+      detail: {
+        dealerNo: dealer.dealerNo, amount: d.amount, method: d.method ?? null, refNo: d.refNo ?? null, paidAt: d.paidAt,
+        specifiedAllocations: d.allocations ?? null,
+      },
       actor: session.user,
     }, tx);
 

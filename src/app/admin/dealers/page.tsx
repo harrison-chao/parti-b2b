@@ -15,6 +15,7 @@ export default async function AdminDealersPage({ searchParams }: { searchParams:
     companyName: d.companyName,
     customerType: d.customerType,
     nickname: d.nickname,
+    enforcePrepay: d.enforcePrepay,
     contactName: d.contactName,
     contactPhone: d.contactPhone,
     legalName: d.legalName,

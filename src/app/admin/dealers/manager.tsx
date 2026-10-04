@@ -26,6 +26,7 @@ type Dealer = {
   companyName: string;
   customerType?: "DEALER" | "WALK_IN";
   nickname?: string | null;
+  enforcePrepay?: boolean;
   contactName: string;
   contactPhone: string;
   legalName?: string | null;
@@ -221,6 +222,7 @@ function DealerForm({ dealer, onCancel, onSaved }: {
     industry: dealer?.industry ?? "",
     source: dealer?.source ?? "",
     salesOwner: dealer?.salesOwner ?? "",
+    enforcePrepay: dealer?.enforcePrepay ?? false,
     creditDays: dealer?.creditDays ?? 0,
     allowOverCredit: dealer?.allowOverCredit ?? false,
     remark: dealer?.remark ?? "",
@@ -258,7 +260,7 @@ function DealerForm({ dealer, onCancel, onSaved }: {
         nickname: form.nickname.trim() || null,
         contactName: primary.name.trim(),
         contactPhone: primary.phone?.trim() || form.contactPhone,
-        // 直销客户不参与信用与等级：固定预付款、零信用
+        // 直销客户不参与信用与等级：固定预付款、零信用（先款后产开关独立保留）
         ...(isDirect ? { priceLevel: "C", creditLimit: 0, creditDays: 0, paymentMethod: "PREPAID", allowOverCredit: false } : {}),
         legalName: form.legalName || null,
         taxNo: form.taxNo || null,
@@ -344,8 +346,14 @@ function DealerForm({ dealer, onCancel, onSaved }: {
         </section>
 
         {form.customerType === "WALK_IN" ? (
-          <section className="rounded-xl border border-dashed border-border/80 bg-card/40 p-4 text-sm text-muted-foreground">
-            直销客户不参与信用与等级结算：固定 <span className="text-foreground">预付款</span>、零信用额度。如需信用账期结算，请将客户类型改为「经销商」。
+          <section className="space-y-3">
+            <section className="rounded-xl border border-dashed border-border/80 bg-card/40 p-4 text-sm text-muted-foreground">
+              直销客户不参与信用与等级结算：固定 <span className="text-foreground">预付款</span>、零信用额度。如需信用账期结算，请将客户类型改为「经销商」。
+            </section>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={form.enforcePrepay} onChange={(e) => patch("enforcePrepay", e.target.checked)} />
+              先款后产（开启后非内部单须收清才能派单/发货）
+            </label>
           </section>
         ) : (
         <section>
@@ -367,6 +375,7 @@ function DealerForm({ dealer, onCancel, onSaved }: {
             <Field label="发票抬头"><Input value={form.invoiceTitle} onChange={(e) => patch("invoiceTitle", e.target.value)} /></Field>
             <Field label="发票类型"><Input value={form.invoiceType} onChange={(e) => patch("invoiceType", e.target.value)} /></Field>
             <label className="flex items-end gap-2 pb-2 text-sm"><input type="checkbox" checked={form.allowOverCredit} onChange={(e) => patch("allowOverCredit", e.target.checked)} />允许超信用额度下单</label>
+            <label className="flex items-end gap-2 pb-2 text-sm"><input type="checkbox" checked={form.enforcePrepay} onChange={(e) => patch("enforcePrepay", e.target.checked)} />先款后产（非内部单须收清才能派单/发货）</label>
             <Field label="开户行"><Input value={form.bankName} onChange={(e) => patch("bankName", e.target.value)} /></Field>
             <Field label="银行账号"><Input value={form.bankAccount} onChange={(e) => patch("bankAccount", e.target.value)} /></Field>
           </div>

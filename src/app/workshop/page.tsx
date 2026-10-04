@@ -74,7 +74,7 @@ export default async function WorkshopHomePage() {
                 style={{ animation: `rise-in 0.45s cubic-bezier(0.22,1,0.36,1) ${Math.min(idx * 60, 480)}ms both` }}>
                 <span className={`absolute inset-y-0 left-0 w-1 ${{
                   PENDING_START: "bg-slate-500", PROCESSING: "bg-indigo-400", OUTSOURCING: "bg-amber-400",
-                  QC: "bg-fuchsia-400", PACKING: "bg-purple-400", READY_TO_SHIP: "bg-cyan-400", SHIPPED: "bg-emerald-400",
+                  QC: "bg-fuchsia-400", PACKING: "bg-purple-400", READY_TO_SHIP: "bg-cyan-400", SHIPPED: "bg-emerald-400", CANCELLED: "bg-zinc-600",
                 }[wo.status] ?? "bg-slate-500"}`} />
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">

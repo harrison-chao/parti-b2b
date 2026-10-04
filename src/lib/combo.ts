@@ -46,7 +46,7 @@ function mode<T>(arr: T[]): T | undefined {
 export async function generateCombosFromHistory(prisma: PrismaClient, opts?: { maxTotal?: number }): Promise<{ created: number; skipped: number }> {
   const maxTotal = opts?.maxTotal ?? 30;
   const orders = await prisma.salesOrder.findMany({
-    where: { orderStatus: { not: "REJECTED" } },
+    where: { orderStatus: { notIn: ["REJECTED", "CANCELLED"] } },
     include: { lines: { where: { lineType: { not: "OUTSOURCED" } }, orderBy: { lineNo: "asc" } } },
     orderBy: { orderDate: "asc" },
   });

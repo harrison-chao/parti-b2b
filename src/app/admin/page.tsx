@@ -56,14 +56,19 @@ export default async function OpsHomePage() {
     prisma.$queryRaw<{ c: bigint }[]>`SELECT COUNT(*)::bigint AS c FROM "WorkshopInventory" WHERE "lowStockThreshold" > 0 AND quantity <= "lowStockThreshold"`,
     prisma.$queryRaw<{ ym: string; orders: bigint }[]>`
       SELECT to_char("orderDate", 'YY/MM') AS ym, COUNT(*)::bigint AS orders
-      FROM "SalesOrder" WHERE "orderDate" >= now() - interval '12 months'
+      FROM "SalesOrder"
+      WHERE "orderDate" >= now() - interval '12 months'
+        AND "legacyBaseNo" IS NULL
+        AND "orderStatus" NOT IN ('CANCELLED','REJECTED','DRAFT')
       GROUP BY 1 ORDER BY 1`,
     prisma.$queryRaw<{ ym: string; qty: bigint }[]>`
       SELECT to_char(o."orderDate", 'YY/MM') AS ym, SUM(l.quantity)::bigint AS qty
       FROM "SalesOrder" o JOIN "SalesOrderLine" l ON l."orderNo" = o."orderNo"
       WHERE o."orderDate" >= now() - interval '12 months'
+        AND o."legacyBaseNo" IS NULL
+        AND o."orderStatus" NOT IN ('CANCELLED','REJECTED','DRAFT')
       GROUP BY 1 ORDER BY 1`,
-    prisma.salesOrder.groupBy({ by: ["orderStatus"], _count: { _all: true } }),
+    prisma.salesOrder.groupBy({ by: ["orderStatus"], _count: { _all: true }, where: { legacyBaseNo: null } }),
   ]);
 
   const mtdSales = Number(mtdSalesAgg._sum.totalAmount ?? 0);
