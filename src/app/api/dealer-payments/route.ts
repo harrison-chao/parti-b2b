@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
 import { z } from "zod";
 import { RECEIVABLE_ORDER_STATUSES } from "@/lib/reconcile";
+import { logAudit } from "@/lib/audit";
 
 const createSchema = z.object({
   dealerId: z.string().min(1),
@@ -90,6 +91,17 @@ export async function POST(req: NextRequest) {
       });
       remaining -= alloc;
     }
+
+    // P0(C5)：收款登记必须留痕（金额是敏感操作）
+    await logAudit({
+      action: "DEALER_PAYMENT_CREATE",
+      entityType: "DealerPayment",
+      entityId: created.id,
+      targetDealerId: dealer.id,
+      summary: `登记收款 ¥${d.amount.toFixed(2)}：${dealer.companyName}（${d.method ?? "未注明方式"}）`,
+      detail: { dealerNo: dealer.dealerNo, amount: d.amount, method: d.method ?? null, refNo: d.refNo ?? null, paidAt: d.paidAt },
+      actor: session.user,
+    }, tx);
 
     return created;
   }, { timeout: 120_000, maxWait: 120_000 });

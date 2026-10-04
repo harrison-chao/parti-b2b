@@ -37,6 +37,10 @@ export async function GET(req: NextRequest) {
     where,
     orderBy: [{ category: "asc" }, { series: "asc" }, { sku: "asc" }],
   });
+  // 采购成本价仅管理员可见（经销商门户/车间拿不到成本）
+  if (session.user.role !== "ADMIN") {
+    return ok(products.map(({ purchasePrice, ...rest }) => ({ ...rest, purchasePrice: null })));
+  }
   return ok(products);
 }
 

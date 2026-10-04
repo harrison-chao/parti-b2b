@@ -164,17 +164,30 @@ export async function POST(req: NextRequest) {
     return fail(`信用额度不足（可用 ${Number(dealer.creditBalance).toFixed(2)}，订单 ${totalAmount.toFixed(2)}）`);
   }
 
-  const orderNo = genOrderNo();
-  const displayOrderNo = await genDisplayOrderNo();
+  let orderNo = "";
+  let displayOrderNo = "";
+  let created: Awaited<ReturnType<typeof createOneOrder>> | null = null;
+  for (let attempt = 0; attempt < 3 && !created; attempt++) {
+    orderNo = genOrderNo();
+    displayOrderNo = await genDisplayOrderNo();
+    try {
+      created = await createOneOrder(orderNo, displayOrderNo);
+    } catch (e: any) {
+      // P2002：并发下单撞 orderNo/displayOrderNo 唯一约束 → 换号重试
+      if (e?.code === "P2002") continue;
+      throw e;
+    }
+  }
+  if (!created) return fail("单号生成冲突，请重试");
 
-  try {
-    const created = await prisma.salesOrder.create({
+  async function createOneOrder(orderNo: string, displayOrderNo: string) {
+    return prisma.salesOrder.create({
       data: {
         orderNo,
         displayOrderNo,
         dealerId,
         targetDeliveryDate: new Date(data.targetDeliveryDate),
-        dealerAccount: session.user.email,
+        dealerAccount: session!.user.email,
         receiverName: data.receiverName,
         receiverPhone: data.receiverPhone,
         receiverAddress: data.receiverAddress,
@@ -186,7 +199,7 @@ export async function POST(req: NextRequest) {
         orderStatus: isInternal ? "CONFIRMED" : "DRAFT",
         paymentStatus: "UNPAID",
         createdVia: isInternal ? "INTERNAL" : "PORTAL",
-        createdByUserId: isInternal ? session.user.id : null,
+        createdByUserId: isInternal ? session!.user.id : null,
         priceNote: isInternal ? (data.priceNote ?? null) : null,
         lines: {
           create: resolvedLines.map((l, idx) => ({
@@ -218,7 +231,9 @@ export async function POST(req: NextRequest) {
       },
       include: { lines: true },
     });
+  }
 
+  try {
     // W1: 内部单自动派单到唯一活跃车间（单车间现实），无审核动作
     let workOrderNo: string | null = null;
     if (isInternal) {

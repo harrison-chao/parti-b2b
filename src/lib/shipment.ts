@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma, SalesOrderLine, WorkOrderStatus } from "@prisma/client";
 import { genShipmentNo } from "@/lib/utils";
+import { consumeWorkOrderMaterials } from "@/lib/stock-consume";
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
@@ -94,6 +95,17 @@ export async function createShipment(tx: Tx, input: CreateShipmentInput) {
 
   // 每个受影响订单：判断是否全部行发完
   for (const orderNo of orderNos) {
+    // 外协直发：工单不经过 PACKING，发货时补扣原料（幂等，已扣过则跳过）
+    const woForConsume = woByOrder.get(orderNo);
+    if (input.fromType === "OUTSOURCER" && woForConsume && woForConsume.status !== "SHIPPED") {
+      await consumeWorkOrderMaterials(tx, {
+        workOrderNo: woForConsume.workOrderNo,
+        orderNo,
+        workshopId: woForConsume.workshopId,
+        note: `外协直发 ${shipmentNo} 补扣`,
+        operatorName: input.operatorName,
+      });
+    }
     const order = await tx.salesOrder.findUniqueOrThrow({ where: { orderNo }, include: { lines: true } });
     // 外购行（OUTSOURCED）随单交付、不做数量追踪，不阻塞发货完成判定
     const trackable = (order.lines as SalesOrderLine[]).filter((l) => l.lineType !== "OUTSOURCED");

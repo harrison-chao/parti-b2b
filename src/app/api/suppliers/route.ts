@@ -36,6 +36,8 @@ const createSchema = z.object({
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return fail("未登录", 401, 401);
+  // 供应商档案含联系人/银行账号：仅管理员可见
+  if (session.user.role !== "ADMIN") return fail("无权访问", 403, 403);
   const activeOnly = req.nextUrl.searchParams.get("activeOnly") === "1";
   const suppliers = await prisma.supplier.findMany({
     where: activeOnly ? { isActive: true } : {},

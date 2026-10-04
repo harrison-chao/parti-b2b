@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
 import { z } from "zod";
+import { logAudit } from "@/lib/audit";
 
 const createSchema = z.object({
   supplierId: z.string().min(1),
@@ -70,6 +71,16 @@ export async function POST(req: NextRequest) {
       });
       remaining -= alloc;
     }
+
+    // P0(C5)：付款登记必须留痕
+    await logAudit({
+      action: "SUPPLIER_PAYMENT_CREATE",
+      entityType: "SupplierPayment",
+      entityId: created.id,
+      summary: `登记付款 ¥${d.amount.toFixed(2)}：${supplier.name}（${d.method ?? "未注明方式"}）`,
+      detail: { supplierNo: supplier.supplierNo, amount: d.amount, method: d.method ?? null, refNo: d.refNo ?? null, paidAt: d.paidAt },
+      actor: session.user,
+    }, tx);
 
     return created;
   }, { timeout: 120_000, maxWait: 120_000 });

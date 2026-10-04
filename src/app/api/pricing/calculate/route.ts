@@ -42,5 +42,16 @@ export async function GET(req: NextRequest) {
       retailPrice: full.retailPrice,
     });
   }
+  // 完整成本结构（材料成本/加工费/毛利参数）仅管理员；车间只得到价格结果
+  if (role !== "ADMIN") {
+    return ok({
+      lengthMm: full.lengthMm,
+      actualWeight: full.actualWeight,
+      priceLevel: level,
+      discountPercent,
+      dealerPrice: full.dealerPrice,
+      retailPrice: full.retailPrice,
+    });
+  }
   return ok({ ...full, priceLevel: level, discountPercent });
 }
