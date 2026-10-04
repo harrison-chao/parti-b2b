@@ -117,7 +117,7 @@ function Row({ k, v, bold }: { k: string; v: string; bold?: boolean }) {
   return <div className={`flex justify-between ${bold ? "font-semibold" : "text-muted-foreground"}`}><span>{k}</span><span className={bold ? "text-foreground" : ""}>{v}</span></div>;
 }
 function Price({ label, value, tone, big }: { label: string; value: number; tone?: "muted" | "blue" | "green"; big?: boolean }) {
-  const c = tone === "green" ? "text-emerald-700" : tone === "blue" ? "text-blue-700" : tone === "muted" ? "text-muted-foreground" : "";
+  const c = tone === "green" ? "text-emerald-300" : tone === "blue" ? "text-sky-300" : tone === "muted" ? "text-muted-foreground" : "";
   return (
     <div className="flex justify-between items-center py-0.5">
       <span className={c}>{label}</span>

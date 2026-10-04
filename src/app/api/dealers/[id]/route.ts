@@ -8,6 +8,10 @@ const patchSchema = z.object({
   companyName: z.string().optional(),
   contactName: z.string().optional(),
   contactPhone: z.string().optional(),
+  // 类型纠错：经销商 ↔ 直销客户
+  customerType: z.enum(["DEALER", "WALK_IN"]).optional(),
+  nickname: z.string().optional().nullable(),
+  internalOwnerUserId: z.string().optional().nullable(),
   legalName: z.string().optional().nullable(),
   taxNo: z.string().optional().nullable(),
   invoiceTitle: z.string().optional().nullable(),

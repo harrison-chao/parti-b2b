@@ -26,46 +26,68 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
-      <div className="absolute left-8 top-10 hidden max-w-xl md:block">
-        <div className="mb-6 inline-flex rounded-full border border-white/70 bg-white/65 px-4 py-2 text-xs font-bold uppercase tracking-[0.28em] text-teal-800 shadow-sm backdrop-blur">
-          Parti Operations
-        </div>
-        <h1 className="text-5xl font-black leading-[0.95] tracking-[-0.06em] text-slate-950">
-          经销、采购、车间履约一条线管理
-        </h1>
-        <p className="mt-5 max-w-md text-sm leading-7 text-slate-600">
-          从报价下单到派工生产，再到库存扣减、盘点和应收应付对账，统一在一个轻量 ERP 中闭环。
-        </p>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4 lg:grid lg:grid-cols-2 lg:p-0">
+      {/* 右栏：登录卡片（移动端单列居中） */}
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-col items-center lg:order-2 lg:min-h-screen lg:items-start lg:justify-center lg:px-16 xl:px-24">
+        <Card className="glass-card w-full stagger-in p-1">
+          <CardHeader>
+            <div className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 text-lg font-black text-slate-950 shadow-lg shadow-cyan-500/40 animate-pulse-glow">
+              P
+            </div>
+            <CardTitle className="text-3xl">Parti B2B ERP</CardTitle>
+            <CardDescription>经销商、管理员、车间协同工作台</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">邮箱</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@parti.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">密码</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="请输入密码"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "登录中..." : "登录"}
+              </Button>
+            </form>
+            <p className="mt-6 border-t border-border/60 pt-4 text-xs leading-5 text-muted-foreground">
+              请使用管理员分配的账号登录。经销商与车间账号可在后台主数据中创建。
+            </p>
+          </CardContent>
+        </Card>
       </div>
-      <Card className="relative z-10 w-full max-w-md border-white/80 bg-white/82 shadow-[0_30px_90px_-35px_rgba(15,23,42,0.55)]">
-        <CardHeader>
-          <div className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-teal-700 to-amber-500 text-lg font-black text-white shadow-lg shadow-teal-900/20">
-            P
+      {/* 左栏：营销文案（仅桌面） */}
+      <div className="pointer-events-none hidden min-h-screen items-center lg:order-1 lg:flex">
+        <div className="max-w-xl px-16 xl:px-24">
+          <div className="mb-6 inline-flex rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.28em] text-cyan-300 backdrop-blur">
+            Parti Operations
           </div>
-          <CardTitle className="text-3xl">Parti B2B ERP</CardTitle>
-          <CardDescription>经销商、管理员、车间协同工作台</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">邮箱</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">密码</Label>
-              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "登录中..." : "登录"}
-            </Button>
-          </form>
-          <p className="mt-6 border-t border-slate-900/10 pt-4 text-xs leading-5 text-muted-foreground">
-            请使用管理员分配的账号登录。经销商与车间账号可在后台主数据中创建。
+          <h1 className="text-5xl font-black leading-[0.95] tracking-[-0.06em] text-slate-50 drop-shadow-[0_0_30px_rgba(34,211,238,0.25)]">
+            经销、采购、车间履约一条线管理
+          </h1>
+          <p className="mt-5 max-w-md text-sm leading-7 text-muted-foreground">
+            从报价下单到派工生产，再到库存扣减、盘点和应收应付对账，统一在一个轻量 ERP 中闭环。
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

@@ -133,7 +133,7 @@ export function NewPOForm({ suppliers, workshops, products }: { suppliers: Suppl
             <Input placeholder="搜索 SKU / 名称" value={search} onChange={(e) => setSearch(e.target.value)} />
             <div className="max-h-[500px] overflow-y-auto space-y-1">
               {filtered.map((p) => (
-                <button key={p.id} onClick={() => addProduct(p)} className="w-full text-left p-2 rounded hover:bg-slate-100 border text-xs">
+                <button key={p.id} onClick={() => addProduct(p)} className="w-full text-left p-2 rounded hover:bg-secondary border text-xs">
                   <div className="flex items-center gap-2">
                     <span className="font-mono">{p.sku}</span>
                     {p.isRawMaterial && <Badge className="bg-amber-100 text-amber-800 text-[10px]">原料</Badge>}
@@ -150,7 +150,7 @@ export function NewPOForm({ suppliers, workshops, products }: { suppliers: Suppl
           <CardHeader><CardTitle>采购明细 ({rows.length} 行)</CardTitle></CardHeader>
           <CardContent className="p-0">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b"><tr className="text-left">
+              <thead className="bg-muted/50 border-b"><tr className="text-left">
                 <th className="p-3">SKU</th><th className="p-3">名称</th>
                 <th className="p-3 text-right">数量</th><th className="p-3 text-right">单价</th>
                 <th className="p-3 text-right">小计</th><th className="p-3"></th>
@@ -170,15 +170,15 @@ export function NewPOForm({ suppliers, workshops, products }: { suppliers: Suppl
                       <Input type="number" step="0.01" min={0} value={r.unitPrice} onChange={(e) => patch(r.id, { unitPrice: parseFloat(e.target.value) || 0 })} className="w-24 text-right" />
                     </td>
                     <td className="p-3 text-right font-medium">{formatMoney(r.quantity * r.unitPrice)}</td>
-                    <td className="p-3"><button onClick={() => remove(r.id)} className="text-xs text-red-600 hover:underline">删除</button></td>
+                    <td className="p-3"><button onClick={() => remove(r.id)} className="text-xs text-red-400 hover:underline">删除</button></td>
                   </tr>
                 ))}
                 {rows.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">左侧选择产品添加</td></tr>}
               </tbody>
               {rows.length > 0 && (
-                <tfoot className="bg-slate-50">
+                <tfoot className="bg-muted/50">
                   <tr><td colSpan={4} className="p-3 text-right font-semibold">合计</td>
-                    <td className="p-3 text-right font-bold text-emerald-700 text-lg">{formatMoney(total)}</td><td></td></tr>
+                    <td className="p-3 text-right font-bold text-emerald-300 text-lg">{formatMoney(total)}</td><td></td></tr>
                 </tfoot>
               )}
             </table>
@@ -208,7 +208,7 @@ export function NewPOForm({ suppliers, workshops, products }: { suppliers: Suppl
 
       <div className="flex items-center gap-3">
         <Button onClick={submit} disabled={submitting || rows.length === 0}>{submitting ? "提交中..." : "保存为草稿"}</Button>
-        {error && <span className="text-sm text-red-600">{error}</span>}
+        {error && <span className="text-sm text-red-400">{error}</span>}
       </div>
     </div>
   );

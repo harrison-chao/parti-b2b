@@ -56,7 +56,7 @@ export function WorkshopsManager({ initial }: { initial: Workshop[] }) {
       <Card>
         <CardContent className="p-0">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b"><tr className="text-left">
+            <thead className="bg-muted/50 border-b"><tr className="text-left">
               <th className="p-3">编号</th><th className="p-3">名称</th>
               <th className="p-3">负责人</th><th className="p-3">地址</th>
               <th className="p-3">账号</th><th className="p-3">加工单</th>
@@ -65,14 +65,14 @@ export function WorkshopsManager({ initial }: { initial: Workshop[] }) {
             <tbody>
               {workshops.map((w) => (
                 <>
-                  <tr key={w.id} className="border-b hover:bg-slate-50">
+                  <tr key={w.id} className="border-b hover:bg-muted/50">
                     <td className="p-3 font-mono">{w.code}</td>
                     <td className="p-3 font-medium">{w.name}</td>
                     <td className="p-3">{w.contactName ?? "-"}<div className="text-xs text-muted-foreground">{w.contactPhone ?? ""}</div></td>
                     <td className="p-3 text-xs max-w-xs truncate">{w.address ?? "-"}</td>
                     <td className="p-3">{w.userCount}</td>
                     <td className="p-3">{w.workOrderCount}</td>
-                    <td className="p-3"><Badge className={w.isActive ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-600"}>{w.isActive ? "启用" : "停用"}</Badge></td>
+                    <td className="p-3"><Badge className={w.isActive ? "bg-green-100 text-green-700" : "bg-secondary text-muted-foreground"}>{w.isActive ? "启用" : "停用"}</Badge></td>
                     <td className="p-3 flex gap-1">
                       <Button variant="outline" size="sm" onClick={() => setExpandedId(expandedId === w.id ? null : w.id)}>
                         {expandedId === w.id ? "收起" : "账号"}
@@ -81,7 +81,7 @@ export function WorkshopsManager({ initial }: { initial: Workshop[] }) {
                     </td>
                   </tr>
                   {expandedId === w.id && (
-                    <tr className="bg-amber-50 border-b">
+                    <tr className="bg-amber-500/10 border-b">
                       <td colSpan={8} className="p-4">
                         <UserPanel
                           workshop={w}
@@ -201,9 +201,9 @@ function UserPanel({ workshop, onUserAdded }: { workshop: Workshop; onUserAdded:
         <Button onClick={add} disabled={saving || !email || !name || !password}>{saving ? "添加中..." : "添加账号"}</Button>
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <div className="border rounded bg-white">
+      <div className="border rounded bg-card">
         <table className="w-full text-xs">
-          <thead className="border-b bg-slate-50"><tr className="text-left">
+          <thead className="border-b bg-muted/50"><tr className="text-left">
             <th className="p-2">姓名</th><th className="p-2">邮箱</th><th className="p-2">创建时间</th>
           </tr></thead>
           <tbody>

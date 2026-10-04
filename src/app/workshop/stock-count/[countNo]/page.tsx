@@ -7,7 +7,7 @@ import { formatDateTime, STOCK_COUNT_STATUS_LABEL } from "@/lib/utils";
 import { StockCountEditor } from "./editor";
 
 const STATUS_COLOR: Record<string, string> = {
-  DRAFT: "bg-slate-100 text-slate-700",
+  DRAFT: "bg-secondary text-foreground/80",
   SUBMITTED: "bg-blue-100 text-blue-800",
   APPROVED: "bg-emerald-100 text-emerald-800",
   CANCELLED: "bg-rose-100 text-rose-800",

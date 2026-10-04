@@ -120,7 +120,7 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
           {backupStatus && <span className="text-sm text-muted-foreground">{backupStatus}</span>}
           <div className="w-full overflow-x-auto pt-2">
             <table className="w-full min-w-[880px] text-sm">
-              <thead className="border-b bg-white/40">
+              <thead className="border-b bg-card/40">
                 <tr className="text-left">
                   <th className="p-2">状态</th>
                   <th className="p-2">时间</th>
@@ -134,7 +134,7 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
                 {backups.slice(0, 8).map((backup) => (
                   <tr key={backup.id} className="border-b">
                     <td className="p-2">
-                      <span className={`rounded-full px-2 py-0.5 text-xs ${backup.status === "SUCCESS" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${backup.status === "SUCCESS" ? "bg-emerald-100 text-emerald-300" : "bg-rose-100 text-rose-700"}`}>
                         {backup.status === "SUCCESS" ? "成功" : "失败"}
                       </span>
                     </td>
@@ -220,7 +220,7 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
           ))}
           <div className="flex items-center gap-3 pt-2">
             <Button onClick={() => save("discountRates", discount)}>保存等级折扣</Button>
-            {status.discountRates && <span className="text-sm text-emerald-700">{status.discountRates}</span>}
+            {status.discountRates && <span className="text-sm text-emerald-300">{status.discountRates}</span>}
           </div>
         </CardContent>
       </Card>
@@ -265,7 +265,7 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
               + 添加自定义参数
             </Button>
             <Button onClick={() => save("pricingFields", pricing)}>保存定价参数</Button>
-            {status.pricingFields && <span className="text-sm text-emerald-700">{status.pricingFields}</span>}
+            {status.pricingFields && <span className="text-sm text-emerald-300">{status.pricingFields}</span>}
           </div>
         </CardContent>
       </Card>
@@ -289,7 +289,7 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
           <div className="flex items-center gap-3 pt-2">
             <Button variant="outline" size="sm" onClick={() => setCarriers([...carriers, ""])}>+ 添加</Button>
             <Button onClick={() => save("carriers", carriers.map((c) => c.trim()).filter(Boolean))}>保存承运商</Button>
-            {status.carriers && <span className="text-sm text-emerald-700">{status.carriers}</span>}
+            {status.carriers && <span className="text-sm text-emerald-300">{status.carriers}</span>}
           </div>
         </CardContent>
       </Card>
@@ -302,7 +302,7 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
         <CardContent className="space-y-3">
           {stamp?.url ? (
             <div className="flex items-center gap-4">
-              <img src={stamp.url} alt="合同章" className="w-32 h-32 object-contain border rounded bg-white" />
+              <img src={stamp.url} alt="合同章" className="w-32 h-32 object-contain border rounded bg-card" />
               <div className="text-sm space-y-1">
                 <div className="text-muted-foreground">{stamp.fileName}</div>
                 {stamp.updatedAt && <div className="text-xs text-muted-foreground">更新于 {new Date(stamp.updatedAt).toLocaleString("zh-CN")}</div>}
@@ -332,7 +332,7 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
               className="max-w-xs"
               disabled={!stamp}
             />
-            {status.stampTemplate && <span className="text-sm text-emerald-700">{status.stampTemplate}</span>}
+            {status.stampTemplate && <span className="text-sm text-emerald-300">{status.stampTemplate}</span>}
           </div>
         </CardContent>
       </Card>
@@ -362,7 +362,7 @@ function OptionList({
       <div className="flex items-center gap-3 pt-2">
         <Button variant="outline" size="sm" onClick={() => setItems([...items, { code: "", label: "" }])}>+ 添加</Button>
         <Button size="sm" onClick={onSave}>保存</Button>
-        {status && <span className="text-sm text-emerald-700">{status}</span>}
+        {status && <span className="text-sm text-emerald-300">{status}</span>}
       </div>
     </div>
   );

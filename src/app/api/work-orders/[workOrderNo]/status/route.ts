@@ -8,7 +8,7 @@ import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
 const schema = z.object({
-  toStatus: z.enum(["SCHEDULED", "PREPARING", "PROCESSING", "QC", "PACKING", "READY_TO_SHIP", "SHIPPED"]).optional(),
+  toStatus: z.enum(["PENDING_START", "PROCESSING", "OUTSOURCING", "QC", "PACKING", "READY_TO_SHIP", "SHIPPED"]).optional(),
   advance: z.boolean().optional(),
   note: z.string().optional().nullable(),
   carrier: z.string().optional().nullable(),
@@ -69,10 +69,13 @@ export async function POST(req: NextRequest, { params }: { params: { workOrderNo
 
   try {
     const updated = await prisma.$transaction(async (tx) => {
-      const u = await tx.workOrder.update({
-        where: { id: wo.id },
+      // 乐观锁：仅当状态仍是读取时的状态才更新，防止并发双击产生重复事件/重复扣减
+      const res = await tx.workOrder.updateMany({
+        where: { id: wo.id, status: wo.status },
         data: updateData,
       });
+      if (res.count === 0) throw new Error("加工单状态已被他人变更，请刷新后重试");
+      const u = await tx.workOrder.findUniqueOrThrow({ where: { id: wo.id } });
     await tx.workOrderEvent.create({
       data: {
         workOrderId: wo.id,

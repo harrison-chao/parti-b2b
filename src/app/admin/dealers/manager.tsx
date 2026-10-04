@@ -24,6 +24,8 @@ type Dealer = {
   id: string;
   dealerNo: string;
   companyName: string;
+  customerType?: "DEALER" | "WALK_IN";
+  nickname?: string | null;
   contactName: string;
   contactPhone: string;
   legalName?: string | null;
@@ -53,49 +55,72 @@ const PAYMENT_LABELS: Record<string, string> = { PREPAID: "预付款", DEPOSIT: 
 
 const emptyContact = (): Contact => ({ role: "业务联系人", name: "", phone: "", email: "", wechat: "", isPrimary: false, remark: "" });
 
-export function DealersManager({ initial }: { initial: Dealer[] }) {
+export function DealersManager({ initial, initialTab = "DEALER" }: { initial: Dealer[]; initialTab?: "DEALER" | "WALK_IN" | "ALL" }) {
   const router = useRouter();
   const [dealers, setDealers] = useState(initial);
   const [editing, setEditing] = useState<Dealer | null>(null);
   const [creating, setCreating] = useState(false);
   const [query, setQuery] = useState("");
+  const [typeTab, setTypeTab] = useState<"DEALER" | "WALK_IN" | "ALL">(initialTab);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [levelFilter, setLevelFilter] = useState("ALL");
+
+  const dealerCount = dealers.filter((d) => (d.customerType ?? "DEALER") === "DEALER").length;
+  const directCount = dealers.length - dealerCount;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return dealers.filter((d) => {
-      const matchesQuery = !q || [d.dealerNo, d.companyName, d.contactName, d.contactPhone, d.region, d.salesOwner]
+      const matchesType = typeTab === "ALL" || (d.customerType ?? "DEALER") === typeTab;
+      const matchesQuery = !q || [d.dealerNo, d.companyName, d.nickname, d.contactName, d.contactPhone, d.region, d.salesOwner]
         .some((v) => String(v ?? "").toLowerCase().includes(q));
       const matchesStatus = statusFilter === "ALL" || d.status === statusFilter;
       const matchesLevel = levelFilter === "ALL" || d.priceLevel === levelFilter;
-      return matchesQuery && matchesStatus && matchesLevel;
+      return matchesType && matchesQuery && matchesStatus && matchesLevel;
     });
-  }, [dealers, levelFilter, query, statusFilter]);
+  }, [dealers, levelFilter, query, statusFilter, typeTab]);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">经销商主数据</h1>
-          <p className="text-sm text-muted-foreground">维护客户档案、联系人、开票银行、信用账期与业务负责人</p>
+          <h1 className="text-2xl font-bold">客户管理</h1>
+          <p className="text-sm text-muted-foreground">经销商与直销客户分列管理；直销客户不参与信用与等级，默认预付款</p>
         </div>
-        <Button onClick={() => { setCreating(true); setEditing(null); }}>+ 新增经销商</Button>
+        <Button onClick={() => { setCreating(true); setEditing(null); }}>+ 新增客户</Button>
+      </div>
+
+      <div className="flex w-fit rounded-xl border border-input bg-card/60 p-1 text-sm">
+        {([
+          ["DEALER", `经销商 ${dealerCount}`],
+          ["WALK_IN", `直销客户 ${directCount}`],
+          ["ALL", `全部 ${dealers.length}`],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTypeTab(key)}
+            className={`rounded-lg px-4 py-1.5 font-medium transition-colors ${typeTab === key ? "bg-primary/15 text-primary ring-1 ring-inset ring-primary/30" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       <Card>
         <CardContent className="grid gap-3 pt-5 md:grid-cols-4 md:pt-6">
-          <Input placeholder="搜索编号 / 公司 / 联系人 / 地区 / 负责人" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <select className="h-10 rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <Input placeholder="搜索编号 / 名称 / 收货人 / 联系人 / 地区 / 负责人" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <select className="h-10 rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="ALL">全部状态</option>
             <option value="ACTIVE">启用</option>
             <option value="INACTIVE">停用</option>
           </select>
-          <select className="h-10 rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={levelFilter} onChange={(e) => setLevelFilter(e.target.value)}>
+          <select className="h-10 rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={levelFilter} onChange={(e) => setLevelFilter(e.target.value)} disabled={typeTab === "WALK_IN"}>
             <option value="ALL">全部等级</option>
             {PRICE_TIERS.map((lv) => <option key={lv} value={lv}>{PRICE_TIER_LABEL[lv]}</option>)}
           </select>
-          <div className="flex items-center text-sm text-muted-foreground">共 {filtered.length} / {dealers.length} 家经销商</div>
+          <div className="flex items-center text-sm text-muted-foreground">
+            共 {filtered.length} 家{typeTab === "DEALER" ? "经销商" : typeTab === "WALK_IN" ? "直销客户" : "客户"}
+          </div>
         </CardContent>
       </Card>
 
@@ -116,7 +141,7 @@ export function DealersManager({ initial }: { initial: Dealer[] }) {
       <Card>
         <CardContent className="overflow-x-auto p-0">
           <table className="w-full min-w-[1120px] text-sm">
-            <thead className="border-b bg-white/40"><tr className="text-left">
+            <thead className="border-b bg-card/40"><tr className="text-left">
               <th className="p-3">编号 / 公司</th><th className="p-3">主联系人</th><th className="p-3">地区/行业</th>
               <th className="p-3">负责人</th><th className="p-3">等级</th><th className="p-3">结算</th>
               <th className="p-3 text-right">信用额度</th><th className="p-3 text-right">可用</th>
@@ -125,12 +150,21 @@ export function DealersManager({ initial }: { initial: Dealer[] }) {
             <tbody>
               {filtered.map((d) => {
                 const primary = d.contacts?.find((c) => c.isPrimary) ?? d.contacts?.[0];
+                const isDirect = (d.customerType ?? "DEALER") === "WALK_IN";
+                const displayName = isDirect ? (d.nickname || d.companyName) : d.companyName;
                 return (
                   <tr key={d.id} className="border-b">
                     <td className="p-3">
                       <div className="font-mono text-xs text-muted-foreground">{d.dealerNo}</div>
-                      <div className="font-semibold">{d.companyName}</div>
-                      {d.taxNo && <div className="text-xs text-muted-foreground">税号 {d.taxNo}</div>}
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{displayName}</span>
+                        {isDirect
+                          ? <Badge className="bg-cyan-500/15 text-cyan-300 ring-1 ring-inset ring-cyan-400/20">直销</Badge>
+                          : <Badge className="bg-blue-500/15 text-blue-300 ring-1 ring-inset ring-blue-400/20">经销</Badge>}
+                      </div>
+                      {isDirect
+                        ? <div className="max-w-[240px] truncate text-xs text-muted-foreground" title={d.companyName}>{d.nickname ? d.companyName : d.remark ?? ""}</div>
+                        : d.taxNo && <div className="text-xs text-muted-foreground">税号 {d.taxNo}</div>}
                     </td>
                     <td className="p-3">
                       <div>{primary?.name ?? d.contactName}</div>
@@ -141,14 +175,14 @@ export function DealersManager({ initial }: { initial: Dealer[] }) {
                       <div className="text-muted-foreground">{d.industry || "-"}</div>
                     </td>
                     <td className="p-3 text-xs">{d.salesOwner || "-"}</td>
-                    <td className="p-3"><Badge className="bg-slate-100 text-slate-700">{PRICE_TIER_LABEL[d.priceLevel as "A"|"B"|"C"] ?? d.priceLevel}</Badge></td>
+                    <td className="p-3"><Badge className="bg-secondary text-foreground/80">{PRICE_TIER_LABEL[d.priceLevel as "A"|"B"|"C"] ?? d.priceLevel}</Badge></td>
                     <td className="p-3 text-xs">{PAYMENT_LABELS[d.paymentMethod] ?? d.paymentMethod}</td>
                     <td className="p-3 text-right">{formatMoney(d.creditLimit)}</td>
-                    <td className="p-3 text-right text-emerald-700">{formatMoney(d.creditBalance)}</td>
+                    <td className="p-3 text-right text-emerald-300">{formatMoney(d.creditBalance)}</td>
                     <td className="p-3 text-xs">{d.creditDays ? `${d.creditDays} 天` : "-"}{d.allowOverCredit && <div className="text-amber-600">允许超额</div>}</td>
                     <td className="p-3">{d.orderCount}</td>
                     <td className="p-3">
-                      <Badge className={d.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-600"}>
+                      <Badge className={d.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-secondary text-muted-foreground"}>
                         {d.status === "ACTIVE" ? "启用" : "停用"}
                       </Badge>
                       <div className="mt-1 text-[11px] text-muted-foreground">{formatDate(d.createdAt)}</div>
@@ -173,6 +207,8 @@ function DealerForm({ dealer, onCancel, onSaved }: {
   const [form, setForm] = useState({
     dealerNo: dealer?.dealerNo ?? "",
     companyName: dealer?.companyName ?? "",
+    customerType: dealer?.customerType ?? "DEALER" as "DEALER" | "WALK_IN",
+    nickname: dealer?.nickname ?? "",
     contactName: dealer?.contactName ?? "",
     contactPhone: dealer?.contactPhone ?? "",
     legalName: dealer?.legalName ?? "",
@@ -214,12 +250,16 @@ function DealerForm({ dealer, onCancel, onSaved }: {
         return;
       }
       const primary = normalizedContacts.find((c) => c.isPrimary) ?? normalizedContacts[0];
+      const isDirect = form.customerType === "WALK_IN";
       const payload = {
         ...form,
         dealerNo: form.dealerNo.trim(),
         companyName: form.companyName.trim(),
+        nickname: form.nickname.trim() || null,
         contactName: primary.name.trim(),
         contactPhone: primary.phone?.trim() || form.contactPhone,
+        // 直销客户不参与信用与等级：固定预付款、零信用
+        ...(isDirect ? { priceLevel: "C", creditLimit: 0, creditDays: 0, paymentMethod: "PREPAID", allowOverCredit: false } : {}),
         legalName: form.legalName || null,
         taxNo: form.taxNo || null,
         invoiceTitle: form.invoiceTitle || null,
@@ -255,20 +295,28 @@ function DealerForm({ dealer, onCancel, onSaved }: {
 
   return (
     <Card>
-      <CardHeader><CardTitle>{dealer ? "编辑经销商档案" : "新增经销商档案"}</CardTitle></CardHeader>
+      <CardHeader><CardTitle>{dealer ? "编辑客户档案" : "新增客户档案"}</CardTitle></CardHeader>
       <CardContent className="space-y-5">
         <section>
-          <h3 className="mb-3 text-sm font-bold text-slate-700">基础资料</h3>
+          <h3 className="mb-3 text-sm font-bold text-foreground/80">基础资料</h3>
           <div className="grid gap-3 md:grid-cols-4">
-            <Field label="经销商编号"><Input value={form.dealerNo} disabled={!!dealer} onChange={(e) => patch("dealerNo", e.target.value)} placeholder="PARTI-D-0002" /></Field>
-            <Field label="公司名称"><Input value={form.companyName} onChange={(e) => patch("companyName", e.target.value)} /></Field>
-            <Field label="法定/开票名称"><Input value={form.legalName} onChange={(e) => patch("legalName", e.target.value)} /></Field>
+            <Field label="客户类型">
+              <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={form.customerType} onChange={(e) => patch("customerType", e.target.value)}>
+                <option value="DEALER">经销商</option>
+                <option value="WALK_IN">直销客户</option>
+              </select>
+            </Field>
+            <Field label={form.customerType === "WALK_IN" ? "名称（收货人/称呼）" : "公司名称"}><Input value={form.customerType === "WALK_IN" ? form.nickname : form.companyName} onChange={(e) => patch(form.customerType === "WALK_IN" ? "nickname" : "companyName", e.target.value)} placeholder={form.customerType === "WALK_IN" ? "如：张先生 / xx设计工作室" : ""} /></Field>
+            <Field label="客户编号"><Input value={form.dealerNo} disabled={!!dealer} onChange={(e) => patch("dealerNo", e.target.value)} placeholder={form.customerType === "WALK_IN" ? "WI-0055" : "PARTI-D-0002"} /></Field>
+            {form.customerType === "WALK_IN"
+              ? <Field label="收货地址/备注名（可选）"><Input value={form.companyName} onChange={(e) => patch("companyName", e.target.value)} placeholder="如：杭州市余杭区xx路xx号" /></Field>
+              : <Field label="法定/开票名称"><Input value={form.legalName} onChange={(e) => patch("legalName", e.target.value)} /></Field>}
             <Field label="地区"><Input value={form.region} onChange={(e) => patch("region", e.target.value)} placeholder="华东 / 上海" /></Field>
             <Field label="行业"><Input value={form.industry} onChange={(e) => patch("industry", e.target.value)} placeholder="门店 / 工程 / 家装" /></Field>
             <Field label="客户来源"><Input value={form.source} onChange={(e) => patch("source", e.target.value)} /></Field>
             <Field label="销售负责人"><Input value={form.salesOwner} onChange={(e) => patch("salesOwner", e.target.value)} /></Field>
             <Field label="状态">
-              <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={form.status} onChange={(e) => patch("status", e.target.value)}>
+              <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={form.status} onChange={(e) => patch("status", e.target.value)}>
                 <option value="ACTIVE">启用</option><option value="INACTIVE">停用</option>
               </select>
             </Field>
@@ -277,12 +325,12 @@ function DealerForm({ dealer, onCancel, onSaved }: {
 
         <section>
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-700">联系人</h3>
+            <h3 className="text-sm font-bold text-foreground/80">联系人</h3>
             <Button size="sm" variant="outline" onClick={() => setContacts([...contacts, emptyContact()])}>+ 添加联系人</Button>
           </div>
           <div className="space-y-2">
             {contacts.map((c, idx) => (
-              <div key={idx} className="grid gap-2 rounded-2xl border bg-white/50 p-3 md:grid-cols-7">
+              <div key={idx} className="grid gap-2 rounded-2xl border bg-card/50 p-3 md:grid-cols-7">
                 <Input placeholder="角色" value={c.role} onChange={(e) => patchContact(idx, { role: e.target.value })} />
                 <Input placeholder="姓名" value={c.name} onChange={(e) => patchContact(idx, { name: e.target.value })} />
                 <Input placeholder="电话" value={c.phone ?? ""} onChange={(e) => patchContact(idx, { phone: e.target.value })} />
@@ -295,16 +343,21 @@ function DealerForm({ dealer, onCancel, onSaved }: {
           </div>
         </section>
 
+        {form.customerType === "WALK_IN" ? (
+          <section className="rounded-xl border border-dashed border-border/80 bg-card/40 p-4 text-sm text-muted-foreground">
+            直销客户不参与信用与等级结算：固定 <span className="text-foreground">预付款</span>、零信用额度。如需信用账期结算，请将客户类型改为「经销商」。
+          </section>
+        ) : (
         <section>
-          <h3 className="mb-3 text-sm font-bold text-slate-700">结算与信用</h3>
+          <h3 className="mb-3 text-sm font-bold text-foreground/80">结算与信用</h3>
           <div className="grid gap-3 md:grid-cols-4">
             <Field label="价格等级">
-              <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={form.priceLevel} onChange={(e) => patch("priceLevel", e.target.value)}>
+              <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={form.priceLevel} onChange={(e) => patch("priceLevel", e.target.value)}>
                 {PRICE_TIERS.map((lv) => <option key={lv} value={lv}>{PRICE_TIER_LABEL[lv]}</option>)}
               </select>
             </Field>
             <Field label="结算方式">
-              <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={form.paymentMethod} onChange={(e) => patch("paymentMethod", e.target.value)}>
+              <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={form.paymentMethod} onChange={(e) => patch("paymentMethod", e.target.value)}>
                 <option value="PREPAID">预付款</option><option value="DEPOSIT">定金</option><option value="CREDIT">信用额度</option>
               </select>
             </Field>
@@ -318,6 +371,7 @@ function DealerForm({ dealer, onCancel, onSaved }: {
             <Field label="银行账号"><Input value={form.bankAccount} onChange={(e) => patch("bankAccount", e.target.value)} /></Field>
           </div>
         </section>
+        )}
 
         <Field label="备注"><Textarea value={form.remark} onChange={(e) => patch("remark", e.target.value)} /></Field>
         {error && <p className="text-sm text-destructive">{error}</p>}

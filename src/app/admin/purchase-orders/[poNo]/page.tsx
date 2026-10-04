@@ -86,7 +86,7 @@ export default async function PODetailPage({ params }: { params: { poNo: string 
         <CardHeader><CardTitle>收货流水 ({movements.length})</CardTitle></CardHeader>
         <CardContent className="p-0">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b"><tr className="text-left">
+            <thead className="bg-muted/50 border-b"><tr className="text-left">
               <th className="p-3">时间</th><th className="p-3">SKU</th>
               <th className="p-3">名称</th><th className="p-3">类型</th>
               <th className="p-3 text-right">数量</th><th className="p-3 text-right">结存</th>
@@ -99,7 +99,7 @@ export default async function PODetailPage({ params }: { params: { poNo: string 
                   <td className="p-3 font-mono text-xs">{m.sku}</td>
                   <td className="p-3">{m.productName}</td>
                   <td className="p-3 text-xs">{STOCK_MOVEMENT_TYPE_LABEL[m.type]}</td>
-                  <td className={`p-3 text-right ${m.quantity >= 0 ? "text-emerald-700" : "text-red-600"}`}>{m.quantity >= 0 ? "+" : ""}{m.quantity}</td>
+                  <td className={`p-3 text-right ${m.quantity >= 0 ? "text-emerald-300" : "text-red-400"}`}>{m.quantity >= 0 ? "+" : ""}{m.quantity}</td>
                   <td className="p-3 text-right">{m.balanceAfter}</td>
                   <td className="p-3 text-xs">{m.operatorName ?? "-"}</td>
                   <td className="p-3 text-xs text-muted-foreground">{m.note ?? "-"}</td>

@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
     if (!data.dealerId) return fail("经销商账号必须选择经销商档案");
     const dealer = await prisma.dealer.findUnique({ where: { id: data.dealerId } });
     if (!dealer) return fail("经销商档案不存在", 404, 404);
+    if (dealer.customerType !== "DEALER") return fail("直销客户不能开通经销商门户账号，请在客户管理中先将其改为经销商类型");
   }
 
   if (data.role === "WORKSHOP") {

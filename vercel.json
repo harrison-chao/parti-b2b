@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/daily-backup",
       "schedule": "10 18 * * *"
+    },
+    {
+      "path": "/api/cron/feishu-digest",
+      "schedule": "10 1 * * *"
     }
   ]
 }

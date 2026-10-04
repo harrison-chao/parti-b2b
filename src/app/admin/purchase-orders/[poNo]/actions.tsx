@@ -87,7 +87,7 @@ export function PODetailActions({ poNo, status, lines, totalAmount }: { poNo: st
       </CardHeader>
       <CardContent className="p-0">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b"><tr className="text-left">
+          <thead className="bg-muted/50 border-b"><tr className="text-left">
             <th className="p-3">#</th><th className="p-3">SKU</th>
             <th className="p-3">名称</th>
             <th className="p-3 text-right">订货</th>
@@ -110,7 +110,7 @@ export function PODetailActions({ poNo, status, lines, totalAmount }: { poNo: st
                   </td>
                   <td className="p-3 text-right">{l.quantity}</td>
                   <td className="p-3 text-right">{l.receivedQty}</td>
-                  <td className={`p-3 text-right ${remaining > 0 ? "text-amber-700" : "text-muted-foreground"}`}>{remaining}</td>
+                  <td className={`p-3 text-right ${remaining > 0 ? "text-amber-300" : "text-muted-foreground"}`}>{remaining}</td>
                   <td className="p-3 text-right">{formatMoney(l.unitPrice)}</td>
                   <td className="p-3 text-right font-medium">{formatMoney(l.lineAmount)}</td>
                   {canReceive && (
@@ -126,19 +126,19 @@ export function PODetailActions({ poNo, status, lines, totalAmount }: { poNo: st
               );
             })}
           </tbody>
-          <tfoot className="bg-slate-50">
+          <tfoot className="bg-muted/50">
             <tr><td colSpan={7} className="p-3 text-right font-semibold">合计</td>
-              <td className="p-3 text-right font-bold text-emerald-700 text-lg">{formatMoney(totalAmount)}</td>
+              <td className="p-3 text-right font-bold text-emerald-300 text-lg">{formatMoney(totalAmount)}</td>
               {canReceive && <td></td>}
             </tr>
           </tfoot>
         </table>
 
         {canReceive && (
-          <div className="p-4 border-t bg-slate-50/50 flex items-center gap-3">
+          <div className="p-4 border-t bg-muted/50/50 flex items-center gap-3">
             <Input placeholder="收货备注（可选）" value={note} onChange={(e) => setNote(e.target.value)} className="flex-1" />
             <Button onClick={receive} disabled={busy}>{busy ? "处理中..." : "确认收货入库"}</Button>
-            {error && <span className="text-xs text-red-600">{error}</span>}
+            {error && <span className="text-xs text-red-400">{error}</span>}
           </div>
         )}
       </CardContent>

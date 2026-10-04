@@ -298,7 +298,7 @@ export function ProductManager({ products }: { products: P[] }) {
           <button
             key={c}
             onClick={() => switchTab(c)}
-            className={`px-4 py-2 rounded-md text-sm font-medium ${tab === c ? "bg-slate-900 text-white" : "bg-white border"}`}
+            className={`px-4 py-2 rounded-md text-sm font-medium ${tab === c ? "bg-slate-900 text-white" : "bg-card border"}`}
           >
             {PRODUCT_CATEGORY_LABEL[c]} · {products.filter((p) => p.category === c).length}
           </button>
@@ -313,11 +313,11 @@ export function ProductManager({ products }: { products: P[] }) {
             <CardTitle>批量新增 {PRODUCT_CATEGORY_LABEL[tab]} SKU</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-2xl border bg-white/60 p-3 text-xs leading-6 text-muted-foreground">
+            <div className="rounded-2xl border bg-card/60 p-3 text-xs leading-6 text-muted-foreground">
               可从 Excel 复制多行粘贴。列顺序：SKU、名称、系列、规格、零售价、采购成本、单位、原料棒长、良率、图纸必传、是否原料。
             </div>
             <textarea
-              className="min-h-20 w-full rounded-xl border border-input bg-white/75 p-3 text-sm shadow-sm"
+              className="min-h-20 w-full rounded-xl border border-input bg-card/75 p-3 text-sm shadow-sm"
               placeholder="粘贴多行数据，例如：SKU<Tab>名称<Tab>系列<Tab>规格..."
               onPaste={(e) => {
                 const text = e.clipboardData.getData("text");
@@ -327,9 +327,9 @@ export function ProductManager({ products }: { products: P[] }) {
                 }
               }}
             />
-            <div className="overflow-x-auto rounded-2xl border bg-white">
+            <div className="overflow-x-auto rounded-2xl border bg-card">
               <table className="w-full min-w-[1180px] text-xs">
-                <thead className="border-b bg-slate-50">
+                <thead className="border-b bg-muted/50">
                   <tr className="text-left">
                     <th className="p-2">SKU*</th><th className="p-2">名称*</th><th className="p-2">系列*</th><th className="p-2">规格</th>
                     <th className="p-2">零售价</th><th className="p-2">采购成本</th><th className="p-2">单位</th>
@@ -355,7 +355,7 @@ export function ProductManager({ products }: { products: P[] }) {
                         </>
                       )}
                       <td className="p-2 text-center"><input type="checkbox" checked={row.drawingRequired} onChange={(e) => patchBulkRow(index, { drawingRequired: e.target.checked })} /></td>
-                      <td className="p-2"><button className="text-red-600 hover:underline" onClick={() => removeBulkRow(index)}>删除行</button></td>
+                      <td className="p-2"><button className="text-red-400 hover:underline" onClick={() => removeBulkRow(index)}>删除行</button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -410,7 +410,7 @@ export function ProductManager({ products }: { products: P[] }) {
       <Card>
         <CardContent className="p-0">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b"><tr className="text-left">
+            <thead className="bg-muted/50 border-b"><tr className="text-left">
               <th className="p-3">SKU</th><th className="p-3">名称</th><th className="p-3">系列</th>
               <th className="p-3">规格</th>{tab === "PROFILE" && <th className="p-3">原料规则</th>}
               {tab !== "PROFILE" && <th className="p-3 text-right">零售价</th>}
@@ -419,7 +419,7 @@ export function ProductManager({ products }: { products: P[] }) {
             </tr></thead>
             <tbody>
               {list.map((p) => (
-                <tr key={p.id} className="border-b hover:bg-slate-50">
+                <tr key={p.id} className="border-b hover:bg-muted/50">
                   <td className="p-3 font-mono">{p.sku}</td>
                   <td className="p-3">{p.productName}</td>
                   <td className="p-3 text-xs">{p.series}</td>
@@ -427,7 +427,7 @@ export function ProductManager({ products }: { products: P[] }) {
                   {tab === "PROFILE" && (
                     <td className="p-3 text-xs">
                       {p.isRawMaterial ? (
-                        <button className="text-left text-blue-600 hover:underline" onClick={() => editProfileRules(p)}>
+                        <button className="text-left text-sky-400 hover:underline" onClick={() => editProfileRules(p)}>
                           原料 · {p.lengthMm ?? 3600}mm · 良率 {p.yieldRate ?? 0.95}
                         </button>
                       ) : <span className="text-muted-foreground">非原料</span>}
@@ -441,19 +441,19 @@ export function ProductManager({ products }: { products: P[] }) {
                   <td className="p-3 text-right text-xs text-muted-foreground">{p.purchasePrice != null ? formatMoney(p.purchasePrice) : "-"}</td>
                   <td className="p-3 text-xs">{p.drawingRequired ? "必传" : "-"}</td>
                   <td className="p-3">
-                    <Badge className={p.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500"}>
+                    <Badge className={p.isActive ? "bg-emerald-100 text-emerald-300" : "bg-slate-200 text-muted-foreground"}>
                       {p.isActive ? "启用" : "停用"}
                     </Badge>
                   </td>
                   <td className="p-3">
                     <div className="flex items-center gap-3">
-                      <button onClick={() => openEdit(p)} className="text-xs text-blue-600 hover:underline">
+                      <button onClick={() => openEdit(p)} className="text-xs text-sky-400 hover:underline">
                         编辑
                       </button>
-                      <button onClick={() => toggleActive(p)} className="text-xs text-blue-600 hover:underline">
+                      <button onClick={() => toggleActive(p)} className="text-xs text-sky-400 hover:underline">
                         {p.isActive ? "停用" : "启用"}
                       </button>
-                      <button onClick={() => deleteProduct(p)} className="text-xs text-red-600 hover:underline">
+                      <button onClick={() => deleteProduct(p)} className="text-xs text-red-400 hover:underline">
                         删除
                       </button>
                     </div>

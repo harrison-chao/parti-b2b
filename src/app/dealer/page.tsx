@@ -59,7 +59,7 @@ export default async function DealerHomePage() {
           ) : (
             <div className="divide-y">
               {recentOrders.map((o) => (
-                <Link href={`/dealer/orders/${o.orderNo}`} key={o.orderNo} className="flex items-center justify-between py-3 hover:bg-slate-50 -mx-2 px-2 rounded">
+                <Link href={`/dealer/orders/${o.orderNo}`} key={o.orderNo} className="flex items-center justify-between py-3 hover:bg-muted/50 -mx-2 px-2 rounded">
                   <div>
                     <div className="font-medium">{o.orderNo}</div>
                     <div className="text-xs text-muted-foreground">{formatDate(o.orderDate)} · 交期 {formatDate(o.targetDeliveryDate)}</div>

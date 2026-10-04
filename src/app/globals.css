@@ -2,73 +2,120 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   Parti 加工履约 · 暗色驾驶舱主题（2026-10 UI 重做）
+   深空底 + 玻璃卡 + 电光青主色 + kinetics 式弹簧微交互
+   ============================================================ */
 @layer base {
   :root {
-    --background: 42 45% 96%;
-    --foreground: 220 36% 12%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 36% 12%;
-    --primary: 174 62% 25%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 38 45% 91%;
-    --secondary-foreground: 220 36% 12%;
-    --muted: 42 32% 90%;
-    --muted-foreground: 218 13% 43%;
-    --accent: 171 45% 90%;
-    --accent-foreground: 174 62% 18%;
-    --destructive: 0 84.2% 60.2%;
+    --background: 222 47% 5%;
+    --foreground: 213 31% 91%;
+    --card: 222 44% 8%;
+    --card-foreground: 213 31% 91%;
+    --popover: 222 46% 7%;
+    --popover-foreground: 213 31% 91%;
+    --primary: 187 92% 50%;
+    --primary-foreground: 222 47% 6%;
+    --secondary: 222 36% 13%;
+    --secondary-foreground: 213 25% 86%;
+    --muted: 220 33% 13%;
+    --muted-foreground: 217 12% 62%;
+    --accent: 187 80% 18%;
+    --accent-foreground: 187 92% 70%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-    --border: 38 22% 82%;
-    --input: 38 22% 82%;
-    --ring: 174 62% 25%;
-    --radius: 1rem;
+    --border: 217 28% 18%;
+    --input: 217 28% 18%;
+    --ring: 187 92% 50%;
+    --radius: 0.875rem;
   }
 }
 
 @layer base {
   * { @apply border-border; }
-  html {
-    scroll-behavior: smooth;
-  }
+  html { scroll-behavior: smooth; color-scheme: dark; }
 
   body {
     @apply bg-background text-foreground antialiased;
     min-height: 100vh;
-    font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-family: "Inter", "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-feature-settings: "cv02", "tnum";
     background:
-      radial-gradient(circle at 12% 8%, hsl(172 58% 78% / 0.45), transparent 28rem),
-      radial-gradient(circle at 86% 0%, hsl(31 84% 78% / 0.34), transparent 24rem),
-      linear-gradient(135deg, hsl(45 55% 97%), hsl(188 32% 92%) 45%, hsl(42 34% 94%));
+      radial-gradient(ellipse 80% 50% at 50% -10%, hsl(187 90% 24% / 0.20), transparent),
+      radial-gradient(ellipse 60% 40% at 100% 100%, hsl(222 80% 30% / 0.14), transparent),
+      hsl(var(--background));
+    background-attachment: fixed;
   }
 
-  ::selection {
-    background: hsl(174 62% 25% / 0.18);
-  }
+  ::selection { background: hsl(var(--primary) / 0.28); }
 
-  h1, h2, h3 {
-    letter-spacing: -0.03em;
-  }
+  h1, h2, h3 { letter-spacing: -0.02em; }
 
-  table {
-    border-collapse: separate;
-    border-spacing: 0;
-  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: hsl(217 28% 18%); border-radius: 8px; border: 2px solid hsl(var(--background)); }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(217 20% 28%); }
 
-  thead {
-    color: hsl(var(--muted-foreground));
-  }
+  table { border-collapse: separate; border-spacing: 0; }
+  thead { color: hsl(var(--muted-foreground)); }
 
-  tbody tr {
-    transition: background-color 160ms ease, transform 160ms ease;
-  }
+  tbody tr { transition: background-color 160ms ease; }
+  tbody tr:hover { background-color: hsl(187 60% 40% / 0.06); }
 
-  tbody tr:hover {
-    background-color: hsl(174 55% 96% / 0.7);
-  }
+  input, select, textarea { color-scheme: dark; }
 }
 
 @layer components {
-  .container {
-    @apply px-4 md:px-8;
+  .container { @apply px-4 md:px-8; }
+
+  /* 玻璃卡：主题核心容器 */
+  .glass-card {
+    background: linear-gradient(160deg, hsl(222 40% 11% / 0.85), hsl(222 44% 8% / 0.92));
+    border: 1px solid hsl(217 28% 18% / 0.9);
+    box-shadow: 0 1px 0 hsl(0 0% 100% / 0.04) inset, 0 8px 24px -12px hsl(222 80% 2% / 0.8);
+  }
+  .glass-card-hover {
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.25s, box-shadow 0.25s;
+  }
+  .glass-card-hover:hover {
+    transform: translateY(-2px);
+    border-color: hsl(187 92% 50% / 0.35);
+    box-shadow: 0 1px 0 hsl(0 0% 100% / 0.05) inset, 0 16px 40px -16px hsl(187 90% 30% / 0.35);
+  }
+
+  /* 弹簧微交互（kinetics 风格，纯 CSS 实现） */
+  .spring-press { transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .spring-press:active { transform: scale(0.96); }
+  .spring-hover { transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .spring-hover:hover { transform: translateY(-2px) scale(1.01); }
+
+  /* 列表/卡片交错入场 */
+  .stagger-in { animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  /* 仪表数字 */
+  .stat-num {
+    font-variant-numeric: tabular-nums;
+    background: linear-gradient(180deg, hsl(0 0% 100%), hsl(213 30% 72%));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* 主色辉光 */
+  .btn-glow { box-shadow: 0 0 0 1px hsl(187 92% 50% / 0.5), 0 4px 24px -6px hsl(187 92% 50% / 0.55); }
+
+  @media print {
+    body { background: #fff !important; color: #000 !important; }
+    .no-print { display: none !important; }
   }
 }
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4); }
+  50% { box-shadow: 0 0 0 6px hsl(var(--primary) / 0); }
+}
+.animate-pulse-glow { animation: pulse-glow 2.2s ease-in-out infinite; }

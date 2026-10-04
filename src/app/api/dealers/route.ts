@@ -4,11 +4,16 @@ import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
 import { z } from "zod";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return fail("未登录", 401, 401);
   if (session.user.role === "DEALER") return fail("无权访问", 403, 403);
+  const typeParam = req.nextUrl.searchParams.get("customerType");
+  const where = typeParam === "DEALER" || typeParam === "WALK_IN"
+    ? { customerType: typeParam as "DEALER" | "WALK_IN" }
+    : {};
   const dealers = await prisma.dealer.findMany({
+    where,
     orderBy: { createdAt: "desc" },
     include: { contacts: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] }, _count: { select: { salesOrders: true } } },
   });
@@ -31,6 +36,10 @@ const createSchema = z.object({
   companyName: z.string().min(1),
   contactName: z.string().min(1),
   contactPhone: z.string().min(1),
+  // W1: 散客/直发客户（D1）——WALK_IN 不参与信用与等级
+  customerType: z.enum(["DEALER", "WALK_IN"]).optional(),
+  nickname: z.string().optional().nullable(),
+  internalOwnerUserId: z.string().optional().nullable(),
   legalName: z.string().optional().nullable(),
   taxNo: z.string().optional().nullable(),
   invoiceTitle: z.string().optional().nullable(),
@@ -67,6 +76,9 @@ export async function POST(req: NextRequest) {
       companyName: d.companyName,
       contactName: d.contactName,
       contactPhone: d.contactPhone,
+      customerType: d.customerType ?? "DEALER",
+      nickname: d.nickname ?? null,
+      internalOwnerUserId: d.internalOwnerUserId ?? null,
       legalName: d.legalName ?? null,
       taxNo: d.taxNo ?? null,
       invoiceTitle: d.invoiceTitle ?? null,

@@ -6,7 +6,7 @@ import { formatDateTime, STOCK_COUNT_STATUS_LABEL } from "@/lib/utils";
 import { ApproveStockCountButton } from "./actions";
 
 const STATUS_COLOR: Record<string, string> = {
-  DRAFT: "bg-slate-100 text-slate-700",
+  DRAFT: "bg-secondary text-foreground/80",
   SUBMITTED: "bg-blue-100 text-blue-800",
   APPROVED: "bg-emerald-100 text-emerald-800",
   CANCELLED: "bg-rose-100 text-rose-800",
@@ -32,16 +32,16 @@ export default async function AdminStockCountsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">待审核</div><div className="mt-1 text-3xl font-bold text-blue-700">{submitted}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">待审核</div><div className="mt-1 text-3xl font-bold text-sky-300">{submitted}</div></CardContent></Card>
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">盘点单总数</div><div className="mt-1 text-3xl font-bold">{counts.length}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">已审核</div><div className="mt-1 text-3xl font-bold text-emerald-700">{counts.filter((c) => c.status === "APPROVED").length}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">已审核</div><div className="mt-1 text-3xl font-bold text-emerald-300">{counts.filter((c) => c.status === "APPROVED").length}</div></CardContent></Card>
       </div>
 
       <Card>
         <CardHeader><CardTitle>盘点单列表</CardTitle></CardHeader>
         <CardContent className="overflow-x-auto p-0">
           <table className="w-full min-w-[980px] text-sm">
-            <thead className="border-b bg-white/40"><tr className="text-left">
+            <thead className="border-b bg-card/40"><tr className="text-left">
               <th className="p-3">单号</th><th className="p-3">车间</th><th className="p-3">状态</th>
               <th className="p-3 text-right">SKU 数</th><th className="p-3 text-right">盈</th><th className="p-3 text-right">亏</th>
               <th className="p-3">提交</th><th className="p-3">审核</th><th className="p-3">操作</th>
@@ -53,13 +53,13 @@ export default async function AdminStockCountsPage() {
                 return (
                   <tr key={c.id} className="border-b">
                     <td className="p-3 font-mono">
-                      <Link href={`/admin/stock-counts/${c.countNo}`} className="text-blue-600 hover:underline">{c.countNo}</Link>
+                      <Link href={`/admin/stock-counts/${c.countNo}`} className="text-sky-400 hover:underline">{c.countNo}</Link>
                     </td>
                     <td className="p-3"><div>{c.workshop.name}</div><div className="text-xs text-muted-foreground">{c.workshop.code}</div></td>
                     <td className="p-3"><Badge className={STATUS_COLOR[c.status]}>{STOCK_COUNT_STATUS_LABEL[c.status]}</Badge></td>
                     <td className="p-3 text-right">{c._count.lines}</td>
-                    <td className="p-3 text-right text-emerald-700">{positive}</td>
-                    <td className="p-3 text-right text-red-600">{negative}</td>
+                    <td className="p-3 text-right text-emerald-300">{positive}</td>
+                    <td className="p-3 text-right text-red-400">{negative}</td>
                     <td className="p-3 text-xs">{c.submittedAt ? <>{formatDateTime(c.submittedAt)}<div className="text-muted-foreground">{c.submittedBy}</div></> : "-"}</td>
                     <td className="p-3 text-xs">{c.approvedAt ? <>{formatDateTime(c.approvedAt)}<div className="text-muted-foreground">{c.approvedBy}</div></> : "-"}</td>
                     <td className="p-3">{c.status === "SUBMITTED" ? <ApproveStockCountButton countNo={c.countNo} /> : <span className="text-xs text-muted-foreground">-</span>}</td>

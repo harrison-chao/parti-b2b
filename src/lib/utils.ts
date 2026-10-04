@@ -69,11 +69,11 @@ export const PURCHASE_ORDER_STATUS_LABEL: Record<string, string> = {
 };
 
 export const PURCHASE_ORDER_STATUS_COLOR: Record<string, string> = {
-  DRAFT: "bg-slate-100 text-slate-700",
+  DRAFT: "bg-secondary text-foreground/80",
   SENT: "bg-blue-100 text-blue-800",
   PARTIALLY_RECEIVED: "bg-amber-100 text-amber-800",
   RECEIVED: "bg-emerald-100 text-emerald-800",
-  CLOSED: "bg-slate-200 text-slate-600",
+  CLOSED: "bg-slate-200 text-muted-foreground",
   CANCELLED: "bg-rose-100 text-rose-800",
 };
 
@@ -105,38 +105,31 @@ export const ORDER_LINE_TYPE_LABEL: Record<string, string> = {
 export const ORDER_LINE_TYPE_COLOR: Record<string, string> = {
   PROFILE: "bg-sky-100 text-sky-700",
   HARDWARE: "bg-violet-100 text-violet-700",
-  OUTSOURCED: "bg-amber-100 text-amber-700",
+  OUTSOURCED: "bg-amber-100 text-amber-300",
 };
 
 export const WORK_ORDER_STATUS_LABEL: Record<string, string> = {
-  SCHEDULED: "已排产",
-  PREPARING: "备料中",
+  PENDING_START: "待开工",
   PROCESSING: "加工中",
+  OUTSOURCING: "外协中",
   QC: "质检中",
   PACKING: "打包中",
-  READY_TO_SHIP: "待出仓",
-  SHIPPED: "已出运",
+  READY_TO_SHIP: "待发货",
+  SHIPPED: "已发货",
 };
 
 export const WORK_ORDER_STATUS_COLOR: Record<string, string> = {
-  SCHEDULED: "bg-slate-100 text-slate-700",
-  PREPARING: "bg-amber-100 text-amber-700",
-  PROCESSING: "bg-indigo-100 text-indigo-700",
-  QC: "bg-fuchsia-100 text-fuchsia-700",
-  PACKING: "bg-purple-100 text-purple-700",
-  READY_TO_SHIP: "bg-cyan-100 text-cyan-700",
-  SHIPPED: "bg-emerald-100 text-emerald-700",
+  PENDING_START: "bg-slate-500/15 text-slate-300 ring-1 ring-inset ring-slate-400/20",
+  PROCESSING: "bg-indigo-500/15 text-indigo-300 ring-1 ring-inset ring-indigo-400/20",
+  OUTSOURCING: "bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-400/20",
+  QC: "bg-fuchsia-500/15 text-fuchsia-300 ring-1 ring-inset ring-fuchsia-400/20",
+  PACKING: "bg-purple-500/15 text-purple-300 ring-1 ring-inset ring-purple-400/20",
+  READY_TO_SHIP: "bg-cyan-500/15 text-cyan-300 ring-1 ring-inset ring-cyan-400/20",
+  SHIPPED: "bg-emerald-500/15 text-emerald-300 ring-1 ring-inset ring-emerald-400/20",
 };
 
-export const WORK_ORDER_STATUS_FLOW: string[] = [
-  "SCHEDULED",
-  "PREPARING",
-  "PROCESSING",
-  "QC",
-  "PACKING",
-  "READY_TO_SHIP",
-  "SHIPPED",
-];
+// 单一来源：状态流转以 src/lib/workorder.ts 为准（W3b 收口，消除三处重复定义）
+export { WORK_ORDER_FLOW as WORK_ORDER_STATUS_FLOW } from "./workorder";
 
 export const ORDER_STATUS_LABEL: Record<string, string> = {
   DRAFT: "草稿",
@@ -146,6 +139,7 @@ export const ORDER_STATUS_LABEL: Record<string, string> = {
   PARTIALLY_PAID: "部分付款",
   PRODUCING: "生产中",
   READY: "待发货",
+  PARTIALLY_SHIPPED: "部分发货",
   SHIPPED: "已发货",
   COMPLETED: "已完成",
   CANCELLED: "已取消",
@@ -153,17 +147,18 @@ export const ORDER_STATUS_LABEL: Record<string, string> = {
 };
 
 export const ORDER_STATUS_COLOR: Record<string, string> = {
-  DRAFT: "bg-gray-100 text-gray-700",
-  PENDING: "bg-amber-100 text-amber-700",
-  MODIFYING: "bg-orange-100 text-orange-700",
-  CONFIRMED: "bg-blue-100 text-blue-700",
-  PARTIALLY_PAID: "bg-cyan-100 text-cyan-700",
-  PRODUCING: "bg-indigo-100 text-indigo-700",
-  READY: "bg-purple-100 text-purple-700",
-  SHIPPED: "bg-sky-100 text-sky-700",
-  COMPLETED: "bg-green-100 text-green-700",
-  CANCELLED: "bg-gray-200 text-gray-600",
-  REJECTED: "bg-red-100 text-red-700",
+  DRAFT: "bg-slate-500/15 text-slate-300 ring-1 ring-inset ring-slate-400/20",
+  PENDING: "bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-400/20",
+  MODIFYING: "bg-orange-500/15 text-orange-300 ring-1 ring-inset ring-orange-400/20",
+  CONFIRMED: "bg-blue-500/15 text-blue-300 ring-1 ring-inset ring-blue-400/20",
+  PARTIALLY_PAID: "bg-cyan-500/15 text-cyan-300 ring-1 ring-inset ring-cyan-400/20",
+  PRODUCING: "bg-indigo-500/15 text-indigo-300 ring-1 ring-inset ring-indigo-400/20",
+  READY: "bg-purple-500/15 text-purple-300 ring-1 ring-inset ring-purple-400/20",
+  PARTIALLY_SHIPPED: "bg-teal-500/15 text-teal-300 ring-1 ring-inset ring-teal-400/20",
+  SHIPPED: "bg-sky-500/15 text-sky-300 ring-1 ring-inset ring-sky-400/20",
+  COMPLETED: "bg-green-500/15 text-green-300 ring-1 ring-inset ring-green-400/20",
+  CANCELLED: "bg-slate-500/15 text-slate-300 ring-1 ring-inset ring-slate-400/20",
+  REJECTED: "bg-red-500/15 text-red-300 ring-1 ring-inset ring-red-400/20",
 };
 
 export const CRM_CUSTOMER_STAGE_LABEL: Record<string, string> = {
@@ -175,11 +170,11 @@ export const CRM_CUSTOMER_STAGE_LABEL: Record<string, string> = {
 };
 
 export const CRM_CUSTOMER_STAGE_COLOR: Record<string, string> = {
-  LEAD: "bg-slate-100 text-slate-700",
-  POTENTIAL: "bg-sky-100 text-sky-700",
-  QUOTED: "bg-amber-100 text-amber-700",
-  DEAL: "bg-emerald-100 text-emerald-700",
-  LOST: "bg-rose-100 text-rose-700",
+  LEAD: "bg-slate-500/15 text-slate-300 ring-1 ring-inset ring-slate-400/20",
+  POTENTIAL: "bg-sky-500/15 text-sky-300 ring-1 ring-inset ring-sky-400/20",
+  QUOTED: "bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-400/20",
+  DEAL: "bg-emerald-500/15 text-emerald-300 ring-1 ring-inset ring-emerald-400/20",
+  LOST: "bg-rose-500/15 text-rose-300 ring-1 ring-inset ring-rose-400/20",
 };
 
 export const CRM_CUSTOMER_TYPE_LABEL: Record<string, string> = {
@@ -217,3 +212,12 @@ export const CRM_TASK_STATUS_LABEL: Record<string, string> = {
   DONE: "已完成",
   CANCELLED: "已取消",
 };
+
+export function genShipmentNo(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const r = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+  return `SH-${y}${m}${day}-${r}`;
+}

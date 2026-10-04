@@ -1,5 +1,7 @@
 import { Prisma, PrismaClient, type WorkOrderStatus } from "@prisma/client";
 import { applyStockMovement } from "../src/lib/inventory";
+import { salesOrderStatusFor } from "../src/lib/workorder";
+import { createShipment } from "../src/lib/shipment";
 
 const prisma = new PrismaClient();
 
@@ -108,7 +110,7 @@ async function moveWorkOrderTo(
 
     await tx.salesOrder.update({
       where: { orderNo: wo.orderNo },
-      data: { orderStatus: toStatus === "PACKING" ? "READY" : "PRODUCING" },
+      data: { orderStatus: salesOrderStatusFor(toStatus) },
     });
 
     if (toStatus === "PACKING") {
@@ -438,7 +440,7 @@ async function main() {
         workOrderNo,
         orderNo: order.orderNo,
         workshopId: workshop.id,
-        status: "SCHEDULED",
+        status: "PENDING_START",
         committedDeliveryDate: targetDeliveryDate,
         qcRequired: true,
         currentNote: "smoke dispatch",
@@ -449,7 +451,7 @@ async function main() {
       data: {
         workOrderId: created.id,
         fromStatus: null,
-        toStatus: "SCHEDULED",
+        toStatus: "PENDING_START",
         note: `smoke dispatched to ${workshop.name}`,
         operatorUserId: admin.id,
         operatorName: admin.name,
@@ -461,9 +463,9 @@ async function main() {
     });
     return created;
   }, TX_OPTIONS);
-  check("Phase B admin dispatched confirmed order to WorkOrder", workOrder.status === "SCHEDULED", workOrder.workOrderNo);
+  check("Phase B admin dispatched confirmed order to WorkOrder", workOrder.status === "PENDING_START", workOrder.workOrderNo);
 
-  for (const status of ["PREPARING", "PROCESSING", "QC", "PACKING"] as WorkOrderStatus[]) {
+  for (const status of ["PROCESSING", "QC", "PACKING"] as WorkOrderStatus[]) {
     await moveWorkOrderTo(workOrder.workOrderNo, status, { id: workshopUser.id, name: workshopUser.name });
   }
 
@@ -669,6 +671,73 @@ async function main() {
     supplierBalance.balance.eq(money(900).sub(supplierPaymentAmount)),
     `balance ${supplierBalance.balance.toFixed(2)}`,
   );
+
+  // ---------- Phase E: Shipment 发货闭环 ----------
+  {
+    // 从 PACKING 推进到 READY_TO_SHIP
+    await moveWorkOrderTo(workOrderNo, "READY_TO_SHIP", { id: workshopUser.id, name: workshopUser.name });
+    check("Phase E work order READY_TO_SHIP", (await prisma.workOrder.findUnique({ where: { workOrderNo } }))?.status === "READY_TO_SHIP");
+
+    const orderE = await prisma.salesOrder.findUniqueOrThrow({ where: { orderNo }, include: { lines: true } });
+    const profileLine = orderE.lines.find((l) => l.lineType === "PROFILE")!;
+    const hwLine = orderE.lines.find((l) => l.lineType === "HARDWARE")!;
+
+    // READY_TO_SHIP 前置校验：直接对非待发货状态发货应被拒（造一张 PROCESSING 工单太重，跳过——由矩阵测试覆盖）
+    // a) 部分发货（型材发一半）
+    const sh1 = await prisma.$transaction((tx) =>
+      createShipment(tx, {
+        carrier: "顺丰速运", trackingNo: "SF1234567890123",
+        freightPayType: "PREPAID", fromType: "FACTORY",
+        lines: [{ orderNo, lineId: profileLine.id, quantity: Math.floor(profileLine.quantity / 2) }],
+        operatorName: "smoke",
+      }),
+    );
+    check("Phase E partial shipment created", sh1.lines.length === 1, sh1.shipmentNo);
+    const afterPartial = await prisma.salesOrder.findUniqueOrThrow({ where: { orderNo } });
+    check("Phase E order PARTIALLY_SHIPPED", afterPartial.orderStatus === "PARTIALLY_SHIPPED", afterPartial.orderStatus);
+
+    // b) 超量发货应被拒
+    let overShipBlocked = false;
+    try {
+      await prisma.$transaction((tx) =>
+        createShipment(tx, {
+          carrier: "顺丰速运",
+          lines: [{ orderNo, lineId: profileLine.id, quantity: profileLine.quantity + 1 }],
+          operatorName: "smoke",
+        }),
+      );
+    } catch { overShipBlocked = true; }
+    check("Phase E over-quantity shipment blocked", overShipBlocked);
+
+    // c) 补齐剩余（合发：型材余量+五金全部，一张发货单）
+    const sh2 = await prisma.$transaction((tx) =>
+      createShipment(tx, {
+        carrier: "顺丰速运", trackingNo: "SF1234567890123", freightPayType: "COD", fromType: "FACTORY",
+        lines: [
+          { orderNo, lineId: profileLine.id, quantity: profileLine.quantity - Math.floor(profileLine.quantity / 2) },
+          { orderNo, lineId: hwLine.id, quantity: hwLine.quantity },
+        ],
+        operatorName: "smoke",
+      }),
+    );
+    check("Phase E combined shipment created", sh2.lines.length === 2, sh2.shipmentNo);
+    const afterFull = await prisma.salesOrder.findUniqueOrThrow({ where: { orderNo } });
+    check("Phase E order SHIPPED after full shipment", afterFull.orderStatus === "SHIPPED", afterFull.orderStatus);
+    const woAfter = await prisma.workOrder.findUniqueOrThrow({ where: { workOrderNo } });
+    check("Phase E work order auto SHIPPED", woAfter.status === "SHIPPED", woAfter.status);
+    check("Phase E logistics written back (carrier+tracking+actualShippedAt)",
+      woAfter.carrier === "顺丰速运" && woAfter.trackingNo === "SF1234567890123" && woAfter.actualShippedAt !== null);
+    check("Phase E salesOrder actualDeliveryDate set", afterFull.actualDeliveryDate !== null);
+
+    // d) 已发完再发应被拒
+    let reShipBlocked = false;
+    try {
+      await prisma.$transaction((tx) =>
+        createShipment(tx, { carrier: "顺丰速运", lines: [{ orderNo, lineId: hwLine.id, quantity: 1 }], operatorName: "smoke" }),
+      );
+    } catch { reShipBlocked = true; }
+    check("Phase E re-shipment after full delivery blocked", reShipBlocked);
+  }
 
   console.log(`\nSmoke E2E passed: ${results.length} assertions`);
 }

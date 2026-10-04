@@ -19,6 +19,8 @@ export type DealerStatement = {
   dealerId: string;
   dealerNo: string;
   companyName: string;
+  customerType: "DEALER" | "WALK_IN";
+  nickname: string | null;
   receivable: string; // sum of firm orders
   paid: string;       // sum of payments
   balance: string;    // receivable - paid (positive = dealer owes)
@@ -44,6 +46,8 @@ export async function listDealerStatements(): Promise<DealerStatement[]> {
       dealerId: d.id,
       dealerNo: d.dealerNo,
       companyName: d.companyName,
+      customerType: d.customerType,
+      nickname: d.nickname,
       receivable: receivable.toFixed(2),
       paid: paid.toFixed(2),
       balance: receivable.sub(paid).toFixed(2),

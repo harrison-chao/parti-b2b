@@ -15,7 +15,9 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset --force",
     "db:clear-demo": "tsx scripts/clear-demo-data.ts",
-    "init:prod": "tsx scripts/init-production.ts"
+    "init:prod": "tsx scripts/init-production.ts",
+    "test:matrix": "tsx scripts/test-status-matrix.ts",
+    "test:combos": "tsx scripts/test-combos.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -24,17 +26,21 @@
     "@prisma/client": "^5.22.0",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-label": "^2.1.0",
+    "@radix-ui/react-popover": "^1.1.23",
     "@radix-ui/react-select": "^2.1.2",
     "@radix-ui/react-slot": "^1.1.0",
     "@supabase/supabase-js": "^2.104.0",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "lucide-react": "^0.454.0",
-    "next": "14.2.15",
+    "next": "14.2.35",
     "next-auth": "5.0.0-beta.22",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "recharts": "^3.10.1",
+    "sonner": "^2.0.8",
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.23.8"
@@ -46,7 +52,7 @@
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
-    "eslint-config-next": "14.2.15",
+    "eslint-config-next": "14.2.35",
     "postcss": "^8.4.47",
     "prisma": "^5.22.0",
     "tailwindcss": "^3.4.13",

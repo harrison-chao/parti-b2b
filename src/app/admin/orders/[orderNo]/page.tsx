@@ -15,7 +15,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
   const order = await prisma.salesOrder.findUnique({
     where: { orderNo: params.orderNo },
     include: {
-      lines: { orderBy: { lineNo: "asc" } },
+      lines: { orderBy: { lineNo: "asc" }, include: { shipmentLines: { include: { shipment: true } } } },
       dealer: true,
       workOrder: { include: { workshop: true } },
     },
@@ -76,9 +76,11 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold font-mono">{order.orderNo}</h1>
+          {order.displayOrderNo && <span className="text-sm text-muted-foreground">对外单号 {order.displayOrderNo}</span>}
           <p className="text-sm text-muted-foreground">{order.dealer.companyName} · {order.dealer.dealerNo}</p>
         </div>
         <Badge className={ORDER_STATUS_COLOR[order.orderStatus] + " text-base px-3 py-1"}>{ORDER_STATUS_LABEL[order.orderStatus]}</Badge>
+          <a href={`/admin/orders/new?copy=${order.orderNo}`} className="text-sm text-sky-400 hover:underline">再来一单</a>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -116,7 +118,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
             <CardHeader><CardTitle>订单明细（含利润核算）</CardTitle></CardHeader>
             <CardContent className="p-0">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b"><tr className="text-left">
+                <thead className="bg-muted/50 border-b"><tr className="text-left">
                   <th className="p-3">#</th><th className="p-3">产品</th><th className="p-3">SKU</th>
                   <th className="p-3 text-right">数量</th>
                   <th className="p-3 text-right">单位成本</th>
@@ -159,11 +161,11 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
                     );
                   })}
                 </tbody>
-                <tfoot className="bg-slate-50">
+                <tfoot className="bg-muted/50">
                   <tr>
                     <td colSpan={4} className="p-3 text-right font-semibold">成本合计</td>
                     <td colSpan={3} className="p-3 text-right font-semibold">{formatMoney(totalCost)}</td>
-                    <td className="p-3 text-right font-bold text-emerald-700 text-lg">{formatMoney(dealerTotal)}</td>
+                    <td className="p-3 text-right font-bold text-emerald-300 text-lg">{formatMoney(dealerTotal)}</td>
                     <td></td>
                   </tr>
                   <tr>
@@ -173,7 +175,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
                   </tr>
                   <tr>
                     <td colSpan={7} className="p-3 text-right font-semibold">本单利润（核算收入 − 核算成本）</td>
-                    <td className={`p-3 text-right font-bold text-lg ${adminProfit >= 0 ? "text-blue-700" : "text-red-600"}`}>{formatMoney(adminProfit)}</td>
+                    <td className={`p-3 text-right font-bold text-lg ${adminProfit >= 0 ? "text-sky-300" : "text-red-400"}`}>{formatMoney(adminProfit)}</td>
                     <td></td>
                   </tr>
                 </tfoot>
@@ -205,6 +207,45 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
             />
           )}
         </div>
+        <Card className="md:col-span-2">
+          <CardHeader className="pb-2"><CardTitle className="text-base">发货记录（Shipment）</CardTitle></CardHeader>
+          <CardContent>
+            {(() => {
+              const shipments = new Map<string, { shippedAt: Date; carrier: string; trackingNo: string | null; freightPayType: string; fromType: string; note: string | null; items: string[] }>();
+              for (const l of order.lines) {
+                for (const sl of l.shipmentLines) {
+                  const sh = sl.shipment;
+                  if (!shipments.has(sh.shipmentNo)) shipments.set(sh.shipmentNo, {
+                    shippedAt: sh.shippedAt, carrier: sh.carrier, trackingNo: sh.trackingNo,
+                    freightPayType: sh.freightPayType, fromType: sh.fromType, note: sh.note, items: [],
+                  });
+                  shipments.get(sh.shipmentNo)!.items.push(`${l.sku} ×${sl.quantity}`);
+                }
+              }
+              const list = [...shipments.entries()].sort((a, b) => b[1].shippedAt.getTime() - a[1].shippedAt.getTime());
+              if (!list.length) return <p className="text-sm text-muted-foreground">暂无发货记录</p>;
+              return (
+                <div className="space-y-3">
+                  {list.map(([no, sh]) => (
+                    <div key={no} className="border rounded p-3 text-sm">
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <span className="font-mono font-semibold">{no}</span>
+                        <span>{new Date(sh.shippedAt).toLocaleString("zh-CN")}</span>
+                        <span>{sh.carrier}{sh.trackingNo ? ` · ${sh.trackingNo}` : ""}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {sh.freightPayType === "COD" ? "到付" : sh.freightPayType === "MONTHLY" ? "月结" : "寄付"}
+                          {sh.fromType === "OUTSOURCER" ? " · 外协直发" : ""}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">{sh.items.join("；")}</div>
+                      {sh.note && <div className="text-xs text-muted-foreground mt-0.5">备注：{sh.note}</div>}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

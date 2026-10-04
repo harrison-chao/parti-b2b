@@ -52,7 +52,7 @@ export default async function AuditLogPage({ searchParams }: { searchParams: { a
       <Card>
         <CardContent className="pt-5 md:pt-6">
           <form className="grid gap-3 md:grid-cols-[220px_1fr_100px]">
-            <select name="action" defaultValue={action ?? ""} className="h-10 rounded-xl border border-input bg-white/75 px-3 text-sm">
+            <select name="action" defaultValue={action ?? ""} className="h-10 rounded-xl border border-input bg-card/75 px-3 text-sm">
               <option value="">全部动作</option>
               {actions.map((item) => (
                 <option key={item.action} value={item.action}>{ACTION_LABEL[item.action] ?? item.action}</option>
@@ -62,7 +62,7 @@ export default async function AuditLogPage({ searchParams }: { searchParams: { a
               name="q"
               defaultValue={q ?? ""}
               placeholder="搜索摘要 / 操作人 / 邮箱 / 对象 ID"
-              className="h-10 rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm"
+              className="h-10 rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm"
             />
             <button className="h-10 rounded-full bg-slate-950 px-4 text-sm font-semibold text-white">筛选</button>
           </form>
@@ -73,7 +73,7 @@ export default async function AuditLogPage({ searchParams }: { searchParams: { a
         <CardHeader><CardTitle>最近日志（{logs.length}）</CardTitle></CardHeader>
         <CardContent className="overflow-x-auto p-0">
           <table className="w-full min-w-[1080px] text-sm">
-            <thead className="border-b bg-slate-50">
+            <thead className="border-b bg-muted/50">
               <tr className="text-left">
                 <th className="p-3">时间</th>
                 <th className="p-3">动作</th>
@@ -87,7 +87,7 @@ export default async function AuditLogPage({ searchParams }: { searchParams: { a
               {logs.map((log) => (
                 <tr key={log.id} className="border-b align-top">
                   <td className="p-3 text-xs text-muted-foreground">{formatDateTime(log.createdAt)}</td>
-                  <td className="p-3"><Badge className="bg-slate-100 text-slate-700">{ACTION_LABEL[log.action] ?? log.action}</Badge></td>
+                  <td className="p-3"><Badge className="bg-secondary text-foreground/80">{ACTION_LABEL[log.action] ?? log.action}</Badge></td>
                   <td className="p-3 font-medium">{log.summary}</td>
                   <td className="p-3 text-xs">
                     <div>{log.actorName || "-"}</div>
@@ -95,7 +95,7 @@ export default async function AuditLogPage({ searchParams }: { searchParams: { a
                   </td>
                   <td className="p-3 font-mono text-xs text-muted-foreground">{log.entityType}{log.entityId ? ` · ${log.entityId}` : ""}</td>
                   <td className="max-w-md p-3">
-                    <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded-xl bg-slate-50 p-2 text-[11px] text-slate-600">{JSON.stringify(log.detail, null, 2)}</pre>
+                    <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded-xl bg-muted/50 p-2 text-[11px] text-muted-foreground">{JSON.stringify(log.detail, null, 2)}</pre>
                   </td>
                 </tr>
               ))}

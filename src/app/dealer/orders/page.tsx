@@ -26,7 +26,7 @@ export default async function OrdersPage() {
         <Card>
           <CardContent className="p-0">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b">
+              <thead className="bg-muted/50 border-b">
                 <tr className="text-left">
                   <th className="p-3">订单号</th>
                   <th className="p-3">下单时间</th>
@@ -39,14 +39,14 @@ export default async function OrdersPage() {
               </thead>
               <tbody>
                 {orders.map((o) => (
-                  <tr key={o.orderNo} className="border-b hover:bg-slate-50">
+                  <tr key={o.orderNo} className="border-b hover:bg-muted/50">
                     <td className="p-3 font-mono">{o.orderNo}</td>
                     <td className="p-3">{formatDate(o.orderDate)}</td>
                     <td className="p-3">{formatDate(o.targetDeliveryDate)}</td>
                     <td className="p-3">{o.lines.length}</td>
                     <td className="p-3 text-right font-medium">{formatMoney(Number(o.totalAmount))}</td>
                     <td className="p-3"><Badge className={ORDER_STATUS_COLOR[o.orderStatus]}>{ORDER_STATUS_LABEL[o.orderStatus]}</Badge></td>
-                    <td className="p-3"><Link href={`/dealer/orders/${o.orderNo}`} className="text-blue-600 hover:underline">查看</Link></td>
+                    <td className="p-3"><Link href={`/dealer/orders/${o.orderNo}`} className="text-sky-400 hover:underline">查看</Link></td>
                   </tr>
                 ))}
               </tbody>

@@ -4,24 +4,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatMoney, formatDate, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR } from "@/lib/utils";
 import { listDealerStatements, listSupplierStatements, RECEIVABLE_ORDER_STATUSES } from "@/lib/reconcile";
+import { MonthlyOrdersChart, StatusDonut, QtyTrendChart } from "@/components/dashboard-charts";
 
 export default async function OpsHomePage() {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const [
-    pending, confirmed, producing, completed, dealerCount,
+    pending, confirmed, producing, completed, dealerCount, directCount,
     recent, pendingTotal,
     mtdSalesAgg, mtdRecvAgg, mtdPOAgg, mtdPayAgg,
     inProductionCount,
     dealerStatements, supplierStatements,
-    lowStockCount,
+    lowStockCount, monthlyRaw, qtyRaw, statusRaw,
   ] = await Promise.all([
     prisma.salesOrder.count({ where: { orderStatus: "PENDING" } }),
     prisma.salesOrder.count({ where: { orderStatus: "CONFIRMED" } }),
     prisma.salesOrder.count({ where: { orderStatus: "PRODUCING" } }),
     prisma.salesOrder.count({ where: { orderStatus: "COMPLETED" } }),
-    prisma.dealer.count({ where: { status: "ACTIVE" } }),
+    prisma.dealer.count({ where: { status: "ACTIVE", customerType: "DEALER" } }),
+    prisma.dealer.count({ where: { status: "ACTIVE", customerType: "WALK_IN" } }),
     prisma.salesOrder.findMany({
       where: { orderStatus: "PENDING" },
       orderBy: { createdAt: "desc" },
@@ -52,6 +54,16 @@ export default async function OpsHomePage() {
     listDealerStatements(),
     listSupplierStatements(),
     prisma.$queryRaw<{ c: bigint }[]>`SELECT COUNT(*)::bigint AS c FROM "WorkshopInventory" WHERE "lowStockThreshold" > 0 AND quantity <= "lowStockThreshold"`,
+    prisma.$queryRaw<{ ym: string; orders: bigint }[]>`
+      SELECT to_char("orderDate", 'YY/MM') AS ym, COUNT(*)::bigint AS orders
+      FROM "SalesOrder" WHERE "orderDate" >= now() - interval '12 months'
+      GROUP BY 1 ORDER BY 1`,
+    prisma.$queryRaw<{ ym: string; qty: bigint }[]>`
+      SELECT to_char(o."orderDate", 'YY/MM') AS ym, SUM(l.quantity)::bigint AS qty
+      FROM "SalesOrder" o JOIN "SalesOrderLine" l ON l."orderNo" = o."orderNo"
+      WHERE o."orderDate" >= now() - interval '12 months'
+      GROUP BY 1 ORDER BY 1`,
+    prisma.salesOrder.groupBy({ by: ["orderStatus"], _count: { _all: true } }),
   ]);
 
   const mtdSales = Number(mtdSalesAgg._sum.totalAmount ?? 0);
@@ -72,6 +84,12 @@ export default async function OpsHomePage() {
     .slice(0, 5);
 
   const lowStock = Number(lowStockCount[0]?.c ?? 0);
+
+  const monthly = (monthlyRaw ?? []).map((r: any) => ({ month: r.ym, orders: Number(r.orders) }));
+  const qtyTrend = (qtyRaw ?? []).map((r: any) => ({ month: r.ym, qty: Number(r.qty) }));
+  const statusData = (statusRaw ?? [])
+    .map((r: any) => ({ status: r.orderStatus as string, value: r._count._all }))
+    .sort((a: any, b: any) => b.value - a.value);
 
   return (
     <div className="space-y-6">
@@ -110,12 +128,13 @@ export default async function OpsHomePage() {
       </div>
 
       {/* Order pipeline */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Stat label="待审核" value={pending} href="/admin/orders?status=PENDING" tone="amber" />
         <Stat label="已确认" value={confirmed} href="/admin/orders?status=CONFIRMED" tone="blue" />
         <Stat label="生产中" value={producing} href="/admin/orders?status=PRODUCING" tone="indigo" />
         <Stat label="已完成" value={completed} href="/admin/orders?status=COMPLETED" tone="emerald" />
         <Stat label="活跃经销商" value={dealerCount} href="/admin/dealers" />
+        <Stat label="直销客户" value={directCount} href="/admin/dealers?tab=WALK_IN" />
       </div>
 
       {/* Top-balance lists */}
@@ -123,7 +142,7 @@ export default async function OpsHomePage() {
         <Card>
           <CardHeader className="flex-row flex items-center justify-between">
             <CardTitle>应收 Top 5</CardTitle>
-            <Link href="/admin/reconcile/dealers" className="text-xs text-blue-600 hover:underline">全部 →</Link>
+            <Link href="/admin/reconcile/dealers" className="text-xs text-sky-400 hover:underline">全部 →</Link>
           </CardHeader>
           <CardContent className="p-0">
             {topDealers.length === 0 ? <p className="p-4 text-muted-foreground text-sm">没有应收余额。</p> : (
@@ -132,8 +151,8 @@ export default async function OpsHomePage() {
                   {topDealers.map((r) => (
                     <tr key={r.dealerId} className="border-b last:border-0">
                       <td className="p-3 font-mono text-xs">{r.dealerNo}</td>
-                      <td className="p-3"><Link href={`/admin/reconcile/dealers/${r.dealerId}`} className="text-blue-600 hover:underline">{r.companyName}</Link></td>
-                      <td className="p-3 text-right font-medium text-red-600">{formatMoney(Number(r.balance))}</td>
+                      <td className="p-3"><Link href={`/admin/reconcile/dealers/${r.dealerId}`} className="text-sky-400 hover:underline">{r.companyName}</Link></td>
+                      <td className="p-3 text-right font-medium text-red-400">{formatMoney(Number(r.balance))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -144,7 +163,7 @@ export default async function OpsHomePage() {
         <Card>
           <CardHeader className="flex-row flex items-center justify-between">
             <CardTitle>应付 Top 5</CardTitle>
-            <Link href="/admin/reconcile/suppliers" className="text-xs text-blue-600 hover:underline">全部 →</Link>
+            <Link href="/admin/reconcile/suppliers" className="text-xs text-sky-400 hover:underline">全部 →</Link>
           </CardHeader>
           <CardContent className="p-0">
             {topSuppliers.length === 0 ? <p className="p-4 text-muted-foreground text-sm">没有应付余额。</p> : (
@@ -153,8 +172,8 @@ export default async function OpsHomePage() {
                   {topSuppliers.map((r) => (
                     <tr key={r.supplierId} className="border-b last:border-0">
                       <td className="p-3 font-mono text-xs">{r.supplierNo}</td>
-                      <td className="p-3"><Link href={`/admin/reconcile/suppliers/${r.supplierId}`} className="text-blue-600 hover:underline">{r.name}</Link></td>
-                      <td className="p-3 text-right font-medium text-red-600">{formatMoney(Number(r.balance))}</td>
+                      <td className="p-3"><Link href={`/admin/reconcile/suppliers/${r.supplierId}`} className="text-sky-400 hover:underline">{r.name}</Link></td>
+                      <td className="p-3 text-right font-medium text-red-400">{formatMoney(Number(r.balance))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -165,7 +184,21 @@ export default async function OpsHomePage() {
       </div>
 
       {/* Pending orders */}
-      <Card>
+      <div className="grid gap-4 md:grid-cols-3 stagger-in">
+          <Card className="glass-card md:col-span-2">
+            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">月度订单量（近12个月）</CardTitle></CardHeader>
+            <CardContent><MonthlyOrdersChart data={monthly} /></CardContent>
+          </Card>
+          <Card className="glass-card">
+            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">订单状态分布</CardTitle></CardHeader>
+            <CardContent><StatusDonut data={statusData} labels={ORDER_STATUS_LABEL} /></CardContent>
+          </Card>
+          <Card className="glass-card md:col-span-3">
+            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">产量趋势（件）</CardTitle></CardHeader>
+            <CardContent><QtyTrendChart data={qtyTrend} /></CardContent>
+          </Card>
+        </div>
+        <Card>
         <CardHeader className="flex-row flex items-center justify-between">
           <CardTitle>待审核订单</CardTitle>
           <span className="text-sm text-muted-foreground">合计金额 {formatMoney(Number(pendingTotal._sum.totalAmount ?? 0))}</span>
@@ -175,21 +208,21 @@ export default async function OpsHomePage() {
             <p className="p-6 text-muted-foreground text-sm">暂无待审核订单</p>
           ) : (
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b"><tr className="text-left">
+              <thead className="bg-muted/50 border-b"><tr className="text-left">
                 <th className="p-3">订单号</th><th className="p-3">经销商</th>
                 <th className="p-3">下单</th><th className="p-3">期望交期</th>
                 <th className="p-3 text-right">金额</th><th className="p-3">状态</th><th></th>
               </tr></thead>
               <tbody>
                 {recent.map((o) => (
-                  <tr key={o.orderNo} className="border-b hover:bg-slate-50">
+                  <tr key={o.orderNo} className="border-b hover:bg-muted/50">
                     <td className="p-3 font-mono">{o.orderNo}</td>
                     <td className="p-3">{o.dealer.companyName}</td>
                     <td className="p-3">{formatDate(o.orderDate)}</td>
                     <td className="p-3">{formatDate(o.targetDeliveryDate)}</td>
                     <td className="p-3 text-right font-medium">{formatMoney(Number(o.totalAmount))}</td>
                     <td className="p-3"><Badge className={ORDER_STATUS_COLOR[o.orderStatus]}>{ORDER_STATUS_LABEL[o.orderStatus]}</Badge></td>
-                    <td className="p-3"><Link href={`/admin/orders/${o.orderNo}`} className="text-blue-600 text-sm hover:underline">审核</Link></td>
+                    <td className="p-3"><Link href={`/admin/orders/${o.orderNo}`} className="text-sky-400 text-sm hover:underline">审核</Link></td>
                   </tr>
                 ))}
               </tbody>
@@ -204,7 +237,7 @@ export default async function OpsHomePage() {
 function Stat({ label, value, href, tone }: { label: string; value: number; href: string; tone?: string }) {
   const colorMap: Record<string, string> = {
     amber: "text-amber-600",
-    blue: "text-blue-600",
+    blue: "text-sky-400",
     indigo: "text-indigo-600",
     emerald: "text-emerald-600",
   };
@@ -224,8 +257,8 @@ function MoneyCard({ label, value, tone, sub, href }: {
   label: string; value: number; tone?: "emerald" | "blue" | "indigo" | "slate" | "red" | "muted"; sub?: string; href?: string;
 }) {
   const toneMap: Record<string, string> = {
-    emerald: "text-emerald-700", blue: "text-blue-700", indigo: "text-indigo-700",
-    slate: "text-slate-900", red: "text-red-600", muted: "text-muted-foreground",
+    emerald: "text-emerald-300", blue: "text-sky-300", indigo: "text-indigo-700",
+    slate: "text-slate-900", red: "text-red-400", muted: "text-muted-foreground",
   };
   const body = (
     <Card className={href ? "hover:shadow-md transition cursor-pointer h-full" : "h-full"}>

@@ -11,15 +11,15 @@ export default async function DealerLayout({ children }: { children: React.React
       <Nav
         user={{ name: session.user.name, role: "经销商" }}
         items={[
-          { href: "/dealer", label: "工作台" },
-          { href: "/dealer/crm", label: "客户 CRM" },
-          { href: "/dealer/quote", label: "报价下单" },
-          { href: "/dealer/orders", label: "我的订单" },
-          { href: "/dealer/settings", label: "合同章" },
-          { href: "/dealer/account", label: "账号设置" },
+          { href: "/dealer", label: "工作台", icon: "dashboard" },
+          { href: "/dealer/quote", label: "报价下单", icon: "quote" },
+          { href: "/dealer/orders", label: "我的订单", icon: "orders" },
+          { href: "/dealer/crm", label: "客户 CRM", icon: "crm" },
+          { href: "/dealer/settings", label: "合同章", icon: "file" },
+          { href: "/dealer/account", label: "账号设置", icon: "account" },
         ]}
       />
-      <main className="container py-6 md:py-8">{children}</main>
+      <main className="container py-5 md:py-8 lg:pl-64">{children}</main>
     </div>
   );
 }

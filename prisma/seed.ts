@@ -5,6 +5,10 @@ import { calcPricing, STANDARD_SPECS_MR2525 } from "../src/lib/pricing";
 const prisma = new PrismaClient();
 
 async function main() {
+  // 演示种子（含公开弱口令账号）禁止在生产环境执行；生产初始化走 npm run init:prod。
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_PROD_DEMO_SEED !== "yes") {
+    throw new Error("拒绝在生产环境运行演示种子（含公开弱口令）。生产初始化请使用 npm run init:prod。如确需演示数据，设置 ALLOW_PROD_DEMO_SEED=yes 显式覆盖。");
+  }
   console.log("🌱 Seeding...");
 
   await prisma.salesOrderLine.deleteMany();
