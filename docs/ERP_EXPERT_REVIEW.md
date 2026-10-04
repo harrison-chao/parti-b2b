@@ -66,11 +66,19 @@
 
 ## 四、优化路线图
 
-### P0 正确性与安全批（本次执行）
-1. 外协直发补扣库存（F2）　2. PARTIALLY_SHIPPED 入应收（C1）　3. 应收口径统一 confirmedAmount ?? totalAmount（C7）　4. 成本页 cutLengthMm ?? lengthMm（C8）　5. 六处越权读收紧 + files 归属（A1/A8）　6. 单号 P2002 重试（A2）　7. 四个索引 migration（A5）　8. pgbouncer 注释+README 修正+manifest 图标/start_url（A11/A12）　9. 收付款 POST 补审计（C5）
+### P0 正确性与安全批（2026-10-04 已完成上线）
+1. 外协直发补扣库存（F2）　2. PARTIALLY_SHIPPED 入应收（C1）　3. 应收口径统一 confirmedAmount ?? totalAmount（C7）　4. 成本页 cutLengthMm ?? lengthMm（C8）　5. 六处越权读收紧 + files 归属（A1/A8）　6. 单号 P2002 重试（A2）　7. 四个索引 migration（A5）　8. pgbouncer 注释+README 修正+manifest 图标/start_url（A11/A12）　9. 收付款 POST 补审计（C5）　10. User 停用/启用/删除（A10，含最后管理员守卫与留痕保护）
 
-### P1 经营机制批（待点单）
-交期承诺辅助（F1+F9：队列负荷+同 SKU 历史 P50/P90，承诺≥建议值，digest D-5 三段式+@升级）｜缺料前移+需求汇总页一键 PO（F4+F5）｜订单取消/作废/结案（F3+C6）｜先款后产开关（C2）｜收款指定订单核销（C3）｜0 元迁移单报表过滤（C9）｜客户对账单打印（C10）｜集中鉴权守卫 requireRole（A8）｜User 停用+悬单清理（A10）｜Sentry+告警（A7）
+### P1 经营机制批（2026-10-04 二轮专家复盘后已完成上线）
+- **数据校准**（生产库 124 单实测）：实际逾期 **89.2%**（43% 假说被证伪——客户要求 P50=1d vs 产能 P50=4d/P90=16d，24.6% 的单要求日期早于下单日）；RAW-P2525 占 98% 无需分 SKU
+- **交期承诺**（F1+F9）：`lib/delivery-insight`（队列负荷 + SKU 周期 P50/P90 分位 SQL + 建议公式 max(客户日期, 今天+P90)，队列紧上浮 P95）；派单面板展示建议值与依据，早于建议必填提前原因（双端校验，`WorkOrder.committedOverrideReason`）；**内部代下单自动派单同样校准**——急单承诺自动上调并 toast 告知（10/5→10/31 实测）；digest 升级四段式（超期/5 天到期/待审核>24h/低库存）
+- **缺料前移**（F4）：`getMaterialShortages` 共享；派单与开工默认拒绝、force 放行留痕；车间开工按钮带强制入口；PACKING 最后防线保留
+- **原料需求汇总页**（F5 mini-MRP）：在制工单用料 vs 库存 vs 在途 PO，净缺口勾选一键 PO 草稿
+- **订单取消/结案**（F3+C6）：WorkOrderStatus+CANCELLED；取消守卫矩阵（部分发货/已打包需 force、已收款 warning 不阻塞、CREDIT 释放、悬单了结）；SHIPPED→COMPLETED 结案；combo/标签/工单详情联动
+- **先款后产**（C2）：`Dealer.enforcePrepay` 客户维度开关，派单/发货拦截（外协直发同拦），内部单 D2 豁免
+- **收款指定核销**（C3）：可选 allocations 指定订单优先、剩余 FIFO；超额/跨客户拒绝；删除回滚兼容
+- **报表口径**（C9）：驾驶舱趋势/状态分布排除迁移单与废态；对账明细过滤 0 元单
+- **客户对账单打印**（C10）：/print/statement/[dealerId]，含收款核销明细、大写金额、签收栏；负余额显示"预收"
 
-### P2 规模化与结构性（3 个月窗口）
-列表分页+驾驶舱 SQL 聚合（A4）｜备份恢复演练+lifecycle（A6）｜WorkOrderLine 行级分派设计评审（A3）｜外协对账闭环（F12）｜QC 记录化（F7）｜开票状态（C10）｜流水导入对碰（C4）｜毛利快照（C8）｜余料实体（F11）｜报价分工序计价（F10）｜PWA 离线（A11）｜码表停用制+编码生成器（A9）
+### P2 规模化与结构性（3 个月窗口，待点单）
+列表分页+驾驶舱 SQL 聚合（A4）｜备份恢复演练+lifecycle（A6）｜Sentry+告警（A7）｜集中鉴权守卫 requireRole（A8）｜dealerNo/SKU 自动生成（A9）｜WorkOrderLine 行级分派设计评审（A3，二车间前必做）｜外协对账闭环（F12）｜QC 记录化（F7）｜签收环节（F8）｜开票状态（C10）｜流水导入对碰（C4）｜毛利快照（C8）｜余料实体（F11）｜报价分工序计价（F10）｜PWA 离线（A11）｜码表停用制（A9）
