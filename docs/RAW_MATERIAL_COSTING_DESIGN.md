@@ -58,10 +58,12 @@ P2 既定项重排：**毛利快照从 P2 提前并入本路线**；余料实体
 
 ## 四、统合路线（四步，每步可独立上线/回滚）
 
-**第 0 步 · 数据铺底（纯 additive，零行为变化）**
-- `Product.weightPerMeter` + 棒长必填；`WorkshopInventory.avgCostPerMeter`；`StockMovement.unitCost`（快照）；`SalesOrderLine` 成本快照列（nullable）
-- 回填 weightPerMeter ← settings.meterWeight
-- 顺手修上面 6 个独立小项
+**第 0 步 · 数据铺底（纯 additive，零行为变化）——✅ 2026-10-05 已上线（main `e1e867f`）**
+- ✅ `Product.weightPerMeter`（回填自全局设置 0.65，待按系列改真实值）+ 棒长必填（API+前端拦截）
+- ✅ `WorkshopInventory.avgCostPerMeter`；`StockMovement.unitCost`（快照）；`SalesOrderLine.costSnapshot`（nullable，读端未消费）
+- ✅ 6 个独立修复项全部落地（复制单垃圾色码防护/折棒公式去重 barsFor/审计 old→new×2/报价页文案动态化/需求页分车间+按车间分组生成 PO）
+- ✅ 追加：**半成品段原料支持**（用户改判"不做清单"——总部仓确实存半成品段）：`Product.materialStage` RAW/SEMI，半成品段可建档、入库存（盘点/手工调整）、被订单行直接消耗（截断后段长=棒长、良率≈1）；RAW→SEMI 生产转化流留给 WorkOrderLine 阶段
+- ✅ 追加：**SKU 自动生成**（P2 提前）：目录留空即编码 `RAW-{系列}-{表面}-{颜色}` / `SEMI-{系列}-{段长}-{表面}-{颜色}` / `P-{系列}` / `HW-{年月}-{序号}`，冲突避让 -2，手工优先
 
 **第 1 步 · 口径切换（公式单一真相）**
 - `calcPricing` → 「SKU 米重 × 每米价（均价→purchasePrice→settings 三级回退）× 切长 ÷ Product.yieldRate + 加工费」；三调用点传 rawProductId
@@ -78,9 +80,9 @@ P2 既定项重排：**毛利快照从 P2 提前并入本路线**；余料实体
 - 下单表面双下拉变**派生只读** + 后端一致性校验；OrderCombo 重映射；复制历史单重映射
 - surfaceTreatment 收敛：backfill 双码、读端 4 处切双码、写端停止合成旧串
 
-## 五、明确不做（统合后的"不做清单"）
+## 五、明确不做（统合后的"不做清单"；半成品已于 2026-10-05 经用户改判移出）
 
-半成品目录级（加工中间不入仓，无管理对象）｜余料回仓/切余料管理（先记账观察）｜PurchaseLot 实体（StockMovement.unitCost 够用）｜库存数量 Decimal 米化（根/米双口径文档化即可）｜会计级 COGS 月末结转｜废料回收抵扣｜分工序计价费率表（等工时单价，引擎签名预留）｜铝价行情接口
+~~半成品目录级~~（**已改判：总部仓存半成品段，materialStage=SEMI 已上线**）｜余料回仓/切余料管理（先记账观察）｜PurchaseLot 实体（StockMovement.unitCost 够用）｜库存数量 Decimal 米化（根/米双口径文档化即可）｜会计级 COGS 月末结转｜废料回收抵扣｜分工序计价费率表（等工时单价，引擎签名预留）｜铝价行情接口
 
 ---
 *四路原始分析全文见会话记录；本文件为统合结论，供实施与复核。*
