@@ -2,10 +2,12 @@ import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
+import { generateProductSku, nextSkuSuffix } from "@/lib/sku";
 import { z } from "zod";
 
 const createSchema = z.object({
-  sku: z.string().min(1),
+  // SKU 可留空：自动按 阶段-系列-表面-颜色 生成（RAW-MR2525-A-SV / SEMI-MR2525-500-A-BK / HW-YYMM-NNN）
+  sku: z.string().optional(),
   // 型材简化（MR2525 即名称即规格）：productName 可省略，缺省 = 系列/型号名
   productName: z.string().optional(),
   series: z.string().min(1),
@@ -63,7 +65,15 @@ export async function POST(req: NextRequest) {
   if (Array.isArray(body.products)) {
     const parsed = bulkCreateSchema.safeParse(body);
     if (!parsed.success) return fail("参数错误: " + parsed.error.message);
-    const rows = parsed.data.products.map((row) => ({ ...row, sku: row.sku.trim() }));
+    const rows = parsed.data.products.map((row) => ({ ...row, sku: (row.sku ?? "").trim() }));
+    // 空缺 SKU 逐行自动生成；同批内已用的码继续避让（生成只查已提交数据，批内互斥在此处理）
+    const usedSkus = new Set<string>();
+    for (const row of rows) {
+      let sku = row.sku || await generateProductSku(prisma, row);
+      while (usedSkus.has(sku)) sku = nextSkuSuffix(sku);
+      usedSkus.add(sku);
+      row.sku = sku;
+    }
     const seen = new Set<string>();
     const duplicateInRequest = rows.find((row) => {
       if (seen.has(row.sku)) return true;
@@ -109,6 +119,11 @@ export async function POST(req: NextRequest) {
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return fail("参数错误: " + parsed.error.message);
   const d = parsed.data;
+  if (!d.sku || !d.sku.trim()) {
+    d.sku = await generateProductSku(prisma, d);
+  } else {
+    d.sku = d.sku.trim();
+  }
   const badLength = requireBarLength(d);
   if (badLength) return badLength;
   const exists = await prisma.product.findUnique({ where: { sku: d.sku } });
