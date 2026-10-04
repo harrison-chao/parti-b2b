@@ -14,6 +14,9 @@ const createSchema = z.object({
   spec: z.string().optional().nullable(),
   surfaceProcessCode: z.string().optional().nullable(),
   surfaceColorCode: z.string().optional().nullable(),
+  // 批次计价第 0 步：截面米重（kg/m，型材物理常数）；原料阶段 RAW=定尺长管 / SEMI=半成品段
+  weightPerMeter: z.number().positive().optional().nullable(),
+  materialStage: z.enum(["RAW", "SEMI"]).optional().nullable(),
   retailPrice: z.number().nonnegative(),
   purchasePrice: z.number().nonnegative().optional().nullable(),
   unit: z.string().optional(),
@@ -52,6 +55,11 @@ export async function POST(req: NextRequest) {
   if (!session) return fail("未登录", 401, 401);
   if (session.user.role !== "ADMIN") return fail("仅管理员可维护产品", 403, 403);
   const body = await req.json();
+  // 原料棒长必填：缺棒长会让扣料/缺料/需求按 3600 魔法默认折算，全线偏低
+  const requireBarLength = (row: { isRawMaterial?: boolean; lengthMm?: number | null; sku?: string }) => {
+    if (row.isRawMaterial && !row.lengthMm) return fail(`原料 ${row.sku ?? ""} 缺原料棒长（mm），必填`);
+    return null;
+  };
   if (Array.isArray(body.products)) {
     const parsed = bulkCreateSchema.safeParse(body);
     if (!parsed.success) return fail("参数错误: " + parsed.error.message);
@@ -69,6 +77,8 @@ export async function POST(req: NextRequest) {
       select: { sku: true },
     });
     if (existing.length > 0) return fail(`SKU 已存在：${existing.map((row) => row.sku).join(", ")}`);
+    const badLength = rows.map(requireBarLength).find(Boolean);
+    if (badLength) return badLength;
 
     const products = await prisma.$transaction(
       rows.map((row) => prisma.product.create({
@@ -81,6 +91,8 @@ export async function POST(req: NextRequest) {
           spec: row.spec ?? null,
           surfaceProcessCode: row.surfaceProcessCode ?? null,
           surfaceColorCode: row.surfaceColorCode ?? null,
+          weightPerMeter: row.weightPerMeter ?? null,
+          materialStage: row.isRawMaterial ? row.materialStage ?? "RAW" : null,
           retailPrice: row.retailPrice,
           purchasePrice: row.purchasePrice ?? null,
           unit: row.unit ?? "根",
@@ -97,6 +109,8 @@ export async function POST(req: NextRequest) {
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return fail("参数错误: " + parsed.error.message);
   const d = parsed.data;
+  const badLength = requireBarLength(d);
+  if (badLength) return badLength;
   const exists = await prisma.product.findUnique({ where: { sku: d.sku } });
   if (exists) return fail("SKU 已存在");
   const product = await prisma.product.create({
@@ -109,6 +123,8 @@ export async function POST(req: NextRequest) {
       spec: d.spec ?? null,
       surfaceProcessCode: d.surfaceProcessCode ?? null,
       surfaceColorCode: d.surfaceColorCode ?? null,
+      weightPerMeter: d.weightPerMeter ?? null,
+      materialStage: d.isRawMaterial ? d.materialStage ?? "RAW" : null,
       retailPrice: d.retailPrice,
       purchasePrice: d.purchasePrice ?? null,
       unit: d.unit ?? "根",

@@ -23,6 +23,8 @@ export default async function ProductsPage() {
         spec: p.spec,
         surfaceProcessCode: p.surfaceProcessCode,
         surfaceColorCode: p.surfaceColorCode,
+        weightPerMeter: p.weightPerMeter != null ? Number(p.weightPerMeter) : null,
+        materialStage: p.materialStage,
         retailPrice: Number(p.retailPrice),
         purchasePrice: p.purchasePrice != null ? Number(p.purchasePrice) : null,
         unit: p.unit,

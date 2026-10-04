@@ -4,6 +4,16 @@ import { applyStockMovement } from "@/lib/inventory";
 type Tx = Prisma.TransactionClient | PrismaClient;
 
 /**
+ * 棒数折算单一实现：Σ切长 ÷ (棒长×良率) 向上取整。
+ * 扣料（consumeWorkOrderMaterials）与需求聚合（aggregateOrderRequirements）必须同口径，禁止各写一份。
+ */
+export function barsFor(totalMm: number, raw: { lengthMm: unknown; yieldRate: unknown }) {
+  const barMm = Number(raw.lengthMm ?? 3600);
+  const yieldRate = Number(raw.yieldRate ?? 0.95);
+  return { bars: Math.ceil(totalMm / barMm / yieldRate), barMm, yieldRate };
+}
+
+/**
  * 工单领料扣减：HARDWARE 按 sku 1:1，PROFILE 按原料棒长/良率折算棒数。
  * 幂等：以 WORK_ORDER_CONSUME 流水为准，已扣过则跳过。
  * 正常路径在首次进入 PACKING 时调用；外协直发（工单不经过 PACKING）在发货时补调，
@@ -48,9 +58,7 @@ export async function consumeWorkOrderMaterials(
   for (const { productId, totalMm } of rawAgg.values()) {
     const raw = await tx.product.findUnique({ where: { id: productId } });
     if (!raw) continue;
-    const barMm = Number(raw.lengthMm ?? 3600);
-    const yieldRate = Number(raw.yieldRate ?? 0.95);
-    const bars = Math.ceil(totalMm / barMm / yieldRate);
+    const { bars, barMm, yieldRate } = barsFor(totalMm, raw);
     await applyStockMovement(tx, {
       workshopId: opts.workshopId, sku: raw.sku, productName: raw.productName,
       delta: -bars, type: "WORK_ORDER_CONSUME",
@@ -90,9 +98,7 @@ export async function aggregateOrderRequirements(
   for (const item of rawAgg.values()) {
     const raw = await tx.product.findUnique({ where: { id: item.productId } });
     if (!raw) continue;
-    const barMm = Number(raw.lengthMm ?? 3600);
-    const yieldRate = Number(raw.yieldRate ?? 0.95);
-    const bars = Math.ceil(item.totalMm / barMm / yieldRate);
+    const { bars } = barsFor(item.totalMm, raw);
     const existing = required.get(raw.sku) ?? { productName: raw.productName, quantity: 0 };
     existing.quantity += bars;
     required.set(raw.sku, existing);

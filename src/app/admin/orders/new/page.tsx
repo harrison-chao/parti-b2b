@@ -27,7 +27,7 @@ type Address = {
 type Product = {
   id: string; sku: string; productName: string; category: "PROFILE" | "HARDWARE";
   isRawMaterial?: boolean; series?: string | null; spec?: string | null; retailPrice: string;
-  surfaceProcessCode?: string | null; surfaceColorCode?: string | null;
+  surfaceProcessCode?: string | null; surfaceColorCode?: string | null; materialStage?: string | null;
 };
 type Option = { code: string; label: string };
 type OrderLineRow = {
@@ -212,8 +212,8 @@ export default function NewInternalOrderPage() {
         unit: "mm",
         quantity: String(l.quantity),
         processCodes: l.processCodes?.length ? l.processCodes : guessProcessCodes(l),
-        surfaceProcessCode: l.surfaceProcessCode ?? (l.surfaceTreatment ? l.surfaceTreatment.split("-")[0] : "A"),
-        surfaceColorCode: l.surfaceColorCode ?? (l.surfaceTreatment ? l.surfaceTreatment.split("-")[1] : "SV"),
+        // 旧 surfaceTreatment 可能是 Base 原文（如"Pink粉色-水漆"），只有形如 码-码 才回拆，否则留默认
+        ...parseLegacySurface(l.surfaceTreatment, l.surfaceProcessCode, l.surfaceColorCode),
         unitPrice: Number(l.unitPrice),
       })));
       setMsg(`已载入订单 ${o.displayOrderNo ?? o.orderNo} 的 ${o.lines?.length ?? 0} 行，可直接改数量提交`);
@@ -226,6 +226,15 @@ export default function NewInternalOrderPage() {
     if (pre.includes("销子孔") || pre.includes("铣")) codes.push("D");
     if (pre.includes("预埋")) codes.push("EM");
     return codes;
+  }
+
+  // 旧 surfaceTreatment 只在形如「A-SV」（各 1-8 位码）时才回拆成双码；Base 中文原文直接落默认，不产垃圾码
+  function parseLegacySurface(legacy: string | null | undefined, codeP?: string | null, codeC?: string | null) {
+    if (codeP || codeC) return { surfaceProcessCode: codeP ?? "", surfaceColorCode: codeC ?? "" };
+    const m = typeof legacy === "string" ? legacy.trim().match(/^([A-Z]{1,8})-([A-Z0-9]{1,8})$/) : null;
+    return m
+      ? { surfaceProcessCode: m[1], surfaceColorCode: m[2] }
+      : { surfaceProcessCode: "", surfaceColorCode: "" };
   }
 
   function applyAddress(a: Address) {
@@ -514,7 +523,7 @@ export default function NewInternalOrderPage() {
                           ...(p.surfaceColorCode ? { surfaceColorCode: p.surfaceColorCode } : {}),
                         });
                       }}>
-                      {rawProducts.map((p) => <option key={p.id} value={p.id}>{p.sku}</option>)}
+                      {rawProducts.map((p) => <option key={p.id} value={p.id}>{p.materialStage === "SEMI" ? `${p.sku}（半成品段）` : p.sku}</option>)}
                     </select>
                   </div>
                   <div className="md:col-span-2">

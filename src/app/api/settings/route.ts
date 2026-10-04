@@ -39,13 +39,16 @@ export async function PUT(req: NextRequest) {
   if (value === undefined) return fail("value 不能为空");
   if (value === null && key !== "stampTemplate") return fail("value 不能为空");
 
+  const prev = await loadSettings();
+  const prevValue = (prev as Record<string, unknown>)[key];
   await saveSetting(key, value, session.user.email);
   await logAudit({
     action: "SYSTEM_SETTING_UPDATE",
     entityType: "SystemSetting",
     entityId: key,
     summary: `管理员修改系统设置：${key}`,
-    detail: { key },
+    // 报价参数等设置记 old→new，毛利/均价漂移才有证据链（评审 C9）
+    detail: { key, from: prevValue ?? null, to: value },
     actor: session.user,
   });
   return ok({ key, value });
