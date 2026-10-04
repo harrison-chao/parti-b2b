@@ -36,6 +36,7 @@ export default async function AdminUsersPage() {
         email: user.email,
         name: user.name,
         role: user.role,
+        status: user.status,
         dealer: user.dealer ? { dealerNo: user.dealer.dealerNo, companyName: user.dealer.companyName } : null,
         workshop: user.workshop ? { code: user.workshop.code, name: user.workshop.name } : null,
         mustChangePassword: user.mustChangePassword,

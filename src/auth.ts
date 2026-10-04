@@ -37,6 +37,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!email || !pwd) return null;
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user) return null;
+        if (user.status === "INACTIVE") return null; // 停用账号拒绝登录
         const ok = await bcrypt.compare(pwd, user.password);
         if (!ok) return null;
         return {

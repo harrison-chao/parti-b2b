@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
       email: user.email,
       name: user.name,
       role: user.role,
+      status: user.status,
       dealer: user.dealer,
       workshop: user.workshop,
       createdAt: user.createdAt,

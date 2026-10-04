@@ -13,6 +13,7 @@ type UserRow = {
   email: string;
   name: string;
   role: "ADMIN" | "DEALER" | "WORKSHOP";
+  status: "ACTIVE" | "INACTIVE";
   dealer: { dealerNo: string; companyName: string } | null;
   workshop: { code: string; name: string } | null;
   mustChangePassword: boolean;
@@ -31,9 +32,9 @@ const ROLE_LABEL: Record<UserRow["role"], string> = {
 };
 
 const ROLE_TONE: Record<UserRow["role"], string> = {
-  ADMIN: "bg-slate-950 text-white",
-  DEALER: "bg-teal-100 text-teal-800",
-  WORKSHOP: "bg-amber-100 text-amber-800",
+  ADMIN: "bg-blue-500/15 text-blue-300 ring-1 ring-inset ring-blue-400/20",
+  DEALER: "bg-teal-500/15 text-teal-300 ring-1 ring-inset ring-teal-400/20",
+  WORKSHOP: "bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-400/20",
 };
 
 function generatePassword() {
@@ -60,6 +61,37 @@ export function UsersManager({
   const [resetting, setResetting] = useState<UserRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [latestActivation, setLatestActivation] = useState<{ title: string; link: string } | null>(null);
+  const [actionMsg, setActionMsg] = useState("");
+
+  async function toggleStatus(user: UserRow) {
+    setActionMsg("");
+    const toInactive = user.status === "ACTIVE";
+    if (toInactive && !window.confirm(`停用「${user.name}」？停用后无法登录（可随时启用恢复）。`)) return;
+    const res = await fetch(`/api/admin/users/${user.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: toInactive ? "INACTIVE" : "ACTIVE" }),
+    });
+    const json = await res.json();
+    if (json.code !== 0) { setActionMsg("✗ " + json.message); return; }
+    setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, status: json.data.user.status, mustChangePassword: json.data.user.mustChangePassword, updatedAt: json.data.user.updatedAt } : u)));
+    if (!toInactive && json.data.activationLink) {
+      setLatestActivation({ title: `重新启用·设置密码链接：${user.name}`, link: json.data.activationLink });
+      setActionMsg(`✓ 已启用 ${user.name}，请把下方链接发给对方设置新密码`);
+    } else {
+      setActionMsg(`✓ 已停用 ${user.name}（凭据已作废，无法登录）`);
+    }
+  }
+
+  async function deleteUser(user: UserRow) {
+    setActionMsg("");
+    if (!window.confirm(`删除账号「${user.name} ${user.email}」？仅无任何业务/审计记录的账号可删除。`)) return;
+    const res = await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
+    const json = await res.json();
+    if (json.code !== 0) { setActionMsg("✗ " + json.message); return; }
+    setUsers((prev) => prev.filter((u) => u.id !== user.id));
+    setActionMsg(`✓ 已删除 ${user.name}`);
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -95,7 +127,10 @@ export function UsersManager({
             <option value="DEALER">经销商</option>
             <option value="WORKSHOP">车间</option>
           </select>
-          <div className="flex items-center text-sm text-muted-foreground">共 {filtered.length} / {users.length} 个账号</div>
+          <div className="flex items-center text-sm text-muted-foreground">
+            共 {filtered.length} / {users.length} 个账号
+            {actionMsg && <span className="ml-3 text-foreground">{actionMsg}</span>}
+          </div>
         </CardContent>
       </Card>
 
@@ -141,6 +176,7 @@ export function UsersManager({
               <tr className="text-left">
                 <th className="p-3">账号</th>
                 <th className="p-3">角色</th>
+                <th className="p-3">状态</th>
                 <th className="p-3">归属主体</th>
                 <th className="p-3">创建时间</th>
                 <th className="p-3">最近更新</th>
@@ -153,10 +189,15 @@ export function UsersManager({
                   <td className="p-3">
                     <div className="font-semibold">{user.name}</div>
                     <div className="font-mono text-xs text-muted-foreground">{user.email}</div>
-                    {user.mustChangePassword && <div className="mt-1 text-xs text-amber-300">待启用 / 待改密</div>}
+                    {user.mustChangePassword && user.status === "ACTIVE" && <div className="mt-1 text-xs text-amber-300">待启用 / 待改密</div>}
                   </td>
                   <td className="p-3">
                     <Badge className={ROLE_TONE[user.role]}>{ROLE_LABEL[user.role]}</Badge>
+                  </td>
+                  <td className="p-3">
+                    {user.status === "ACTIVE"
+                      ? <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[11px] text-emerald-300 ring-1 ring-inset ring-emerald-400/20">启用中</span>
+                      : <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-[11px] text-red-300 ring-1 ring-inset ring-red-400/20">已停用</span>}
                   </td>
                   <td className="p-3">
                     {user.dealer && (
@@ -176,14 +217,23 @@ export function UsersManager({
                   <td className="p-3 text-xs">{formatDate(user.createdAt)}</td>
                   <td className="p-3 text-xs">{formatDate(user.updatedAt)}</td>
                   <td className="p-3 text-right">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={user.id === currentUserId}
-                      onClick={() => setResetting(user)}
-                    >
-                      {user.id === currentUserId ? "本人账号" : "重置密码"}
-                    </Button>
+                    {user.id === currentUserId ? (
+                      <span className="text-xs text-muted-foreground">本人账号</span>
+                    ) : (
+                      <div className="flex justify-end gap-1.5">
+                        {user.status === "ACTIVE" && (
+                          <Button size="sm" variant="outline" onClick={() => setResetting(user)}>重置密码</Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant={user.status === "ACTIVE" ? "secondary" : "outline"}
+                          onClick={() => toggleStatus(user)}
+                        >
+                          {user.status === "ACTIVE" ? "停用" : "启用"}
+                        </Button>
+                        <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/15" onClick={() => deleteUser(user)}>删除</Button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -245,6 +295,7 @@ function CreateUserPanel({
         email: user.email,
         name: user.name,
         role: user.role,
+        status: user.status ?? "ACTIVE",
         dealer: user.dealer,
         workshop: user.workshop,
         mustChangePassword: user.mustChangePassword,
@@ -259,7 +310,7 @@ function CreateUserPanel({
   }
 
   return (
-    <Card className="border-teal-200 bg-teal-50/80">
+    <Card className="border-primary/30 bg-primary/5">
       <CardContent className="space-y-4 pt-5 md:pt-6">
         <div>
           <h2 className="text-lg font-bold">创建登录账号</h2>
@@ -374,7 +425,7 @@ function ResetPasswordPanel({
   }
 
   return (
-    <Card className="border-amber-200 bg-amber-500/10/80">
+    <Card className="border-amber-500/30 bg-amber-500/10">
       <CardContent className="space-y-4 pt-5 md:pt-6">
         <div>
           <h2 className="text-lg font-bold">重置密码：{user.name}</h2>
@@ -419,7 +470,7 @@ function ActivationLinkBox({ title = "一次性启用链接", link }: { title?: 
     setTimeout(() => setCopied(false), 2000);
   }
   return (
-    <div className="rounded-2xl border border-amber-200 bg-card/80 p-3">
+    <div className="rounded-2xl border border-amber-500/30 bg-card/80 p-3">
       <div className="mb-2 text-sm font-semibold">{title}</div>
       <div className="break-all font-mono text-xs text-muted-foreground">{link}</div>
       <div className="mt-3 flex flex-wrap items-center gap-2">

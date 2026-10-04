@@ -135,12 +135,19 @@ enum SupplierCategory {
   OTHER
 }
 
+// 账号生命周期：停用后无法登录（保留历史与审计）；无业务记录的账号可硬删
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
 model User {
-  id                       String    @id @default(cuid())
-  email                    String    @unique
+  id                       String     @id @default(cuid())
+  email                    String     @unique
   name                     String
   password                 String
-  role                     UserRole  @default(DEALER)
+  role                     UserRole   @default(DEALER)
+  status                   UserStatus @default(ACTIVE)
   dealerId                 String?
   workshopId               String?
   mustChangePassword       Boolean   @default(false)
