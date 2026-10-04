@@ -15,6 +15,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/dealers", label: "客户", icon: "users" },
     { href: "/admin/products", label: "产品目录", icon: "products" },
     { href: "/admin/inventory", label: "库存预警", icon: "inventory" },
+    { href: "/admin/material-demand", label: "原料需求", icon: "inventory" },
     { href: "/admin/users", label: "账号管理", icon: "users" },
   ];
   const secondaryItems = [

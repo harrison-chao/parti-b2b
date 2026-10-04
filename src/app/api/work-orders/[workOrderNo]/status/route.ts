@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
 import { isNextWorkOrderStatus, nextWorkOrderStatus, salesOrderStatusFor } from "@/lib/workorder";
-import { consumeWorkOrderMaterials } from "@/lib/stock-consume";
+import { consumeWorkOrderMaterials, getMaterialShortages, formatShortages } from "@/lib/stock-consume";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
@@ -14,6 +14,7 @@ const schema = z.object({
   carrier: z.string().optional().nullable(),
   trackingNo: z.string().optional().nullable(),
   delayReason: z.string().optional().nullable(),
+  force: z.boolean().optional(),
 });
 
 export async function POST(req: NextRequest, { params }: { params: { workOrderNo: string } }) {
@@ -25,13 +26,13 @@ export async function POST(req: NextRequest, { params }: { params: { workOrderNo
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) return fail("参数错误: " + parsed.error.message);
-  const { advance, toStatus, note, carrier, trackingNo, delayReason } = parsed.data;
+  const { advance, toStatus, note, carrier, trackingNo, delayReason, force } = parsed.data;
 
   const wo = await prisma.workOrder.findUnique({ where: { workOrderNo: params.workOrderNo } });
   if (!wo) return fail("加工单不存在", 404, 404);
   if (role === "WORKSHOP" && wo.workshopId !== session.user.workshopId) return fail("非本车间订单", 403, 403);
 
-  let target = toStatus ?? null;
+  let target: "PENDING_START" | "PROCESSING" | "OUTSOURCING" | "QC" | "PACKING" | "READY_TO_SHIP" | "SHIPPED" | "CANCELLED" | null = toStatus ?? null;
   if (!target && advance) {
     target = nextWorkOrderStatus(wo.status, wo.qcRequired);
     if (!target) return fail("已到最后状态，无法继续推进");
@@ -51,16 +52,29 @@ export async function POST(req: NextRequest, { params }: { params: { workOrderNo
       where: { refType: "WO", refNo: wo.workOrderNo, type: "WORK_ORDER_CONSUME" },
     });
     if (existingConsume === 0) {
-      const shortages = await getPackingShortages(wo.orderNo, wo.workshopId);
+      const shortages = await getMaterialShortages(prisma, wo.orderNo, wo.workshopId);
       if (shortages.length > 0) {
-        return fail(`库存不足，无法进入打包：${shortages.map((item) => `${item.sku} 需 ${item.required}，现有 ${item.available}`).join("；")}`);
+        return fail(`库存不足，无法进入打包：${formatShortages(shortages)}`);
       }
     }
   }
 
+  // B1 缺料前移：开工即检查（而非等到打包才发现），默认拒绝、force 放行并留痕
+  if (target === "PROCESSING") {
+    const shortages = await getMaterialShortages(prisma, wo.orderNo, wo.workshopId);
+    if (shortages.length > 0 && !force) {
+      return fail(`库存不足，无法开工：${formatShortages(shortages)}。确认已备料/外协自理可强制开工（将记录缺料放行）`);
+    }
+  }
+  const shortageNote = target === "PROCESSING" && force
+    ? await getMaterialShortages(prisma, wo.orderNo, wo.workshopId).then((s) =>
+        s.length ? `【缺料放行】${formatShortages(s)}${note ? "；" + note : ""}` : note,
+      )
+    : note;
+
   const updateData: any = {
     status: target,
-    currentNote: note ?? wo.currentNote,
+    currentNote: shortageNote ?? wo.currentNote,
   };
   if (carrier !== undefined) updateData.carrier = carrier;
   if (trackingNo !== undefined) updateData.trackingNo = trackingNo;
@@ -81,7 +95,7 @@ export async function POST(req: NextRequest, { params }: { params: { workOrderNo
         workOrderId: wo.id,
         fromStatus: wo.status,
         toStatus: target!,
-        note: note ?? null,
+        note: shortageNote ?? null,
         operatorUserId: session.user.id,
         operatorName: session.user.name,
       },
@@ -131,43 +145,3 @@ export async function POST(req: NextRequest, { params }: { params: { workOrderNo
   }
 }
 
-async function getPackingShortages(orderNo: string, workshopId: string) {
-  const lines = await prisma.salesOrderLine.findMany({
-    where: { orderNo, lineType: { not: "OUTSOURCED" } },
-  });
-  const required = new Map<string, { sku: string; productName: string; quantity: number }>();
-  const rawAgg = new Map<string, { productId: string; totalMm: number }>();
-
-  for (const line of lines) {
-    if (line.lineType === "HARDWARE") {
-      const existing = required.get(line.sku) ?? { sku: line.sku, productName: line.productName, quantity: 0 };
-      existing.quantity += line.quantity;
-      required.set(line.sku, existing);
-    } else if (line.lineType === "PROFILE" && line.rawProductId && line.cutLengthMm) {
-      const existing = rawAgg.get(line.rawProductId) ?? { productId: line.rawProductId, totalMm: 0 };
-      existing.totalMm += line.cutLengthMm * line.quantity;
-      rawAgg.set(line.rawProductId, existing);
-    }
-  }
-
-  for (const item of rawAgg.values()) {
-    const raw = await prisma.product.findUnique({ where: { id: item.productId } });
-    if (!raw) continue;
-    const barMm = Number(raw.lengthMm ?? 3600);
-    const yieldRate = Number(raw.yieldRate ?? 0.95);
-    const bars = Math.ceil(item.totalMm / barMm / yieldRate);
-    const existing = required.get(raw.sku) ?? { sku: raw.sku, productName: raw.productName, quantity: 0 };
-    existing.quantity += bars;
-    required.set(raw.sku, existing);
-  }
-
-  const shortages: Array<{ sku: string; required: number; available: number }> = [];
-  for (const item of required.values()) {
-    const inventory = await prisma.workshopInventory.findUnique({
-      where: { workshopId_sku: { workshopId, sku: item.sku } },
-    });
-    const available = inventory?.quantity ?? 0;
-    if (available < item.quantity) shortages.push({ sku: item.sku, required: item.quantity, available });
-  }
-  return shortages;
-}

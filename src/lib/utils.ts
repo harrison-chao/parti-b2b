@@ -116,9 +116,11 @@ export const WORK_ORDER_STATUS_LABEL: Record<string, string> = {
   PACKING: "打包中",
   READY_TO_SHIP: "待发货",
   SHIPPED: "已发货",
+  CANCELLED: "已取消",
 };
 
 export const WORK_ORDER_STATUS_COLOR: Record<string, string> = {
+  CANCELLED: "bg-zinc-500/15 text-zinc-400 ring-1 ring-inset ring-zinc-400/20",
   PENDING_START: "bg-slate-500/15 text-slate-300 ring-1 ring-inset ring-slate-400/20",
   PROCESSING: "bg-indigo-500/15 text-indigo-300 ring-1 ring-inset ring-indigo-400/20",
   OUTSOURCING: "bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-400/20",

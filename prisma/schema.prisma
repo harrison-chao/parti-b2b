@@ -14,8 +14,8 @@ enum UserRole {
   WORKSHOP
 }
 
-// W1/D3: 状态机收敛——SCHEDULED+PREPARING 合并为 PENDING_START；新增 OUTSOURCING（外协中）
-// 流转：PENDING_START→PROCESSING→(OUTSOURCING↔)→[QC]→PACKING→READY_TO_SHIP→SHIPPED
+// W1/D3: 状态机收敛；P1: +CANCELLED（订单取消联动，不走 TRANSITIONS 正常流转）
+// 流转：PENDING_START→PROCESSING→(OUTSOURCING↔)→[QC]→PACKING→READY_TO_SHIP→SHIPPED；任意未发运态→CANCELLED(专用端点)
 enum WorkOrderStatus {
   PENDING_START
   PROCESSING
@@ -24,6 +24,7 @@ enum WorkOrderStatus {
   PACKING
   READY_TO_SHIP
   SHIPPED
+  CANCELLED
 }
 
 enum PriceLevel {
@@ -195,6 +196,8 @@ model WorkOrder {
   trackingNo            String?
   currentNote           String?
   delayReason           String?
+  // P1(A): 承诺交期早于系统建议值时的强行提前原因（与 delayReason 语义分开）
+  committedOverrideReason String?
   qcRequired            Boolean         @default(true)
   printedAt             DateTime?
   assignedBy            String?
@@ -249,6 +252,8 @@ model Dealer {
   creditBalance   Decimal       @default(0) @db.Decimal(12, 2)
   usedCredit      Decimal       @default(0) @db.Decimal(12, 2)
   paymentMethod   PaymentMethod @default(PREPAID)
+  // P1(D): 先款后产开关——开启后非内部单需收清才能派单/发货（D2：内部单始终不拦）
+  enforcePrepay   Boolean     @default(false)
   status          DealerStatus  @default(ACTIVE)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt

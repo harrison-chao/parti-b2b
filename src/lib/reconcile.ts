@@ -68,15 +68,18 @@ export async function getDealerStatementDetail(dealerId: string) {
   if (!dealer) return null;
   const [orders, payments] = await Promise.all([
     prisma.salesOrder.findMany({
-      where: { dealerId, orderStatus: { in: RECEIVABLE_ORDER_STATUSES as any } },
+      // legacyBaseNo 过滤：126 张 0 元迁移单不进对账明细（金额贡献为 0，纯展示净化）
+      where: { dealerId, legacyBaseNo: null, orderStatus: { in: RECEIVABLE_ORDER_STATUSES as any } },
       orderBy: { orderDate: "desc" },
       select: {
-        orderNo: true, orderDate: true, orderStatus: true, totalAmount: true, confirmedAmount: true,
+        orderNo: true, displayOrderNo: true, orderDate: true, orderStatus: true, totalAmount: true, confirmedAmount: true,
         paidAmount: true, paymentStatus: true,
+        lines: { select: { quantity: true }, orderBy: { lineNo: "asc" } },
       },
     }),
     prisma.dealerPayment.findMany({
       where: { dealerId }, orderBy: { paidAt: "desc" },
+      include: { allocations: { select: { orderNo: true, amount: true } } },
     }),
   ]);
   const receivable = orders.reduce((s, o) => s.add(receivableAmount(o)), new Prisma.Decimal(0));

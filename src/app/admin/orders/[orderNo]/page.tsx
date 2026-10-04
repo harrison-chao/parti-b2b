@@ -5,9 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { formatMoney, formatDate, formatDateTime, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR } from "@/lib/utils";
 import { calcPricing, PRICE_TIER_LABEL } from "@/lib/pricing";
 import { loadSettings, pricingFieldsToConfig } from "@/lib/settings";
+import { queueLoad, skuCycleStats, globalCycleStats, suggestDeliveryDays } from "@/lib/delivery-insight";
 import { ReviewPanel } from "./review-panel";
 import { OrderLineCostRow } from "./cost-row";
 import { DispatchPanel } from "./dispatch-panel";
+import { OrderActions } from "./order-actions";
 
 const PAYMENT_LABELS: Record<string, string> = { PREPAID: "预付款", DEPOSIT: "定金", CREDIT: "信用额度" };
 
@@ -34,6 +36,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
     status: order.workOrder.status,
     workshopName: order.workOrder.workshop.name,
     committedDeliveryDate: order.workOrder.committedDeliveryDate?.toISOString() ?? null,
+    committedOverrideReason: order.workOrder.committedOverrideReason,
     actualShippedAt: order.workOrder.actualShippedAt?.toISOString() ?? null,
     carrier: order.workOrder.carrier,
     trackingNo: order.workOrder.trackingNo,
@@ -43,6 +46,27 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
     assignedBy: order.workOrder.assignedBy,
     assignedAt: order.workOrder.assignedAt.toISOString(),
   } : null;
+
+  // P1-A: 交期承诺洞察（未派单时计算供面板展示）
+  let insight: { suggestedDate: string; suggestedDays: number; basis: string; inProduction: number; dueIn7d: number; weeklyThroughput: number } | null = null;
+  if (!order.workOrder && hasProducibleLines) {
+    const rawIds = [...new Set(order.lines.filter((l) => l.rawProductId).map((l) => l.rawProductId!))];
+    const [load, skuStats, globalStats] = await Promise.all([
+      queueLoad(),
+      rawIds.length ? skuCycleStats(rawIds) : Promise.resolve(new Map()),
+      globalCycleStats(),
+    ]);
+    const skuStat = rawIds.length === 1 ? (skuStats.get(rawIds[0]) ?? null) : (skuStats.size ? [...skuStats.values()][0] : null);
+    const suggestion = suggestDeliveryDays(skuStat ?? globalStats, load, order.targetDeliveryDate);
+    insight = {
+      suggestedDate: new Date(Date.now() + suggestion.days * 86400000).toISOString(),
+      suggestedDays: suggestion.days,
+      basis: suggestion.basis,
+      inProduction: load.inProduction,
+      dueIn7d: load.dueIn7d,
+      weeklyThroughput: load.weeklyThroughput,
+    };
+  }
 
   const settings = await loadSettings();
   const config = pricingFieldsToConfig(settings.pricingFields);
@@ -205,8 +229,14 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
               targetDeliveryDate={order.targetDeliveryDate.toISOString()}
               workshops={workshops}
               existing={existingWo}
+              insight={insight}
             />
           )}
+          <OrderActions
+            orderNo={order.orderNo}
+            orderStatus={order.orderStatus}
+            paidAmount={Number(order.paidAmount)}
+          />
         </div>
         <Card className="md:col-span-2">
           <CardHeader className="pb-2"><CardTitle className="text-base">发货记录（Shipment）</CardTitle></CardHeader>
