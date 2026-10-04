@@ -4,11 +4,16 @@ import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
 import { z } from "zod";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return fail("未登录", 401, 401);
   if (session.user.role === "DEALER") return fail("无权访问", 403, 403);
+  const typeParam = req.nextUrl.searchParams.get("customerType");
+  const where = typeParam === "DEALER" || typeParam === "WALK_IN"
+    ? { customerType: typeParam as "DEALER" | "WALK_IN" }
+    : {};
   const dealers = await prisma.dealer.findMany({
+    where,
     orderBy: { createdAt: "desc" },
     include: { contacts: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] }, _count: { select: { salesOrders: true } } },
   });

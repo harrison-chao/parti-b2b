@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { DealersManager } from "./manager";
 
-export default async function AdminDealersPage() {
+export default async function AdminDealersPage({ searchParams }: { searchParams: { tab?: string } }) {
   const dealers = await prisma.dealer.findMany({
     orderBy: { createdAt: "desc" },
     include: {
@@ -13,6 +13,8 @@ export default async function AdminDealersPage() {
     id: d.id,
     dealerNo: d.dealerNo,
     companyName: d.companyName,
+    customerType: d.customerType,
+    nickname: d.nickname,
     contactName: d.contactName,
     contactPhone: d.contactPhone,
     legalName: d.legalName,
@@ -37,5 +39,5 @@ export default async function AdminDealersPage() {
     orderCount: d._count.salesOrders,
     createdAt: d.createdAt.toISOString(),
   }));
-  return <DealersManager initial={plain} />;
+  return <DealersManager initial={plain} initialTab={searchParams.tab === "WALK_IN" || searchParams.tab === "ALL" ? searchParams.tab : "DEALER"} />;
 }

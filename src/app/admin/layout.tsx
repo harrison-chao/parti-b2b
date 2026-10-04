@@ -22,7 +22,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/suppliers", label: "供应商", icon: "suppliers" },
     { href: "/admin/purchase-orders", label: "采购单", icon: "purchase" },
     { href: "/admin/stock-counts", label: "盘点审核", icon: "stockcount" },
-    { href: "/admin/reconcile/dealers", label: "经销商对账", icon: "reconcile" },
+    { href: "/admin/reconcile/dealers", label: "客户对账", icon: "reconcile" },
     { href: "/admin/reconcile/suppliers", label: "供应商对账", icon: "reconcile" },
     { href: "/admin/pricing", label: "报价成本", icon: "pricing" },
     { href: "/admin/audit", label: "审计日志", icon: "audit" },

@@ -15,7 +15,7 @@ export default async function AdminUsersPage() {
   });
   const [dealers, workshops] = await Promise.all([
     prisma.dealer.findMany({
-      where: { status: "ACTIVE" },
+      where: { status: "ACTIVE", customerType: "DEALER" },
       orderBy: { dealerNo: "asc" },
       select: { id: true, dealerNo: true, companyName: true },
     }),

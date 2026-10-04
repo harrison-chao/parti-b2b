@@ -11,7 +11,7 @@ export default async function OpsHomePage() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const [
-    pending, confirmed, producing, completed, dealerCount,
+    pending, confirmed, producing, completed, dealerCount, directCount,
     recent, pendingTotal,
     mtdSalesAgg, mtdRecvAgg, mtdPOAgg, mtdPayAgg,
     inProductionCount,
@@ -22,7 +22,8 @@ export default async function OpsHomePage() {
     prisma.salesOrder.count({ where: { orderStatus: "CONFIRMED" } }),
     prisma.salesOrder.count({ where: { orderStatus: "PRODUCING" } }),
     prisma.salesOrder.count({ where: { orderStatus: "COMPLETED" } }),
-    prisma.dealer.count({ where: { status: "ACTIVE" } }),
+    prisma.dealer.count({ where: { status: "ACTIVE", customerType: "DEALER" } }),
+    prisma.dealer.count({ where: { status: "ACTIVE", customerType: "WALK_IN" } }),
     prisma.salesOrder.findMany({
       where: { orderStatus: "PENDING" },
       orderBy: { createdAt: "desc" },
@@ -127,12 +128,13 @@ export default async function OpsHomePage() {
       </div>
 
       {/* Order pipeline */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Stat label="待审核" value={pending} href="/admin/orders?status=PENDING" tone="amber" />
         <Stat label="已确认" value={confirmed} href="/admin/orders?status=CONFIRMED" tone="blue" />
         <Stat label="生产中" value={producing} href="/admin/orders?status=PRODUCING" tone="indigo" />
         <Stat label="已完成" value={completed} href="/admin/orders?status=COMPLETED" tone="emerald" />
         <Stat label="活跃经销商" value={dealerCount} href="/admin/dealers" />
+        <Stat label="直销客户" value={directCount} href="/admin/dealers?tab=WALK_IN" />
       </div>
 
       {/* Top-balance lists */}

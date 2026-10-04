@@ -235,13 +235,16 @@ export default function NewInternalOrderPage() {
   }
 
   const selectedDealer = useMemo(() => dealers.find((d) => d.id === dealerId), [dealers, dealerId]);
-  const filteredDealers = useMemo(() => {
+  const { dealerList, directList } = useMemo(() => {
     const q = dealerQuery.trim().toLowerCase();
-    if (!q) return dealers.slice(0, 12);
-    return dealers.filter((d) =>
-      [d.companyName, d.nickname ?? "", d.dealerNo, d.contactName, d.contactPhone]
-        .some((f) => f.toLowerCase().includes(q))
-    ).slice(0, 12);
+    const match = (d: typeof dealers[number]) =>
+      !q || [d.companyName, d.nickname ?? "", d.dealerNo, d.contactName, d.contactPhone]
+        .some((f) => f.toLowerCase().includes(q));
+    const isDirect = (d: typeof dealers[number]) => d.customerType === "WALK_IN";
+    return {
+      dealerList: dealers.filter((d) => !isDirect(d) && match(d)),
+      directList: dealers.filter((d) => isDirect(d) && match(d)).slice(0, q ? 12 : 15),
+    };
   }, [dealers, dealerQuery]);
 
   function addProfileRow() {
@@ -375,10 +378,14 @@ export default function NewInternalOrderPage() {
             <PopoverTrigger asChild>
               <button className="w-full border rounded p-2 text-left text-sm flex items-center justify-between hover:bg-secondary">
                 {dealerId
-                  ? <span>{selectedDealer ? (selectedDealer.nickname || selectedDealer.companyName) : "…"}
-                      {selectedDealer?.customerType === "WALK_IN" && <span className="ml-1 text-xs text-muted-foreground">散客</span>}
-                      {selectedDealer && <span className="ml-2 text-xs text-muted-foreground font-mono">{selectedDealer.dealerNo}</span>}</span>
-                  : <span className="text-muted-foreground">点击选择客户（可搜公司/昵称/编号/电话）</span>}
+                  ? <span className="flex items-center gap-2">
+                      <span>{selectedDealer ? (selectedDealer.nickname || selectedDealer.companyName) : "…"}</span>
+                      {selectedDealer?.customerType === "WALK_IN"
+                        ? <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[11px] text-cyan-300 ring-1 ring-inset ring-cyan-400/20">直销客户</span>
+                        : selectedDealer && <span className="rounded bg-blue-500/15 px-1.5 py-0.5 text-[11px] text-blue-300 ring-1 ring-inset ring-blue-400/20">经销商</span>}
+                      {selectedDealer && <span className="text-xs text-muted-foreground font-mono">{selectedDealer.dealerNo}</span>}
+                    </span>
+                  : <span className="text-muted-foreground">点击选择客户（可搜名称/收货人/编号/电话）</span>}
                 <span className="text-gray-300">▼</span>
               </button>
             </PopoverTrigger>
@@ -386,17 +393,30 @@ export default function NewInternalOrderPage() {
               <Command>
                 <CommandInput placeholder="搜索客户…" value={dealerQuery} onValueChange={setDealerQuery} />
                 <CommandList>
-                  <CommandEmpty>无匹配客户，先到「经销商」页建档（散客选 WALK_IN）</CommandEmpty>
-                  <CommandGroup>
-                    {filteredDealers.map((d) => (
-                      <CommandItem key={d.id} value={`${d.companyName} ${d.nickname ?? ""} ${d.dealerNo} ${d.contactName} ${d.contactPhone}`}
-                        onSelect={() => { setDealerId(d.id); setDealerQuery(""); }}>
-                        {d.nickname || d.companyName}
-                        {d.customerType === "WALK_IN" && <span className="ml-1 text-xs text-muted-foreground">散客</span>}
-                        <span className="ml-auto text-xs text-muted-foreground font-mono">{d.dealerNo}</span>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
+                  <CommandEmpty>无匹配客户，先到「客户管理」页建档（可选经销商或直销客户）</CommandEmpty>
+                  {dealerList.length > 0 && (
+                    <CommandGroup heading="经销商">
+                      {dealerList.map((d) => (
+                        <CommandItem key={d.id} value={`${d.companyName} ${d.nickname ?? ""} ${d.dealerNo} ${d.contactName} ${d.contactPhone}`}
+                          onSelect={() => { setDealerId(d.id); setDealerQuery(""); }}>
+                          {d.companyName}
+                          <span className="ml-auto text-xs text-muted-foreground font-mono">{d.dealerNo}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+                  {directList.length > 0 && (
+                    <CommandGroup heading="直销客户">
+                      {directList.map((d) => (
+                        <CommandItem key={d.id} value={`${d.companyName} ${d.nickname ?? ""} ${d.dealerNo} ${d.contactName} ${d.contactPhone}`}
+                          onSelect={() => { setDealerId(d.id); setDealerQuery(""); }}>
+                          {d.nickname || d.companyName}
+                          <span className="ml-auto max-w-[45%] truncate text-xs text-muted-foreground" title={d.companyName}>{d.nickname ? d.companyName : ""}</span>
+                          <span className="ml-2 text-xs text-muted-foreground font-mono">{d.dealerNo}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
                 </CommandList>
               </Command>
             </PopoverContent>
