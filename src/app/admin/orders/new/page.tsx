@@ -360,25 +360,25 @@ export default function NewInternalOrderPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-4">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-4 stagger-in">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">内部代下单</h1>
         <Badge className="bg-teal-100 text-teal-700">免审 · 提交即派车间</Badge>
       </div>
-      {err && <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3 text-sm">{err}</div>}
-      {msg && <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 rounded p-3 text-sm">{msg}</div>}
+      {err && <div className="bg-destructive/10 border border-red-200 text-red-400 rounded p-3 text-sm">{err}</div>}
+      {msg && <div className="bg-emerald-500/10 border border-emerald-200 text-emerald-300 rounded p-3 text-sm">{msg}</div>}
 
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-base">① 客户</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           <Popover>
             <PopoverTrigger asChild>
-              <button className="w-full border rounded p-2 text-left text-sm flex items-center justify-between hover:bg-gray-50">
+              <button className="w-full border rounded p-2 text-left text-sm flex items-center justify-between hover:bg-secondary">
                 {dealerId
                   ? <span>{selectedDealer ? (selectedDealer.nickname || selectedDealer.companyName) : "…"}
-                      {selectedDealer?.customerType === "WALK_IN" && <span className="ml-1 text-xs text-gray-400">散客</span>}
-                      {selectedDealer && <span className="ml-2 text-xs text-gray-400 font-mono">{selectedDealer.dealerNo}</span>}</span>
-                  : <span className="text-gray-400">点击选择客户（可搜公司/昵称/编号/电话）</span>}
+                      {selectedDealer?.customerType === "WALK_IN" && <span className="ml-1 text-xs text-muted-foreground">散客</span>}
+                      {selectedDealer && <span className="ml-2 text-xs text-muted-foreground font-mono">{selectedDealer.dealerNo}</span>}</span>
+                  : <span className="text-muted-foreground">点击选择客户（可搜公司/昵称/编号/电话）</span>}
                 <span className="text-gray-300">▼</span>
               </button>
             </PopoverTrigger>
@@ -392,8 +392,8 @@ export default function NewInternalOrderPage() {
                       <CommandItem key={d.id} value={`${d.companyName} ${d.nickname ?? ""} ${d.dealerNo} ${d.contactName} ${d.contactPhone}`}
                         onSelect={() => { setDealerId(d.id); setDealerQuery(""); }}>
                         {d.nickname || d.companyName}
-                        {d.customerType === "WALK_IN" && <span className="ml-1 text-xs text-gray-400">散客</span>}
-                        <span className="ml-auto text-xs text-gray-400 font-mono">{d.dealerNo}</span>
+                        {d.customerType === "WALK_IN" && <span className="ml-1 text-xs text-muted-foreground">散客</span>}
+                        <span className="ml-auto text-xs text-muted-foreground font-mono">{d.dealerNo}</span>
                       </CommandItem>
                     ))}
                   </CommandGroup>
@@ -403,11 +403,11 @@ export default function NewInternalOrderPage() {
           </Popover>
           {dealerId && recent.length > 0 && (
             <div className="pt-2">
-              <Label className="text-xs text-gray-500">复制历史订单（改数量即下单）</Label>
+              <Label className="text-xs text-muted-foreground">复制历史订单（改数量即下单）</Label>
               <div className="flex flex-wrap gap-2 mt-1">
                 {recent.map((o) => (
                   <button key={o.orderNo} onClick={() => copyRecent(o.orderNo)}
-                    className="border rounded px-2 py-1 text-xs hover:bg-gray-50">
+                    className="border rounded px-2 py-1 text-xs hover:bg-secondary">
                     {o.displayOrderNo ?? o.orderNo.slice(-6)} · {o.lines?.length ?? 0}行 · {new Date(o.targetDeliveryDate).toLocaleDateString()}
                   </button>
                 ))}
@@ -424,7 +424,7 @@ export default function NewInternalOrderPage() {
             <div className="md:col-span-2 flex flex-wrap gap-2">
               {addresses.map((a) => (
                 <button key={a.id} onClick={() => applyAddress(a)}
-                  className={`border rounded px-2 py-1 text-xs ${addressId === a.id ? "border-blue-500 bg-blue-50" : "hover:bg-gray-50"}`}>
+                  className={`border rounded px-2 py-1 text-xs ${addressId === a.id ? "border-blue-500 bg-sky-500/10" : "hover:bg-secondary"}`}>
                   {a.province}{a.city}{a.district} · {a.receiverName}
                 </button>
               ))}
@@ -452,15 +452,15 @@ export default function NewInternalOrderPage() {
         <CardContent>
           <div className="flex flex-wrap gap-2">
             {combos.map((c) => (
-              <span key={c.id} className="border rounded px-2 py-1 text-xs flex items-center gap-1">
-                <button className="hover:bg-blue-50 rounded px-1" onClick={() => insertCombo(c)} title="一键插入明细">
+              <span key={c.id} className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs flex items-center gap-1 spring-press">
+                <button className="hover:bg-sky-500/10 rounded px-1" onClick={() => insertCombo(c)} title="一键插入明细">
                   {c.source === "auto-history" ? "📋 " : "⭐ "}{c.name}
-                  {c.usageCount > 0 && <span className="text-gray-400"> ·{c.usageCount}</span>}
+                  {c.usageCount > 0 && <span className="text-muted-foreground"> ·{c.usageCount}</span>}
                 </button>
                 <button className="text-gray-300 hover:text-red-500" onClick={() => delCombo(c.id)} title="删除">×</button>
               </span>
             ))}
-            {!combos.length && !comboBusy && <span className="text-xs text-gray-400">暂无组合——点「从历史生成」归集高频规格，或填好明细后「存当前明细」</span>}
+            {!combos.length && !comboBusy && <span className="text-xs text-muted-foreground">暂无组合——点「从历史生成」归集高频规格，或填好明细后「存当前明细」</span>}
           </div>
         </CardContent>
       </Card>
@@ -499,7 +499,7 @@ export default function NewInternalOrderPage() {
                         {r.unit === "inch" ? "寸" : "mm"}
                       </button>
                     </div>
-                    <div className="text-xs text-gray-400 mt-0.5">{r.cutMm ? `${r.cutMm}mm` : ""}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{r.cutMm ? `${r.cutMm}mm` : ""}</div>
                   </div>
                   <div className="md:col-span-3">
                     <Label className="text-xs">工序</Label>
@@ -548,7 +548,7 @@ export default function NewInternalOrderPage() {
               </div>
             </div>
           ))}
-          {!rows.length && <div className="text-sm text-gray-400">还没有明细。选「复制历史订单」最快，或手动加行。</div>}
+          {!rows.length && <div className="text-sm text-muted-foreground">还没有明细。选「复制历史订单」最快，或手动加行。</div>}
         </CardContent>
       </Card>
 

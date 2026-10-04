@@ -23,7 +23,7 @@ export function NewStockCountBtn() {
 
   return (
     <div className="flex items-center gap-3">
-      {err && <span className="text-xs text-red-600">{err}</span>}
+      {err && <span className="text-xs text-red-400">{err}</span>}
       <Button size="sm" onClick={create} disabled={busy}>{busy ? "创建中..." : "发起盘点"}</Button>
     </div>
   );

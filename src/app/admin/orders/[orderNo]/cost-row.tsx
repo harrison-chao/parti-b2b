@@ -63,7 +63,7 @@ export function OrderLineCostRow({
 
   return (
     <>
-      <tr className={`border-b ${excluded ? "bg-slate-50 text-muted-foreground" : ""}`}>
+      <tr className={`border-b ${excluded ? "bg-muted/50 text-muted-foreground" : ""}`}>
         <td className="p-3">{line.lineNo}</td>
         <td className="p-3">
           <div className="flex items-center gap-2">
@@ -74,7 +74,7 @@ export function OrderLineCostRow({
           </div>
           {line.preprocessing && <div className="text-xs text-muted-foreground">{line.preprocessing}</div>}
           {line.drawingUrl && (
-            <a href={line.drawingUrl} target="_blank" rel="noopener" className="text-xs text-blue-600 hover:underline">
+            <a href={line.drawingUrl} target="_blank" rel="noopener" className="text-xs text-sky-400 hover:underline">
               📎 图纸 {line.drawingFileName ?? ""}
             </a>
           )}
@@ -83,7 +83,7 @@ export function OrderLineCostRow({
         <td className="p-3 text-right">{line.quantity}</td>
         <td className="p-3 text-right">{effectiveUnitCost != null ? formatMoney(effectiveUnitCost) : "-"}</td>
         <td className="p-3 text-right">{formatMoney(line.unitPrice)}</td>
-        <td className={`p-3 text-right ${profit == null || excluded ? "" : profit >= 0 ? "text-blue-700" : "text-red-600"}`}>
+        <td className={`p-3 text-right ${profit == null || excluded ? "" : profit >= 0 ? "text-sky-300" : "text-red-400"}`}>
           {profit != null ? formatMoney(profit) : "-"}
         </td>
         <td className="p-3 text-right font-medium">{formatMoney(line.lineAmount)}</td>
@@ -99,7 +99,7 @@ export function OrderLineCostRow({
               <span title="勾选后该行纳入利润核算">计入利润</span>
             </label>
             {costBreakdown && (
-              <button onClick={() => setOpen(!open)} className="text-blue-600 hover:underline text-left">
+              <button onClick={() => setOpen(!open)} className="text-sky-400 hover:underline text-left">
                 {open ? "收起" : "展开"}
               </button>
             )}
@@ -107,7 +107,7 @@ export function OrderLineCostRow({
         </td>
       </tr>
       {open && costBreakdown && (
-        <tr className="bg-amber-50 border-b">
+        <tr className="bg-amber-500/10 border-b">
           <td colSpan={9} className="p-3">
             <div className="text-xs font-semibold text-amber-800 mb-2">成本构成（单位成本 {formatMoney(costBreakdown.totalCost)}/根）</div>
             <div className="grid grid-cols-6 gap-3 text-xs">

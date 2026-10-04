@@ -19,16 +19,16 @@ export default async function DealerReconcileListPage() {
         <Card><CardHeader><CardTitle className="text-sm text-muted-foreground">总应收</CardTitle></CardHeader>
           <CardContent className="text-2xl font-bold">¥{totalReceivable.toLocaleString("zh-CN", { minimumFractionDigits: 2 })}</CardContent></Card>
         <Card><CardHeader><CardTitle className="text-sm text-muted-foreground">已收款</CardTitle></CardHeader>
-          <CardContent className="text-2xl font-bold text-emerald-700">¥{totalPaid.toLocaleString("zh-CN", { minimumFractionDigits: 2 })}</CardContent></Card>
+          <CardContent className="text-2xl font-bold text-emerald-300">¥{totalPaid.toLocaleString("zh-CN", { minimumFractionDigits: 2 })}</CardContent></Card>
         <Card><CardHeader><CardTitle className="text-sm text-muted-foreground">未收余额</CardTitle></CardHeader>
-          <CardContent className={`text-2xl font-bold ${totalBalance > 0 ? "text-red-600" : "text-muted-foreground"}`}>¥{totalBalance.toLocaleString("zh-CN", { minimumFractionDigits: 2 })}</CardContent></Card>
+          <CardContent className={`text-2xl font-bold ${totalBalance > 0 ? "text-red-400" : "text-muted-foreground"}`}>¥{totalBalance.toLocaleString("zh-CN", { minimumFractionDigits: 2 })}</CardContent></Card>
       </div>
 
       <Card>
         <CardHeader><CardTitle>经销商列表（{rows.length}）</CardTitle></CardHeader>
         <CardContent className="p-0">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b"><tr className="text-left">
+            <thead className="bg-muted/50 border-b"><tr className="text-left">
               <th className="p-3">编号</th><th className="p-3">公司</th>
               <th className="p-3 text-right">订单数</th>
               <th className="p-3 text-right">应收</th>
@@ -39,15 +39,15 @@ export default async function DealerReconcileListPage() {
               {rows.map((r) => {
                 const bal = Number(r.balance);
                 return (
-                  <tr key={r.dealerId} className="border-b hover:bg-slate-50">
+                  <tr key={r.dealerId} className="border-b hover:bg-muted/50">
                     <td className="p-3 font-mono">
-                      <Link href={`/admin/reconcile/dealers/${r.dealerId}`} className="text-blue-600 hover:underline">{r.dealerNo}</Link>
+                      <Link href={`/admin/reconcile/dealers/${r.dealerId}`} className="text-sky-400 hover:underline">{r.dealerNo}</Link>
                     </td>
                     <td className="p-3">{r.companyName}</td>
                     <td className="p-3 text-right">{r.orderCount}</td>
                     <td className="p-3 text-right">¥{Number(r.receivable).toLocaleString("zh-CN", { minimumFractionDigits: 2 })}</td>
-                    <td className="p-3 text-right text-emerald-700">¥{Number(r.paid).toLocaleString("zh-CN", { minimumFractionDigits: 2 })}</td>
-                    <td className={`p-3 text-right font-medium ${bal > 0 ? "text-red-600" : bal < 0 ? "text-amber-600" : "text-muted-foreground"}`}>
+                    <td className="p-3 text-right text-emerald-300">¥{Number(r.paid).toLocaleString("zh-CN", { minimumFractionDigits: 2 })}</td>
+                    <td className={`p-3 text-right font-medium ${bal > 0 ? "text-red-400" : bal < 0 ? "text-amber-600" : "text-muted-foreground"}`}>
                       ¥{bal.toLocaleString("zh-CN", { minimumFractionDigits: 2 })}
                     </td>
                   </tr>

@@ -58,7 +58,7 @@ export default async function CrmCustomerDetailPage({ params }: { params: { id: 
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <Link href="/dealer/crm" className="text-sm text-blue-600 hover:underline">← 返回客户 CRM</Link>
+          <Link href="/dealer/crm" className="text-sm text-sky-400 hover:underline">← 返回客户 CRM</Link>
           <h1 className="mt-2 text-2xl font-bold">{customer.name}</h1>
           <p className="text-sm text-muted-foreground">{CRM_CUSTOMER_TYPE_LABEL[customer.customerType]} · {customer.phone}</p>
         </div>
@@ -73,7 +73,7 @@ export default async function CrmCustomerDetailPage({ params }: { params: { id: 
           {insights.map((insight) => (
             <div key={insight.title} className={`rounded-2xl border p-4 text-sm ${insightToneClass[insight.tone]}`}>
               <div className="font-semibold">{insight.title}</div>
-              <p className="mt-2 text-xs leading-5 text-slate-600">{insight.body}</p>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">{insight.body}</p>
             </div>
           ))}
         </CardContent>
@@ -97,7 +97,7 @@ export default async function CrmCustomerDetailPage({ params }: { params: { id: 
             {customer.tags.length > 0 && (
               <div className="md:col-span-2">
                 <div className="mb-1 text-xs text-muted-foreground">标签</div>
-                <div className="flex flex-wrap gap-1">{customer.tags.map((tag) => <span key={tag} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{tag}</span>)}</div>
+                <div className="flex flex-wrap gap-1">{customer.tags.map((tag) => <span key={tag} className="rounded-full bg-secondary px-2 py-0.5 text-xs">{tag}</span>)}</div>
               </div>
             )}
           </CardContent>
@@ -132,14 +132,14 @@ export default async function CrmCustomerDetailPage({ params }: { params: { id: 
           <CardHeader><CardTitle>跟进记录</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {customer.contactLogs.map((log) => (
-              <div key={log.id} className="rounded-2xl border bg-white/70 p-3">
+              <div key={log.id} className="rounded-2xl border bg-card/70 p-3">
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="font-semibold">{CRM_CONTACT_METHOD_LABEL[log.method]}</span>
                   <span className="text-xs text-muted-foreground">{formatDateTime(log.createdAt)}</span>
                 </div>
                 <p className="mt-2 text-sm">{log.content}</p>
                 {log.outcome && <p className="mt-1 text-xs text-muted-foreground">结果：{log.outcome}</p>}
-                {log.nextAction && <p className="mt-1 text-xs text-blue-700">下一步：{log.nextAction}</p>}
+                {log.nextAction && <p className="mt-1 text-xs text-sky-300">下一步：{log.nextAction}</p>}
                 {log.opportunity && <p className="mt-1 text-xs text-muted-foreground">关联商机：{log.opportunity.title}</p>}
               </div>
             ))}
@@ -151,10 +151,10 @@ export default async function CrmCustomerDetailPage({ params }: { params: { id: 
           <CardHeader><CardTitle>商机项目</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {customer.opportunities.map((opportunity) => (
-              <div key={opportunity.id} className="rounded-2xl border bg-white/70 p-3 text-sm">
+              <div key={opportunity.id} className="rounded-2xl border bg-card/70 p-3 text-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-semibold">{opportunity.title}</span>
-                  <Badge className="bg-slate-100 text-slate-700">{CRM_OPPORTUNITY_STAGE_LABEL[opportunity.stage]}</Badge>
+                  <Badge className="bg-secondary text-foreground/80">{CRM_OPPORTUNITY_STAGE_LABEL[opportunity.stage]}</Badge>
                 </div>
                 <div className="mt-2 text-xs text-muted-foreground">
                   预计预算 {opportunity.estimatedBudget != null ? formatMoney(Number(opportunity.estimatedBudget)) : "-"} · 预计成交 {formatDate(opportunity.expectedCloseDate)}
@@ -173,7 +173,7 @@ export default async function CrmCustomerDetailPage({ params }: { params: { id: 
           <CardHeader><CardTitle>跟进任务</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {customer.tasks.map((task) => (
-              <div key={task.id} className="rounded-2xl border bg-white/70 p-3 text-sm">
+              <div key={task.id} className="rounded-2xl border bg-card/70 p-3 text-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-semibold">{task.title}</span>
                   <span className="text-xs text-muted-foreground">{CRM_TASK_STATUS_LABEL[task.status]} · {formatDateTime(task.dueAt)}</span>
@@ -190,7 +190,7 @@ export default async function CrmCustomerDetailPage({ params }: { params: { id: 
           <CardHeader><CardTitle>关联订单</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {customer.salesOrders.map((order) => (
-              <Link key={order.orderNo} href={`/dealer/orders/${order.orderNo}`} className="block rounded-2xl border bg-white/70 p-3 text-sm hover:border-primary/40">
+              <Link key={order.orderNo} href={`/dealer/orders/${order.orderNo}`} className="block rounded-2xl border bg-card/70 p-3 text-sm hover:border-primary/40">
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-mono">{order.orderNo}</span>
                   <span>{formatMoney(Number(order.totalAmount))}</span>
@@ -207,11 +207,11 @@ export default async function CrmCustomerDetailPage({ params }: { params: { id: 
 }
 
 const insightToneClass: Record<string, string> = {
-  emerald: "border-emerald-200 bg-emerald-50/75",
-  amber: "border-amber-200 bg-amber-50/75",
+  emerald: "border-emerald-200 bg-emerald-500/10/75",
+  amber: "border-amber-200 bg-amber-500/10/75",
   rose: "border-rose-200 bg-rose-50/75",
   sky: "border-sky-200 bg-sky-50/75",
-  slate: "border-slate-200 bg-white/75",
+  slate: "border-border bg-card/75",
 };
 
 function Info({ label, value }: { label: string; value: React.ReactNode }) {

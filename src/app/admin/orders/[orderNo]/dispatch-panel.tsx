@@ -67,7 +67,7 @@ export function DispatchPanel({
           <Badge className={WORK_ORDER_STATUS_COLOR[existing.status]}>{WORK_ORDER_STATUS_LABEL[existing.status]}</Badge>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
-          <div className="flex justify-between"><span className="text-muted-foreground">加工单号</span><Link href={`/admin/work-orders/${existing.workOrderNo}`} className="font-mono text-blue-600 hover:underline">{existing.workOrderNo}</Link></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">加工单号</span><Link href={`/admin/work-orders/${existing.workOrderNo}`} className="font-mono text-sky-400 hover:underline">{existing.workOrderNo}</Link></div>
           <div className="flex justify-between"><span className="text-muted-foreground">承诺交期</span><span>{existing.committedDeliveryDate ? formatDate(existing.committedDeliveryDate) : "-"}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">车间</span><span>{existing.workshopName}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">派单人</span><span>{existing.assignedBy ?? "-"}</span></div>

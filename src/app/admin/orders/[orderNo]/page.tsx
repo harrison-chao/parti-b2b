@@ -76,11 +76,11 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold font-mono">{order.orderNo}</h1>
-          {order.displayOrderNo && <span className="text-sm text-gray-500">对外单号 {order.displayOrderNo}</span>}
+          {order.displayOrderNo && <span className="text-sm text-muted-foreground">对外单号 {order.displayOrderNo}</span>}
           <p className="text-sm text-muted-foreground">{order.dealer.companyName} · {order.dealer.dealerNo}</p>
         </div>
         <Badge className={ORDER_STATUS_COLOR[order.orderStatus] + " text-base px-3 py-1"}>{ORDER_STATUS_LABEL[order.orderStatus]}</Badge>
-          <a href={`/admin/orders/new?copy=${order.orderNo}`} className="text-sm text-blue-600 hover:underline">再来一单</a>
+          <a href={`/admin/orders/new?copy=${order.orderNo}`} className="text-sm text-sky-400 hover:underline">再来一单</a>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -118,7 +118,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
             <CardHeader><CardTitle>订单明细（含利润核算）</CardTitle></CardHeader>
             <CardContent className="p-0">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b"><tr className="text-left">
+                <thead className="bg-muted/50 border-b"><tr className="text-left">
                   <th className="p-3">#</th><th className="p-3">产品</th><th className="p-3">SKU</th>
                   <th className="p-3 text-right">数量</th>
                   <th className="p-3 text-right">单位成本</th>
@@ -161,11 +161,11 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
                     );
                   })}
                 </tbody>
-                <tfoot className="bg-slate-50">
+                <tfoot className="bg-muted/50">
                   <tr>
                     <td colSpan={4} className="p-3 text-right font-semibold">成本合计</td>
                     <td colSpan={3} className="p-3 text-right font-semibold">{formatMoney(totalCost)}</td>
-                    <td className="p-3 text-right font-bold text-emerald-700 text-lg">{formatMoney(dealerTotal)}</td>
+                    <td className="p-3 text-right font-bold text-emerald-300 text-lg">{formatMoney(dealerTotal)}</td>
                     <td></td>
                   </tr>
                   <tr>
@@ -175,7 +175,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
                   </tr>
                   <tr>
                     <td colSpan={7} className="p-3 text-right font-semibold">本单利润（核算收入 − 核算成本）</td>
-                    <td className={`p-3 text-right font-bold text-lg ${adminProfit >= 0 ? "text-blue-700" : "text-red-600"}`}>{formatMoney(adminProfit)}</td>
+                    <td className={`p-3 text-right font-bold text-lg ${adminProfit >= 0 ? "text-sky-300" : "text-red-400"}`}>{formatMoney(adminProfit)}</td>
                     <td></td>
                   </tr>
                 </tfoot>
@@ -232,13 +232,13 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
                         <span className="font-mono font-semibold">{no}</span>
                         <span>{new Date(sh.shippedAt).toLocaleString("zh-CN")}</span>
                         <span>{sh.carrier}{sh.trackingNo ? ` · ${sh.trackingNo}` : ""}</span>
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-muted-foreground">
                           {sh.freightPayType === "COD" ? "到付" : sh.freightPayType === "MONTHLY" ? "月结" : "寄付"}
                           {sh.fromType === "OUTSOURCER" ? " · 外协直发" : ""}
                         </span>
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">{sh.items.join("；")}</div>
-                      {sh.note && <div className="text-xs text-gray-400 mt-0.5">备注：{sh.note}</div>}
+                      <div className="text-xs text-muted-foreground mt-1">{sh.items.join("；")}</div>
+                      {sh.note && <div className="text-xs text-muted-foreground mt-0.5">备注：{sh.note}</div>}
                     </div>
                   ))}
                 </div>

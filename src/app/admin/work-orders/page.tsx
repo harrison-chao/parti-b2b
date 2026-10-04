@@ -22,7 +22,7 @@ export default async function AdminWorkOrdersPage() {
       <Card>
         <CardContent className="p-0">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b"><tr className="text-left">
+            <thead className="bg-muted/50 border-b"><tr className="text-left">
               <th className="p-3">加工单号</th><th className="p-3">销售订单</th>
               <th className="p-3">经销商</th><th className="p-3">车间</th>
               <th className="p-3">状态</th><th className="p-3">承诺交期</th>
@@ -32,20 +32,20 @@ export default async function AdminWorkOrdersPage() {
               {workOrders.map((wo) => {
                 const overdue = wo.committedDeliveryDate && wo.status !== "SHIPPED" && wo.committedDeliveryDate < now;
                 return (
-                  <tr key={wo.id} className="border-b hover:bg-slate-50">
+                  <tr key={wo.id} className="border-b hover:bg-muted/50">
                     <td className="p-3 font-mono">{wo.workOrderNo}</td>
                     <td className="p-3 font-mono text-xs">
-                      <Link href={`/admin/orders/${wo.orderNo}`} className="text-blue-600 hover:underline">{wo.orderNo}</Link>
+                      <Link href={`/admin/orders/${wo.orderNo}`} className="text-sky-400 hover:underline">{wo.orderNo}</Link>
                     </td>
                     <td className="p-3 text-xs">{wo.order.dealer.companyName}<div className="text-muted-foreground">{wo.order.dealer.dealerNo}</div></td>
                     <td className="p-3 text-xs">{wo.workshop.code} · {wo.workshop.name}</td>
                     <td className="p-3"><Badge className={WORK_ORDER_STATUS_COLOR[wo.status]}>{WORK_ORDER_STATUS_LABEL[wo.status]}</Badge></td>
-                    <td className={`p-3 text-xs ${overdue ? "text-red-600 font-semibold" : ""}`}>
+                    <td className={`p-3 text-xs ${overdue ? "text-red-400 font-semibold" : ""}`}>
                       {wo.committedDeliveryDate ? formatDate(wo.committedDeliveryDate) : "-"}
                       {overdue && <div className="text-xs">⚠ 已延期</div>}
                     </td>
                     <td className="p-3 text-xs">{wo.carrier ? `${wo.carrier} · ${wo.trackingNo ?? ""}` : "-"}</td>
-                    <td className="p-3"><Link href={`/admin/work-orders/${wo.workOrderNo}`} className="text-blue-600 hover:underline text-xs">详情</Link></td>
+                    <td className="p-3"><Link href={`/admin/work-orders/${wo.workOrderNo}`} className="text-sky-400 hover:underline text-xs">详情</Link></td>
                   </tr>
                 );
               })}

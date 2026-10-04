@@ -52,7 +52,7 @@ export function StampForm({ initialUrl, companyName }: { initialUrl: string | nu
     <div className="space-y-4">
       {url ? (
         <div className="flex items-center gap-4">
-          <img src={url} alt="合同章" className="w-32 h-32 object-contain border rounded bg-white" />
+          <img src={url} alt="合同章" className="w-32 h-32 object-contain border rounded bg-card" />
           <div className="text-sm space-y-1">
             <div className="text-muted-foreground">{companyName}</div>
             <Button variant="outline" size="sm" onClick={remove}>移除</Button>
@@ -73,7 +73,7 @@ export function StampForm({ initialUrl, companyName }: { initialUrl: string | nu
             {uploading ? "上传中..." : (url ? "替换合同章" : "上传合同章")}
           </span>
         </Label>
-        {status && <span className="text-sm text-emerald-700">{status}</span>}
+        {status && <span className="text-sm text-emerald-300">{status}</span>}
       </div>
     </div>
   );

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN">
-      <body>{children}<Toaster position="top-center" richColors /></body>
+      <body>{children}<Toaster position="top-center" theme="dark" richColors toastOptions={{ style: { background: "hsl(222 44% 10%)", border: "1px solid hsl(217 28% 22%)" } }} /></body>
     </html>
   );
 }

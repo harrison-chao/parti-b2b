@@ -143,12 +143,12 @@ export function WorkOrderDetail({
           <p className="text-sm text-muted-foreground">
             车间 {data.workshop.code} · {data.workshop.name}
             {role === "ADMIN" && (
-              <> · 销售订单 <Link href={`/admin/orders/${data.order.orderNo}`} className="text-blue-600 hover:underline font-mono">{data.order.orderNo}</Link></>
+              <> · 销售订单 <Link href={`/admin/orders/${data.order.orderNo}`} className="text-sky-400 hover:underline font-mono">{data.order.orderNo}</Link></>
             )}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {overdue && <Badge className="bg-red-100 text-red-700">⚠ 已延期</Badge>}
+          {overdue && <Badge className="bg-red-100 text-red-400">⚠ 已延期</Badge>}
           <Badge className={WORK_ORDER_STATUS_COLOR[data.status] + " text-base px-3 py-1"}>{WORK_ORDER_STATUS_LABEL[data.status]}</Badge>
           <a href={printHref} target="_blank" rel="noopener">
             <Button variant="outline">🖨 打印加工单</Button>
@@ -169,8 +169,8 @@ export function WorkOrderDetail({
                     <div key={s} className="flex items-center gap-1">
                       <div className={`px-2 py-1 rounded text-xs ${
                         current ? "bg-indigo-600 text-white font-semibold" :
-                        done ? "bg-emerald-100 text-emerald-700" :
-                        "bg-slate-100 text-slate-400"
+                        done ? "bg-emerald-100 text-emerald-300" :
+                        "bg-secondary text-slate-400"
                       }`}>
                         {WORK_ORDER_STATUS_LABEL[s]}
                       </div>
@@ -186,7 +186,7 @@ export function WorkOrderDetail({
             <CardHeader><CardTitle>订单明细</CardTitle></CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto"><table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b"><tr className="text-left">
+                <thead className="bg-muted/50 border-b"><tr className="text-left">
                   <th className="p-3">#</th><th className="p-3">产品</th>
                   <th className="p-3">SKU</th><th className="p-3">表面</th>
                   <th className="p-3">加工</th><th className="p-3 text-right">数量</th>
@@ -203,7 +203,7 @@ export function WorkOrderDetail({
                       <td className="p-3 text-right">{l.quantity}</td>
                       <td className="p-3 text-xs">
                         {l.drawingUrl ? (
-                          <a href={l.drawingUrl} target="_blank" rel="noopener" className="text-blue-600 hover:underline">📎 {l.drawingFileName ?? "查看"}</a>
+                          <a href={l.drawingUrl} target="_blank" rel="noopener" className="text-sky-400 hover:underline">📎 {l.drawingFileName ?? "查看"}</a>
                         ) : "-"}
                       </td>
                     </tr>
@@ -224,7 +224,7 @@ export function WorkOrderDetail({
                       <span className="text-muted-foreground">{e.fromStatus ? WORK_ORDER_STATUS_LABEL[e.fromStatus] + " → " : "派单 → "}</span>
                       <span className="font-semibold">{WORK_ORDER_STATUS_LABEL[e.toStatus]}</span>
                       {e.operatorName && <span className="text-xs text-muted-foreground ml-2">by {e.operatorName}</span>}
-                      {e.note && <div className="text-xs text-slate-600 mt-1">{e.note}</div>}
+                      {e.note && <div className="text-xs text-muted-foreground mt-1">{e.note}</div>}
                     </div>
                   </div>
                 ))}
@@ -264,7 +264,7 @@ export function WorkOrderDetail({
               {data.actualShippedAt && <div><span className="text-muted-foreground">实际出运：</span>{formatDateTime(data.actualShippedAt)}</div>}
               {data.carrier && <div><span className="text-muted-foreground">物流：</span>{data.carrier} · {data.trackingNo}</div>}
               {data.currentNote && <div className="pt-2 border-t text-xs text-muted-foreground">备注：{data.currentNote}</div>}
-              {data.delayReason && <div className="text-xs text-red-600">延期原因：{data.delayReason}</div>}
+              {data.delayReason && <div className="text-xs text-red-400">延期原因：{data.delayReason}</div>}
             </CardContent>
           </Card>
 

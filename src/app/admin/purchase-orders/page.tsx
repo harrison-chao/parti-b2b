@@ -25,7 +25,7 @@ export default async function PurchaseOrdersPage() {
       <Card>
         <CardContent className="p-0">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b"><tr className="text-left">
+            <thead className="bg-muted/50 border-b"><tr className="text-left">
               <th className="p-3">单号</th><th className="p-3">供应商</th>
               <th className="p-3">目标车间</th><th className="p-3">下单日</th>
               <th className="p-3">期望到货</th><th className="p-3 text-right">行数</th>
@@ -33,8 +33,8 @@ export default async function PurchaseOrdersPage() {
             </tr></thead>
             <tbody>
               {pos.map((p) => (
-                <tr key={p.id} className="border-b hover:bg-slate-50">
-                  <td className="p-3 font-mono"><Link href={`/admin/purchase-orders/${p.poNo}`} className="text-blue-600 hover:underline">{p.poNo}</Link></td>
+                <tr key={p.id} className="border-b hover:bg-muted/50">
+                  <td className="p-3 font-mono"><Link href={`/admin/purchase-orders/${p.poNo}`} className="text-sky-400 hover:underline">{p.poNo}</Link></td>
                   <td className="p-3">{p.supplier.name}</td>
                   <td className="p-3">{p.workshop.name}</td>
                   <td className="p-3 text-xs">{formatDate(p.orderDate)}</td>

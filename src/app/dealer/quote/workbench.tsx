@@ -288,7 +288,7 @@ export function QuoteWorkbench({
           <div className="flex items-center gap-2">
             {(["PROFILE", "HARDWARE", "OUTSOURCED"] as const).map((t) => (
               <button key={t} onClick={() => setActiveTab(t)}
-                className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === t ? "bg-slate-900 text-white" : "bg-white border"}`}>
+                className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === t ? "bg-slate-900 text-white" : "bg-card border"}`}>
                 {ORDER_LINE_TYPE_LABEL[t]}
               </button>
             ))}
@@ -331,7 +331,7 @@ export function QuoteWorkbench({
         <CardHeader><CardTitle>本单所有行 · 汇总</CardTitle></CardHeader>
         <CardContent className="p-0">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b"><tr className="text-left">
+            <thead className="bg-muted/50 border-b"><tr className="text-left">
               <th className="p-2">类型</th><th className="p-2">名称 / SKU</th>
               <th className="p-2 text-right">数量</th><th className="p-2 text-right">单价</th>
               <th className="p-2 text-right">目标价</th><th className="p-2 text-right">小计</th>
@@ -399,10 +399,10 @@ export function QuoteWorkbench({
               {!useNewAddr && addresses.length > 0 ? (
                 <div className="space-y-2">
                   {addresses.map((a) => (
-                    <label key={a.id} className="flex items-start gap-2 border rounded p-3 cursor-pointer hover:bg-slate-50">
+                    <label key={a.id} className="flex items-start gap-2 border rounded p-3 cursor-pointer hover:bg-muted/50">
                       <input type="radio" checked={addrId === a.id} onChange={() => setAddrId(a.id)} className="mt-1" />
                       <div className="text-sm">
-                        <div className="font-medium">{a.receiverName} · {a.receiverPhone} {a.isDefault && <span className="text-xs text-blue-600">(默认)</span>}</div>
+                        <div className="font-medium">{a.receiverName} · {a.receiverPhone} {a.isDefault && <span className="text-xs text-sky-400">(默认)</span>}</div>
                         <div className="text-muted-foreground">{a.fullAddress}</div>
                       </div>
                     </label>
@@ -427,7 +427,7 @@ export function QuoteWorkbench({
               <div>
                 <Label>关联 CRM 客户</Label>
                 <select
-                  className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm"
+                  className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm"
                   value={crmCustomerId}
                   onChange={(e) => {
                     setCrmCustomerId(e.target.value);
@@ -444,7 +444,7 @@ export function QuoteWorkbench({
                 <div>
                   <Label>关联商机</Label>
                   <select
-                    className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm"
+                    className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm"
                     value={crmOpportunityId}
                     onChange={(e) => setCrmOpportunityId(e.target.value)}
                   >
@@ -463,16 +463,16 @@ export function QuoteWorkbench({
             <CardContent className="space-y-2">
               <div className="flex justify-between text-sm"><span>有效行数</span><span>{readyRows.length}</span></div>
               <div className="flex justify-between text-sm"><span>合计数量</span><span>{readyRows.reduce((s, r) => s + r.quantity, 0)} 件</span></div>
-              <div className="flex justify-between text-lg font-bold pt-2 border-t"><span>采购总金额</span><span className="text-emerald-700">{formatMoney(total)}</span></div>
+              <div className="flex justify-between text-lg font-bold pt-2 border-t"><span>采购总金额</span><span className="text-emerald-300">{formatMoney(total)}</span></div>
               <div className="flex justify-between text-sm"><span>目标销售总金额</span><span>{formatMoney(targetTotal)}</span></div>
               <div className="flex justify-between text-base font-semibold">
                 <span>预计总毛利</span>
-                <span className={profitTotal >= 0 ? "text-blue-700" : "text-red-600"}>{formatMoney(profitTotal)}</span>
+                <span className={profitTotal >= 0 ? "text-sky-300" : "text-red-400"}>{formatMoney(profitTotal)}</span>
               </div>
               {dealer.paymentMethod === "CREDIT" && (
                 <div className="text-xs text-muted-foreground">
                   可用信用: {formatMoney(dealer.creditBalance)}
-                  {creditInsufficient && <span className="text-red-600 block">⚠️ 信用额度不足</span>}
+                  {creditInsufficient && <span className="text-red-400 block">⚠️ 信用额度不足</span>}
                 </div>
               )}
               {error && <p className="text-sm text-destructive">{error}</p>}
@@ -495,7 +495,7 @@ function ProfileTable({
   return (
     <div className="overflow-x-auto">
       {rawProfileCatalog.length === 0 && (
-        <div className="mb-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+        <div className="mb-3 text-xs text-amber-300 bg-amber-500/10 border border-amber-200 rounded p-2">
           ⚠ 暂无可选原料型材。请联系管理员在产品目录加入 isRawMaterial 型材。
         </div>
       )}
@@ -505,7 +505,7 @@ function ProfileTable({
         </div>
       )}
       <table className="w-full text-sm min-w-[1200px]">
-        <thead className="bg-slate-50 border-b"><tr className="text-left">
+        <thead className="bg-muted/50 border-b"><tr className="text-left">
           <th className="p-2">型材系列 / 规格</th>
           <th className="p-2">长度(mm)</th><th className="p-2">表面工艺</th><th className="p-2">颜色</th>
           <th className="p-2">加工操作</th><th className="p-2">图纸</th>
@@ -520,7 +520,7 @@ function ProfileTable({
             return (
               <tr key={r.id} className="border-b">
                 <td className="p-2">
-                  <select className="h-8 border rounded px-2 text-sm bg-white min-w-[160px]"
+                  <select className="h-8 border rounded px-2 text-sm bg-card min-w-[160px]"
                     value={r.rawProductId}
                     onChange={(e) => {
                       const raw = rawProfileCatalog.find((x: RawProfileItem) => x.id === e.target.value);
@@ -542,11 +542,11 @@ function ProfileTable({
                   onChange={(e) => patchRow(r.id, { quantity: Math.max(1, parseInt(e.target.value) || 1) })} /></td>
                 <td className="p-2"><Input type="number" className="h-8 w-20" placeholder="90" value={r.targetPct}
                   onChange={(e) => patchRow(r.id, { targetPct: e.target.value })} /></td>
-                <td className="p-2 text-right">{r.loading ? "..." : r.error ? <span className="text-red-600 text-xs">{r.error}</span> : r.unitPrice != null ? formatMoney(r.unitPrice) : "-"}</td>
+                <td className="p-2 text-right">{r.loading ? "..." : r.error ? <span className="text-red-400 text-xs">{r.error}</span> : r.unitPrice != null ? formatMoney(r.unitPrice) : "-"}</td>
                 <td className="p-2 text-right text-muted-foreground">{r.retailPrice != null ? formatMoney(r.retailPrice) : "-"}</td>
                 <td className="p-2 text-right">{tp != null ? formatMoney(tp) : "-"}</td>
                 <td className="p-2 text-right font-medium">{sub != null ? formatMoney(sub) : "-"}</td>
-                <td className="p-2"><button onClick={() => removeRow(r.id)} className="text-red-600 text-xs hover:underline">删除</button></td>
+                <td className="p-2"><button onClick={() => removeRow(r.id)} className="text-red-400 text-xs hover:underline">删除</button></td>
               </tr>
             );
           })}
@@ -579,7 +579,7 @@ function HardwarePicker({ catalog, addHardwareRow, rows, patchRow, removeRow, up
       {rows.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[900px]">
-            <thead className="bg-slate-50 border-b"><tr className="text-left">
+            <thead className="bg-muted/50 border-b"><tr className="text-left">
               <th className="p-2">SKU</th><th className="p-2">名称 / 规格</th>
               <th className="p-2 w-20">数量</th><th className="p-2 w-24">目标%</th>
               <th className="p-2">图纸</th>
@@ -605,7 +605,7 @@ function HardwarePicker({ catalog, addHardwareRow, rows, patchRow, removeRow, up
                     <td className="p-2 text-right text-muted-foreground">{formatMoney(r.retailPrice)}</td>
                     <td className="p-2 text-right">{tp != null ? formatMoney(tp) : "-"}</td>
                     <td className="p-2 text-right font-medium">{formatMoney(r.unitPrice * r.quantity)}</td>
-                    <td className="p-2"><button onClick={() => removeRow(r.id)} className="text-red-600 text-xs hover:underline">删除</button></td>
+                    <td className="p-2"><button onClick={() => removeRow(r.id)} className="text-red-400 text-xs hover:underline">删除</button></td>
                   </tr>
                 );
               })}
@@ -623,7 +623,7 @@ function OutsourcedTable({ rows, patchRow, removeRow, uploadDrawing, clearDrawin
     <div className="overflow-x-auto">
       <div className="text-xs text-muted-foreground mb-2">外购件由经销商自行采购，Parti 加工车间不经手此类行。</div>
       <table className="w-full text-sm min-w-[1000px]">
-        <thead className="bg-slate-50 border-b"><tr className="text-left">
+        <thead className="bg-muted/50 border-b"><tr className="text-left">
           <th className="p-2">名称</th><th className="p-2">规格</th><th className="p-2">图纸</th>
           <th className="p-2 w-20">数量</th>
           <th className="p-2 w-28">采购单价</th><th className="p-2 w-28">目标售价</th>
@@ -644,7 +644,7 @@ function OutsourcedTable({ rows, patchRow, removeRow, uploadDrawing, clearDrawin
                 <td className="p-2"><Input type="number" step="0.01" className="h-8" value={r.targetPrice}
                   onChange={(e) => patchRow(r.id, { targetPrice: e.target.value })} /></td>
                 <td className="p-2 text-right font-medium">{up != null ? formatMoney(up * r.quantity) : "-"}</td>
-                <td className="p-2"><button onClick={() => removeRow(r.id)} className="text-red-600 text-xs hover:underline">删除</button></td>
+                <td className="p-2"><button onClick={() => removeRow(r.id)} className="text-red-400 text-xs hover:underline">删除</button></td>
               </tr>
             );
           })}
@@ -660,8 +660,8 @@ function DrawingCell({ row, uploadDrawing, clearDrawing }: any) {
   if (row.drawingUrl) {
     return (
       <div className="flex items-center gap-2 text-xs">
-        <a href={row.drawingUrl} target="_blank" rel="noopener" className="text-blue-600 hover:underline truncate max-w-[140px]">📎 {row.drawingFileName}</a>
-        <button onClick={() => clearDrawing(row.id)} className="text-red-600 hover:underline">移除</button>
+        <a href={row.drawingUrl} target="_blank" rel="noopener" className="text-sky-400 hover:underline truncate max-w-[140px]">📎 {row.drawingFileName}</a>
+        <button onClick={() => clearDrawing(row.id)} className="text-red-400 hover:underline">移除</button>
       </div>
     );
   }
@@ -671,13 +671,13 @@ function DrawingCell({ row, uploadDrawing, clearDrawing }: any) {
         onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadDrawing(row.id, f); e.target.value = ""; }}
         className="text-xs w-44" />
       {row.drawingUploading && <div className="text-xs text-muted-foreground">上传中...</div>}
-      {row.drawingError && <div className="text-xs text-red-600">{row.drawingError}</div>}
+      {row.drawingError && <div className="text-xs text-red-400">{row.drawingError}</div>}
     </div>
   );
 }
 function Sel({ value, onChange, options }: any) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className="h-8 border rounded px-2 text-sm bg-white min-w-[120px]">
+    <select value={value} onChange={(e) => onChange(e.target.value)} className="h-8 border rounded px-2 text-sm bg-card min-w-[120px]">
       <option value="">请选择</option>
       {options.map((o: Option) => <option key={o.code} value={o.code}>{o.code} · {o.label}</option>)}
     </select>

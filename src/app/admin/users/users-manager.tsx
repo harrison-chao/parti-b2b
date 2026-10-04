@@ -89,7 +89,7 @@ export function UsersManager({
       <Card>
         <CardContent className="grid gap-3 pt-5 md:grid-cols-4 md:pt-6">
           <Input placeholder="搜索姓名 / 邮箱 / 经销商 / 车间" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <select className="h-10 rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={role} onChange={(e) => setRole(e.target.value)}>
+          <select className="h-10 rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={role} onChange={(e) => setRole(e.target.value)}>
             <option value="ALL">全部角色</option>
             <option value="ADMIN">管理员</option>
             <option value="DEALER">经销商</option>
@@ -137,7 +137,7 @@ export function UsersManager({
       <Card>
         <CardContent className="overflow-x-auto p-0">
           <table className="w-full min-w-[920px] text-sm">
-            <thead className="border-b bg-white/40">
+            <thead className="border-b bg-card/40">
               <tr className="text-left">
                 <th className="p-3">账号</th>
                 <th className="p-3">角色</th>
@@ -153,7 +153,7 @@ export function UsersManager({
                   <td className="p-3">
                     <div className="font-semibold">{user.name}</div>
                     <div className="font-mono text-xs text-muted-foreground">{user.email}</div>
-                    {user.mustChangePassword && <div className="mt-1 text-xs text-amber-700">待启用 / 待改密</div>}
+                    {user.mustChangePassword && <div className="mt-1 text-xs text-amber-300">待启用 / 待改密</div>}
                   </td>
                   <td className="p-3">
                     <Badge className={ROLE_TONE[user.role]}>{ROLE_LABEL[user.role]}</Badge>
@@ -270,7 +270,7 @@ function CreateUserPanel({
         <div className="grid gap-3 md:grid-cols-3">
           <div className="space-y-1.5">
             <Label>角色</Label>
-            <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={role} onChange={(e) => setRole(e.target.value as UserRow["role"])}>
+            <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={role} onChange={(e) => setRole(e.target.value as UserRow["role"])}>
               <option value="WORKSHOP">车间</option>
               <option value="DEALER">经销商</option>
               <option value="ADMIN">管理员</option>
@@ -287,7 +287,7 @@ function CreateUserPanel({
           {role === "DEALER" && (
             <div className="space-y-1.5 md:col-span-2">
               <Label>绑定经销商档案</Label>
-              <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={dealerId} onChange={(e) => setDealerId(e.target.value)}>
+              <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={dealerId} onChange={(e) => setDealerId(e.target.value)}>
                 <option value="">请选择经销商</option>
                 {dealers.map((dealer) => (
                   <option key={dealer.id} value={dealer.id}>{dealer.dealerNo} · {dealer.companyName}</option>
@@ -298,7 +298,7 @@ function CreateUserPanel({
           {role === "WORKSHOP" && (
             <div className="space-y-1.5 md:col-span-2">
               <Label>绑定加工车间</Label>
-              <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={workshopId} onChange={(e) => setWorkshopId(e.target.value)}>
+              <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={workshopId} onChange={(e) => setWorkshopId(e.target.value)}>
                 <option value="">请选择车间</option>
                 {workshops.map((workshop) => (
                   <option key={workshop.id} value={workshop.id}>{workshop.code} · {workshop.name}</option>
@@ -374,7 +374,7 @@ function ResetPasswordPanel({
   }
 
   return (
-    <Card className="border-amber-200 bg-amber-50/80">
+    <Card className="border-amber-200 bg-amber-500/10/80">
       <CardContent className="space-y-4 pt-5 md:pt-6">
         <div>
           <h2 className="text-lg font-bold">重置密码：{user.name}</h2>
@@ -419,7 +419,7 @@ function ActivationLinkBox({ title = "一次性启用链接", link }: { title?: 
     setTimeout(() => setCopied(false), 2000);
   }
   return (
-    <div className="rounded-2xl border border-amber-200 bg-white/80 p-3">
+    <div className="rounded-2xl border border-amber-200 bg-card/80 p-3">
       <div className="mb-2 text-sm font-semibold">{title}</div>
       <div className="break-all font-mono text-xs text-muted-foreground">{link}</div>
       <div className="mt-3 flex flex-wrap items-center gap-2">

@@ -68,7 +68,7 @@ export function SupplierPaymentPanel({ supplierId, payments }: { supplierId: str
         </div>
 
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-y"><tr className="text-left">
+          <thead className="bg-muted/50 border-y"><tr className="text-left">
             <th className="p-2">日期</th>
             <th className="p-2 text-right">金额</th>
             <th className="p-2">方式</th>
@@ -81,13 +81,13 @@ export function SupplierPaymentPanel({ supplierId, payments }: { supplierId: str
             {payments.map((p) => (
               <tr key={p.id} className="border-b">
                 <td className="p-2 text-xs">{new Date(p.paidAt).toLocaleDateString("zh-CN")}</td>
-                <td className="p-2 text-right font-medium text-emerald-700">¥{Number(p.amount).toLocaleString("zh-CN", { minimumFractionDigits: 2 })}</td>
+                <td className="p-2 text-right font-medium text-emerald-300">¥{Number(p.amount).toLocaleString("zh-CN", { minimumFractionDigits: 2 })}</td>
                 <td className="p-2">{p.method ?? "-"}</td>
                 <td className="p-2 font-mono text-xs">{p.refNo ?? "-"}</td>
                 <td className="p-2 text-xs text-muted-foreground">{p.note ?? "-"}</td>
                 <td className="p-2 text-xs">{p.recordedBy ?? "-"}</td>
                 <td className="p-2 text-right">
-                  <Button size="sm" variant="ghost" onClick={() => del(p.id)} disabled={busy} className="text-red-600">删除</Button>
+                  <Button size="sm" variant="ghost" onClick={() => del(p.id)} disabled={busy} className="text-red-400">删除</Button>
                 </td>
               </tr>
             ))}

@@ -23,16 +23,16 @@ export default async function AdminInventoryPage() {
 
       <div className="grid gap-4 md:grid-cols-4">
         <Stat title="库存 SKU" value={items.length} />
-        <Stat title="低库存" value={lowStock.length} tone="text-amber-700" />
+        <Stat title="低库存" value={lowStock.length} tone="text-amber-300" />
         <Stat title="负库存" value={negative.length} tone="text-rose-700" />
-        <Stat title="未设阈值" value={noThreshold.length} tone="text-slate-500" />
+        <Stat title="未设阈值" value={noThreshold.length} tone="text-muted-foreground" />
       </div>
 
       <Card className={lowStock.length > 0 ? "border-amber-200" : ""}>
         <CardHeader><CardTitle>低库存 / 负库存明细</CardTitle></CardHeader>
         <CardContent className="overflow-x-auto p-0">
           <table className="w-full min-w-[900px] text-sm">
-            <thead className="border-b bg-slate-50">
+            <thead className="border-b bg-muted/50">
               <tr className="text-left">
                 <th className="p-3">车间</th>
                 <th className="p-3">SKU</th>
@@ -49,7 +49,7 @@ export default async function AdminInventoryPage() {
                   <td className="p-3">{item.workshop.name} <span className="font-mono text-xs text-muted-foreground">({item.workshop.code})</span></td>
                   <td className="p-3 font-mono text-xs">{item.sku}</td>
                   <td className="p-3">{item.productName}</td>
-                  <td className={`p-3 text-right font-semibold ${item.quantity < 0 ? "text-rose-700" : "text-amber-700"}`}>{item.quantity}</td>
+                  <td className={`p-3 text-right font-semibold ${item.quantity < 0 ? "text-rose-700" : "text-amber-300"}`}>{item.quantity}</td>
                   <td className="p-3 text-right">{item.lowStockThreshold || "-"}</td>
                   <td className="p-3">
                     {item.quantity < 0 ? <Badge className="bg-rose-100 text-rose-700">负库存</Badge> : <Badge className="bg-amber-100 text-amber-800">低库存</Badge>}

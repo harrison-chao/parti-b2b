@@ -8,7 +8,7 @@ import { formatDateTime, STOCK_COUNT_STATUS_LABEL } from "@/lib/utils";
 import { NewStockCountBtn } from "./new-button";
 
 const STATUS_COLOR: Record<string, string> = {
-  DRAFT: "bg-slate-100 text-slate-700",
+  DRAFT: "bg-secondary text-foreground/80",
   SUBMITTED: "bg-blue-100 text-blue-800",
   APPROVED: "bg-emerald-100 text-emerald-800",
   CANCELLED: "bg-rose-100 text-rose-800",
@@ -35,7 +35,7 @@ export default async function WorkshopStockCountPage() {
         <CardHeader><CardTitle>盘点单（{counts.length}）</CardTitle></CardHeader>
         <CardContent className="p-0">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b"><tr className="text-left">
+            <thead className="bg-muted/50 border-b"><tr className="text-left">
               <th className="p-3">单号</th><th className="p-3">状态</th>
               <th className="p-3 text-right">SKU 数</th>
               <th className="p-3">创建时间</th>
@@ -44,9 +44,9 @@ export default async function WorkshopStockCountPage() {
             </tr></thead>
             <tbody>
               {counts.map((c) => (
-                <tr key={c.id} className="border-b hover:bg-slate-50">
+                <tr key={c.id} className="border-b hover:bg-muted/50">
                   <td className="p-3 font-mono">
-                    <Link href={`/workshop/stock-count/${c.countNo}`} className="text-blue-600 hover:underline">{c.countNo}</Link>
+                    <Link href={`/workshop/stock-count/${c.countNo}`} className="text-sky-400 hover:underline">{c.countNo}</Link>
                   </td>
                   <td className="p-3"><Badge className={STATUS_COLOR[c.status]}>{STOCK_COUNT_STATUS_LABEL[c.status]}</Badge></td>
                   <td className="p-3 text-right">{c._count.lines}</td>

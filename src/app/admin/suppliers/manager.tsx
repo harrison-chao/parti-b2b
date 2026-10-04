@@ -93,11 +93,11 @@ export function SupplierManager({ suppliers }: { suppliers: Supplier[] }) {
       <Card>
         <CardContent className="grid gap-3 pt-5 md:grid-cols-4 md:pt-6">
           <Input placeholder="搜索编号 / 名称 / 联系人 / 范围" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <select className="h-10 rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={category} onChange={(e) => setCategory(e.target.value)}>
+          <select className="h-10 rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={category} onChange={(e) => setCategory(e.target.value)}>
             <option value="ALL">全部分类</option>
             {Object.entries(CATEGORY_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
-          <select className="h-10 rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={active} onChange={(e) => setActive(e.target.value)}>
+          <select className="h-10 rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={active} onChange={(e) => setActive(e.target.value)}>
             <option value="ALL">全部状态</option><option value="true">启用</option><option value="false">停用</option>
           </select>
           <div className="flex items-center text-sm text-muted-foreground">共 {filtered.length} / {rows.length} 家供应商</div>
@@ -121,7 +121,7 @@ export function SupplierManager({ suppliers }: { suppliers: Supplier[] }) {
       <Card>
         <CardContent className="overflow-x-auto p-0">
           <table className="w-full min-w-[1080px] text-sm">
-            <thead className="border-b bg-white/40"><tr className="text-left">
+            <thead className="border-b bg-card/40"><tr className="text-left">
               <th className="p-3">编号 / 名称</th><th className="p-3">分类</th><th className="p-3">主联系人</th>
               <th className="p-3">供货范围</th><th className="p-3">付款条件</th><th className="p-3">默认交期</th>
               <th className="p-3">银行/税务</th><th className="p-3">状态</th><th className="p-3"></th>
@@ -136,7 +136,7 @@ export function SupplierManager({ suppliers }: { suppliers: Supplier[] }) {
                       <div className="font-semibold">{s.name}</div>
                       <div className="text-xs text-muted-foreground">{s.address || "-"}</div>
                     </td>
-                    <td className="p-3"><Badge className="bg-slate-100 text-slate-700">{CATEGORY_LABEL[s.category] ?? s.category}</Badge></td>
+                    <td className="p-3"><Badge className="bg-secondary text-foreground/80">{CATEGORY_LABEL[s.category] ?? s.category}</Badge></td>
                     <td className="p-3">
                       <div>{primary?.name ?? s.contactName ?? "-"}</div>
                       <div className="text-xs text-muted-foreground">{primary?.role ?? "业务联系人"} · {primary?.phone ?? s.contactPhone ?? "-"}</div>
@@ -149,7 +149,7 @@ export function SupplierManager({ suppliers }: { suppliers: Supplier[] }) {
                       <div className="text-muted-foreground">{s.taxNo ? `税号 ${s.taxNo}` : "-"}</div>
                     </td>
                     <td className="p-3">
-                      <Badge className={s.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500"}>
+                      <Badge className={s.isActive ? "bg-emerald-100 text-emerald-300" : "bg-slate-200 text-muted-foreground"}>
                         {s.isActive ? "启用" : "停用"}
                       </Badge>
                     </td>
@@ -246,17 +246,17 @@ function SupplierForm({ supplier, onCancel, onSaved }: {
       <CardHeader><CardTitle>{supplier ? "编辑供应商档案" : "新增供应商档案"}</CardTitle></CardHeader>
       <CardContent className="space-y-5">
         <section>
-          <h3 className="mb-3 text-sm font-bold text-slate-700">基础资料</h3>
+          <h3 className="mb-3 text-sm font-bold text-foreground/80">基础资料</h3>
           <div className="grid gap-3 md:grid-cols-4">
             <Field label="供应商编号"><Input value={form.supplierNo} disabled={!!supplier} onChange={(e) => patch("supplierNo", e.target.value)} placeholder="SUP-003" /></Field>
             <Field label="供应商名称"><Input value={form.name} onChange={(e) => patch("name", e.target.value)} /></Field>
             <Field label="供应分类">
-              <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={form.category} onChange={(e) => patch("category", e.target.value)}>
+              <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={form.category} onChange={(e) => patch("category", e.target.value)}>
                 {Object.entries(CATEGORY_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </Field>
             <Field label="状态">
-              <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={String(form.isActive)} onChange={(e) => patch("isActive", e.target.value === "true")}>
+              <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={String(form.isActive)} onChange={(e) => patch("isActive", e.target.value === "true")}>
                 <option value="true">启用</option><option value="false">停用</option>
               </select>
             </Field>
@@ -267,12 +267,12 @@ function SupplierForm({ supplier, onCancel, onSaved }: {
 
         <section>
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-700">联系人</h3>
+            <h3 className="text-sm font-bold text-foreground/80">联系人</h3>
             <Button size="sm" variant="outline" onClick={() => setContacts([...contacts, emptyContact()])}>+ 添加联系人</Button>
           </div>
           <div className="space-y-2">
             {contacts.map((c, idx) => (
-              <div key={idx} className="grid gap-2 rounded-2xl border bg-white/50 p-3 md:grid-cols-7">
+              <div key={idx} className="grid gap-2 rounded-2xl border bg-card/50 p-3 md:grid-cols-7">
                 <Input placeholder="角色" value={c.role} onChange={(e) => patchContact(idx, { role: e.target.value })} />
                 <Input placeholder="姓名" value={c.name} onChange={(e) => patchContact(idx, { name: e.target.value })} />
                 <Input placeholder="电话" value={c.phone ?? ""} onChange={(e) => patchContact(idx, { phone: e.target.value })} />
@@ -286,7 +286,7 @@ function SupplierForm({ supplier, onCancel, onSaved }: {
         </section>
 
         <section>
-          <h3 className="mb-3 text-sm font-bold text-slate-700">财务与履约</h3>
+          <h3 className="mb-3 text-sm font-bold text-foreground/80">财务与履约</h3>
           <div className="grid gap-3 md:grid-cols-4">
             <Field label="付款条件"><Input value={form.paymentTerms} onChange={(e) => patch("paymentTerms", e.target.value)} placeholder="月结 / 货到付款 / 预付" /></Field>
             <Field label="账期（天）"><Input type="number" min={0} value={form.paymentDays} onChange={(e) => patch("paymentDays", parseInt(e.target.value) || 0)} /></Field>

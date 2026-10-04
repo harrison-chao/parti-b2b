@@ -50,54 +50,60 @@ export default async function WorkshopHomePage() {
   const sortedBuckets = [...buckets.values()].sort((a, b) => a.order - b.order);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 stagger-in">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-xl font-bold">{workshop?.name} · 作业队列</h1>
           <p className="text-xs text-muted-foreground">{workOrders.length} 张在产 · 按交期排序</p>
         </div>
-        <Link href="/workshop/cutlist" className="text-sm text-blue-600 hover:underline">截料清单 →</Link>
+        <Link href="/workshop/cutlist" className="text-sm text-sky-400 hover:underline">截料清单 →</Link>
       </div>
 
       {sortedBuckets.map((b) => (
         <div key={b.label} className="space-y-2">
-          <div className={`text-sm font-semibold ${b.order === 0 ? "text-red-600" : "text-gray-500"}`}>{b.label}（{b.items.length}）</div>
-          {b.items.map((wo) => {
+          <div className={`text-sm font-semibold ${b.order === 0 ? "text-red-400" : "text-muted-foreground"}`}>{b.label}（{b.items.length}）</div>
+          {b.items.map((wo, idx) => {
             const overdue = wo.committedDeliveryDate && wo.committedDeliveryDate < now;
             const totalQty = wo.order.lines.reduce((s, l) => s + l.quantity, 0);
             // 聚合同 SKU 行
             const skuAgg = new Map<string, number>();
             for (const l of wo.order.lines) skuAgg.set(l.sku, (skuAgg.get(l.sku) ?? 0) + l.quantity);
             return (
-              <div key={wo.id} className={`border rounded-xl p-3 bg-white ${overdue ? "border-red-300" : "border-gray-200"}`}>
+              <div key={wo.id}
+                className={`glass-card glass-card-hover relative overflow-hidden rounded-xl p-3 pl-4 ${overdue ? "ring-1 ring-inset ring-destructive/50" : ""}`}
+                style={{ animation: `rise-in 0.45s cubic-bezier(0.22,1,0.36,1) ${Math.min(idx * 60, 480)}ms both` }}>
+                <span className={`absolute inset-y-0 left-0 w-1 ${{
+                  PENDING_START: "bg-slate-500", PROCESSING: "bg-indigo-400", OUTSOURCING: "bg-amber-400",
+                  QC: "bg-fuchsia-400", PACKING: "bg-purple-400", READY_TO_SHIP: "bg-cyan-400", SHIPPED: "bg-emerald-400",
+                }[wo.status] ?? "bg-slate-500"}`} />
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono font-bold">{wo.order.displayOrderNo ?? wo.workOrderNo}</span>
+                      <span className="stat-num font-mono text-base font-bold">{wo.order.displayOrderNo ?? wo.workOrderNo}</span>
                       <Badge className={WORK_ORDER_STATUS_COLOR[wo.status]}>{WORK_ORDER_STATUS_LABEL[wo.status]}</Badge>
                     </div>
-                    <div className="text-xs text-gray-500 mt-0.5 truncate">
+                    <div className="text-xs text-muted-foreground mt-0.5 truncate">
                       {wo.order.receiverName} · 交期 {wo.committedDeliveryDate ? formatDate(wo.committedDeliveryDate) : "-"}
-                      {overdue && <span className="text-red-600 font-semibold"> · 超期</span>}
+                      {overdue && <span className="text-destructive font-semibold"> · 超期</span>}
                     </div>
                     <div className="text-sm mt-1.5 space-x-2 flex-wrap">
                       {[...skuAgg.entries()].map(([sku, qty]) => (
-                        <span key={sku} className="inline-block bg-slate-100 rounded px-1.5 py-0.5 text-xs">{sku} ×{qty}</span>
+                        <span key={sku} className="inline-block rounded bg-secondary/70 px-1.5 py-0.5 font-mono text-xs text-foreground/95">{sku} <span className="text-cyan-300 font-semibold">×{qty}</span></span>
                       ))}
-                      <span className="text-xs text-gray-400">共{totalQty}</span>
+                      <span className="text-xs text-muted-foreground">共{totalQty}</span>
                     </div>
                   </div>
                   <div className="flex flex-col gap-1.5 shrink-0">
-                    {wo.status === "PENDING_START" && <AdvanceButton workOrderNo={wo.workOrderNo} label="开工" />}
-                    {wo.status === "PROCESSING" && wo.qcRequired && <AdvanceButton workOrderNo={wo.workOrderNo} label="送质检" variant="outline" />}
-                    {wo.status === "PROCESSING" && !wo.qcRequired && <AdvanceButton workOrderNo={wo.workOrderNo} label="完成加工" />}
-                    {wo.status === "OUTSOURCING" && <AdvanceButton workOrderNo={wo.workOrderNo} label="外协回厂" />}
-                    {wo.status === "QC" && <AdvanceButton workOrderNo={wo.workOrderNo} label="质检完成" />}
-                    {wo.status === "PACKING" && <AdvanceButton workOrderNo={wo.workOrderNo} label="打包完成" />}
+                    {wo.status === "PENDING_START" && <AdvanceButton workOrderNo={wo.workOrderNo} label="开工" className="h-11 w-24 text-sm" />}
+                    {wo.status === "PROCESSING" && wo.qcRequired && <AdvanceButton workOrderNo={wo.workOrderNo} label="送质检" variant="outline" className="h-11 w-24 text-sm" />}
+                    {wo.status === "PROCESSING" && !wo.qcRequired && <AdvanceButton workOrderNo={wo.workOrderNo} label="完成加工" className="h-11 w-24 text-sm" />}
+                    {wo.status === "OUTSOURCING" && <AdvanceButton workOrderNo={wo.workOrderNo} label="外协回厂" className="h-11 w-24 text-sm" />}
+                    {wo.status === "QC" && <AdvanceButton workOrderNo={wo.workOrderNo} label="质检完成" className="h-11 w-24 text-sm" />}
+                    {wo.status === "PACKING" && <AdvanceButton workOrderNo={wo.workOrderNo} label="打包完成" className="h-11 w-24 text-sm" />}
                     {wo.status === "READY_TO_SHIP" && (
-                      <Link href="/workshop/ship" className="text-sm bg-blue-600 text-white rounded px-3 py-1.5 text-center">去发货</Link>
+                      <Link href="/workshop/ship" className="flex h-11 w-24 items-center justify-center text-sm rounded-md bg-blue-600 text-white spring-press">去发货</Link>
                     )}
-                    <Link href={`/workshop/orders/${wo.workOrderNo}`} className="text-xs text-gray-400 text-center">详情</Link>
+                    <Link href={`/workshop/orders/${wo.workOrderNo}`} className="flex h-8 items-center justify-center text-xs text-muted-foreground text-center">详情</Link>
                   </div>
                 </div>
               </div>

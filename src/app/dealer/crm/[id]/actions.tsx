@@ -137,12 +137,12 @@ export function CrmCustomerActions({
           <CardContent className="space-y-3">
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="客户类型">
-                <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm" value={edit.customerType} onChange={(e) => setEdit({ ...edit, customerType: e.target.value })}>
+                <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm" value={edit.customerType} onChange={(e) => setEdit({ ...edit, customerType: e.target.value })}>
                   {Object.entries(CRM_CUSTOMER_TYPE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </Field>
               <Field label="阶段">
-                <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm" value={edit.stage} onChange={(e) => setEdit({ ...edit, stage: e.target.value })}>
+                <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm" value={edit.stage} onChange={(e) => setEdit({ ...edit, stage: e.target.value })}>
                   {Object.entries(CRM_CUSTOMER_STAGE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </Field>
@@ -153,7 +153,7 @@ export function CrmCustomerActions({
               <Field label="地区"><Input value={edit.region} onChange={(e) => setEdit({ ...edit, region: e.target.value })} /></Field>
               <Field label="来源"><Input value={edit.source} onChange={(e) => setEdit({ ...edit, source: e.target.value })} /></Field>
               <Field label="意向等级">
-                <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm" value={edit.intentLevel} onChange={(e) => setEdit({ ...edit, intentLevel: e.target.value })}>
+                <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm" value={edit.intentLevel} onChange={(e) => setEdit({ ...edit, intentLevel: e.target.value })}>
                   <option value="">未设置</option>
                   {Object.entries(CRM_INTENT_LEVEL_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
@@ -175,12 +175,12 @@ export function CrmCustomerActions({
         <CardContent className="space-y-3">
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="方式">
-              <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm" value={log.method} onChange={(e) => setLog({ ...log, method: e.target.value })}>
+              <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm" value={log.method} onChange={(e) => setLog({ ...log, method: e.target.value })}>
                 {Object.entries(CRM_CONTACT_METHOD_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </Field>
             <Field label="关联商机">
-              <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm" value={log.opportunityId} onChange={(e) => setLog({ ...log, opportunityId: e.target.value })}>
+              <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm" value={log.opportunityId} onChange={(e) => setLog({ ...log, opportunityId: e.target.value })}>
                 <option value="">不关联</option>
                 {opportunities.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
               </select>
@@ -254,7 +254,7 @@ export function CrmOpportunityStageControl({ opportunity }: { opportunity: Oppor
 
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2">
-      <select className="h-9 rounded-xl border border-input bg-white/75 px-3 text-xs" value={stage} onChange={(e) => updateStage(e.target.value)}>
+      <select className="h-9 rounded-xl border border-input bg-card/75 px-3 text-xs" value={stage} onChange={(e) => updateStage(e.target.value)}>
         {Object.entries(CRM_OPPORTUNITY_STAGE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select>
       {status && <span className="text-xs text-muted-foreground">{status}</span>}

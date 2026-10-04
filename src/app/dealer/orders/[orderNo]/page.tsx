@@ -33,7 +33,7 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
             href={`/print/quote/${order.orderNo}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center h-9 px-4 rounded-md border border-slate-300 bg-white text-sm hover:bg-slate-50"
+            className="inline-flex items-center h-9 px-4 rounded-md border border-border bg-card text-sm hover:bg-muted/50"
           >
             导出报价单 PDF
           </a>
@@ -83,7 +83,7 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
                 const done = i <= currentIdx;
                 return (
                   <div key={s} className="flex items-center gap-1">
-                    <Badge className={done ? WORK_ORDER_STATUS_COLOR[s] : "bg-slate-100 text-slate-400"}>
+                    <Badge className={done ? WORK_ORDER_STATUS_COLOR[s] : "bg-secondary text-slate-400"}>
                       {WORK_ORDER_STATUS_LABEL[s]}
                     </Badge>
                     {i < arr.length - 1 && <span className="text-slate-300">→</span>}
@@ -92,13 +92,13 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
               })}
             </div>
             {workOrder.status === "SHIPPED" && (
-              <div className="rounded border bg-emerald-50 p-3 text-xs">
+              <div className="rounded border bg-emerald-500/10 p-3 text-xs">
                 已出运 · 物流 {workOrder.carrier} · 单号 {workOrder.trackingNo}
                 {workOrder.actualShippedAt && <> · {formatDateTime(workOrder.actualShippedAt)}</>}
               </div>
             )}
             {workOrder.delayReason && (
-              <div className="rounded border bg-amber-50 p-3 text-xs text-amber-900">
+              <div className="rounded border bg-amber-500/10 p-3 text-xs text-amber-900">
                 ⚠ 延期说明：{workOrder.delayReason}
               </div>
             )}
@@ -126,7 +126,7 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
         <CardHeader><CardTitle>订单明细</CardTitle></CardHeader>
         <CardContent className="p-0">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b"><tr className="text-left">
+            <thead className="bg-muted/50 border-b"><tr className="text-left">
               <th className="p-3">#</th><th className="p-3">产品</th><th className="p-3">SKU</th>
               <th className="p-3">加工</th><th className="p-3 text-right">数量</th>
               <th className="p-3 text-right">采购单价</th>
@@ -147,7 +147,7 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
                         <span>{l.productName}</span>
                       </div>
                       {l.drawingUrl && (
-                        <a href={l.drawingUrl} target="_blank" rel="noopener" className="text-xs text-blue-600 hover:underline">
+                        <a href={l.drawingUrl} target="_blank" rel="noopener" className="text-xs text-sky-400 hover:underline">
                           📎 图纸 {l.drawingFileName ?? ""}
                         </a>
                       )}
@@ -157,7 +157,7 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
                     <td className="p-3 text-right">{l.quantity}</td>
                     <td className="p-3 text-right">{formatMoney(Number(l.unitPrice))}</td>
                     <td className="p-3 text-right">{target != null ? formatMoney(target) : "-"}</td>
-                    <td className={`p-3 text-right ${profit == null ? "" : profit >= 0 ? "text-blue-700" : "text-red-600"}`}>
+                    <td className={`p-3 text-right ${profit == null ? "" : profit >= 0 ? "text-sky-300" : "text-red-400"}`}>
                       {profit != null ? formatMoney(profit) : "-"}
                     </td>
                     <td className="p-3 text-right font-medium">{formatMoney(Number(l.lineAmount))}</td>
@@ -165,18 +165,18 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
                 );
               })}
             </tbody>
-            <tfoot className="bg-slate-50">
+            <tfoot className="bg-muted/50">
               {(() => {
                 const targetTotal = order.lines.reduce((s, l) => s + (l.targetPrice == null ? Number(l.unitPrice) : Number(l.targetPrice)) * l.quantity, 0);
                 const profitTotal = targetTotal - Number(order.totalAmount);
                 return (
                   <>
                     <tr><td colSpan={8} className="p-3 text-right font-semibold">采购总金额</td>
-                      <td className="p-3 text-right font-bold text-emerald-700 text-lg">{formatMoney(Number(order.totalAmount))}</td></tr>
+                      <td className="p-3 text-right font-bold text-emerald-300 text-lg">{formatMoney(Number(order.totalAmount))}</td></tr>
                     <tr><td colSpan={8} className="p-3 text-right text-sm">目标销售总金额</td>
                       <td className="p-3 text-right">{formatMoney(targetTotal)}</td></tr>
                     <tr><td colSpan={8} className="p-3 text-right font-semibold">本单预计总毛利</td>
-                      <td className={`p-3 text-right font-bold ${profitTotal >= 0 ? "text-blue-700" : "text-red-600"}`}>{formatMoney(profitTotal)}</td></tr>
+                      <td className={`p-3 text-right font-bold ${profitTotal >= 0 ? "text-sky-300" : "text-red-400"}`}>{formatMoney(profitTotal)}</td></tr>
                   </>
                 );
               })()}

@@ -62,7 +62,7 @@ export function StockCountEditor({ countNo, status, lines: initial }: { countNo:
       </CardHeader>
       <CardContent className="p-0">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b"><tr className="text-left">
+          <thead className="bg-muted/50 border-b"><tr className="text-left">
             <th className="p-3">SKU</th><th className="p-3">名称</th>
             <th className="p-3 text-right">系统</th>
             <th className="p-3 text-right">实盘</th>
@@ -81,7 +81,7 @@ export function StockCountEditor({ countNo, status, lines: initial }: { countNo:
                       className="w-24 text-right" />
                   ) : l.actualQty}
                 </td>
-                <td className={`p-3 text-right font-medium ${l.diff > 0 ? "text-emerald-700" : l.diff < 0 ? "text-red-600" : "text-muted-foreground"}`}>
+                <td className={`p-3 text-right font-medium ${l.diff > 0 ? "text-emerald-300" : l.diff < 0 ? "text-red-400" : "text-muted-foreground"}`}>
                   {l.diff > 0 ? "+" : ""}{l.diff}
                 </td>
               </tr>

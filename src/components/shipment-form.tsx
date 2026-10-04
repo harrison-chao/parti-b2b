@@ -95,10 +95,10 @@ export function ShipmentForm() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-4">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-4 stagger-in">
       <h1 className="text-xl font-bold">发货登记</h1>
-      {err && <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3 text-sm">{err}</div>}
-      {msg && <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 rounded p-3 text-sm">{msg}</div>}
+      {err && <div className="bg-destructive/10 border border-red-200 text-red-400 rounded p-3 text-sm">{err}</div>}
+      {msg && <div className="bg-emerald-500/10 border border-emerald-200 text-emerald-300 rounded p-3 text-sm">{msg}</div>}
 
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-base">① 勾选发货行（可跨订单合发）</CardTitle></CardHeader>
@@ -107,19 +107,19 @@ export function ShipmentForm() {
             <div key={o.orderNo} className="border rounded p-3">
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="font-mono font-bold">{o.displayOrderNo ?? o.orderNo}</span>
-                <span className="text-gray-500">{o.customer} → {o.receiverName}</span>
-                <Badge className={o.woStatus === "READY_TO_SHIP" ? "bg-cyan-100 text-cyan-700" : "bg-amber-100 text-amber-700"}>
+                <span className="text-muted-foreground">{o.customer} → {o.receiverName}</span>
+                <Badge className={o.woStatus === "READY_TO_SHIP" ? "bg-cyan-100 text-cyan-700" : "bg-amber-100 text-amber-300"}>
                   {o.woStatus === "READY_TO_SHIP" ? "待发货" : o.woStatus === "PACKING" ? "打包中" : "外协/加工中(仅外协直发)"}
                 </Badge>
-                {o.committedDeliveryDate && <span className="text-xs text-gray-400">交期 {new Date(o.committedDeliveryDate).toLocaleDateString()}</span>}
+                {o.committedDeliveryDate && <span className="text-xs text-muted-foreground">交期 {new Date(o.committedDeliveryDate).toLocaleDateString()}</span>}
               </div>
-              <div className="text-xs text-gray-400 mt-0.5">{o.receiverAddress} · {o.receiverPhone}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{o.receiverAddress} · {o.receiverPhone}</div>
               <div className="mt-2 space-y-1">
                 {o.lines.map((l) => (
                   <div key={l.lineId} className="flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={hasSel(l.lineId)} onChange={() => toggleLine(o, l)} />
                     <span className="flex-1 truncate">{l.sku} · {l.productName}</span>
-                    <span className="text-xs text-gray-400">已发{l.shipped}/共{l.quantity}</span>
+                    <span className="text-xs text-muted-foreground">已发{l.shipped}/共{l.quantity}</span>
                     {hasSel(l.lineId) && (
                       <Input className="w-20 h-8" type="number" value={selQty(l.lineId)}
                         onChange={(e) => setQty(l, e.target.value)} />
@@ -129,7 +129,7 @@ export function ShipmentForm() {
               </div>
             </div>
           ))}
-          {!pending.length && <div className="text-sm text-gray-400">当前没有可发货的行（工单需推进到待发货，或已全部发出）。</div>}
+          {!pending.length && <div className="text-sm text-muted-foreground">当前没有可发货的行（工单需推进到待发货，或已全部发出）。</div>}
         </CardContent>
       </Card>
 

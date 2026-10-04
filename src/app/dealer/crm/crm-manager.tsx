@@ -193,11 +193,11 @@ export function CrmManager({
       </div>
 
       {todayTasks.length > 0 && (
-        <Card className="border-amber-200 bg-amber-50/70">
+        <Card className="border-amber-200 bg-amber-500/10/70">
           <CardHeader><CardTitle>今日建议优先跟进</CardTitle></CardHeader>
           <CardContent className="grid gap-2 md:grid-cols-2">
             {todayTasks.map((task) => (
-              <Link key={task.id} href={task.customer ? `/dealer/crm/${task.customer.id}` : "/dealer/crm"} className="rounded-2xl border bg-white/75 p-3 text-sm hover:border-amber-400">
+              <Link key={task.id} href={task.customer ? `/dealer/crm/${task.customer.id}` : "/dealer/crm"} className="rounded-2xl border bg-card/75 p-3 text-sm hover:border-amber-400">
                 <div className="font-semibold">{task.title}</div>
                 <div className="text-xs text-muted-foreground">{task.customer?.name ?? "未关联客户"} · {formatDate(task.dueAt)}</div>
               </Link>
@@ -211,7 +211,7 @@ export function CrmManager({
           <CardHeader><CardTitle>智能优先客户</CardTitle></CardHeader>
           <CardContent className="grid gap-2 md:grid-cols-2">
             {priorityCustomers.map(({ customer, score, reasons }) => (
-              <Link key={customer.id} href={`/dealer/crm/${customer.id}`} className="rounded-2xl border bg-white/80 p-3 text-sm hover:border-sky-400">
+              <Link key={customer.id} href={`/dealer/crm/${customer.id}`} className="rounded-2xl border bg-card/80 p-3 text-sm hover:border-sky-400">
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-semibold">{customer.name}</span>
                   <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700">{score}</span>
@@ -228,7 +228,7 @@ export function CrmManager({
           <CardHeader><CardTitle>新增客户/线索</CardTitle></CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-3">
             <Field label="客户类型">
-              <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm" value={form.customerType} onChange={(e) => setForm({ ...form, customerType: e.target.value })}>
+              <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm" value={form.customerType} onChange={(e) => setForm({ ...form, customerType: e.target.value })}>
                 {Object.entries(CRM_CUSTOMER_TYPE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </Field>
@@ -236,7 +236,7 @@ export function CrmManager({
             <Field label="电话"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
             <Field label="来源"><Input value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} placeholder="门店 / 小红书 / 转介绍" /></Field>
             <Field label="意向等级">
-              <select className="h-10 w-full rounded-xl border border-input bg-white/75 px-3 text-sm" value={form.intentLevel} onChange={(e) => setForm({ ...form, intentLevel: e.target.value })}>
+              <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm" value={form.intentLevel} onChange={(e) => setForm({ ...form, intentLevel: e.target.value })}>
                 <option value="HIGH">高意向</option>
                 <option value="MEDIUM">中意向</option>
                 <option value="LOW">低意向</option>
@@ -258,7 +258,7 @@ export function CrmManager({
         <Card>
           <CardHeader><CardTitle>批量导入客户</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            <div className="rounded-2xl border bg-slate-50/80 p-4 text-sm text-muted-foreground">
+            <div className="rounded-2xl border bg-muted/50/80 p-4 text-sm text-muted-foreground">
               支持从 Excel 另存为 CSV 后上传。建议表头：客户名称、电话、客户类型、微信、邮箱、地区、地址、来源、标签、阶段、意向等级、预算、需求描述、备注、下次跟进时间。
               系统会按手机号去重，重复客户会跳过，不会覆盖已有客户资料。
             </div>
@@ -276,7 +276,7 @@ export function CrmManager({
       <Card>
         <CardContent className="grid gap-3 pt-5 md:grid-cols-4 md:pt-6">
           <Input placeholder="搜索姓名 / 电话 / 需求 / 来源 / 标签" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <select className="h-10 rounded-xl border border-input bg-white/75 px-3 text-sm shadow-sm" value={stage} onChange={(e) => setStage(e.target.value)}>
+          <select className="h-10 rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={stage} onChange={(e) => setStage(e.target.value)}>
             <option value="ALL">全部阶段</option>
             {Object.entries(CRM_CUSTOMER_STAGE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
@@ -287,7 +287,7 @@ export function CrmManager({
       <Card>
         <CardContent className="overflow-x-auto p-0">
           <table className="w-full min-w-[1080px] text-sm">
-            <thead className="border-b bg-white/40"><tr className="text-left">
+            <thead className="border-b bg-card/40"><tr className="text-left">
               <th className="p-3">客户</th><th className="p-3">阶段</th><th className="p-3">意向/预算</th><th className="p-3">需求</th>
               <th className="p-3">下次跟进</th><th className="p-3">动态</th><th className="p-3"></th>
             </tr></thead>
@@ -297,7 +297,7 @@ export function CrmManager({
                   <td className="p-3">
                     <div className="font-semibold">{customer.name}</div>
                     <div className="text-xs text-muted-foreground">{CRM_CUSTOMER_TYPE_LABEL[customer.customerType]} · {customer.phone}</div>
-                    {customer.tags.length > 0 && <div className="mt-1 flex flex-wrap gap-1">{customer.tags.map((tag) => <span key={tag} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px]">{tag}</span>)}</div>}
+                    {customer.tags.length > 0 && <div className="mt-1 flex flex-wrap gap-1">{customer.tags.map((tag) => <span key={tag} className="rounded-full bg-secondary px-2 py-0.5 text-[11px]">{tag}</span>)}</div>}
                   </td>
                   <td className="p-3"><Badge className={CRM_CUSTOMER_STAGE_COLOR[customer.stage]}>{CRM_CUSTOMER_STAGE_LABEL[customer.stage]}</Badge></td>
                   <td className="p-3 text-xs">
@@ -309,7 +309,7 @@ export function CrmManager({
                   <td className="p-3 text-xs text-muted-foreground">
                     跟进 {customer.counts.contactLogs} · 商机 {customer.counts.opportunities} · 订单 {customer.counts.salesOrders}
                   </td>
-                  <td className="p-3 text-right"><Link href={`/dealer/crm/${customer.id}`} className="text-blue-600 hover:underline">详情</Link></td>
+                  <td className="p-3 text-right"><Link href={`/dealer/crm/${customer.id}`} className="text-sky-400 hover:underline">详情</Link></td>
                 </tr>
               ))}
               {filtered.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">暂无客户，先新增一个线索吧。</td></tr>}
