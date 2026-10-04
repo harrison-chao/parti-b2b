@@ -20,6 +20,8 @@ type P = {
   spec: string | null;
   surfaceProcessCode: string | null;
   surfaceColorCode: string | null;
+  weightPerMeter: number | null;
+  materialStage: string | null;
   retailPrice: number;
   purchasePrice: number | null;
   unit: string;
@@ -36,6 +38,8 @@ type ProductRow = {
   spec: string;
   surfaceProcessCode: string;
   surfaceColorCode: string;
+  weightPerMeter: string;
+  materialStage: "RAW" | "SEMI";
   lengthMm: string;
   retailPrice: string;
   purchasePrice: string;
@@ -52,6 +56,8 @@ const emptyRow = (category: "HARDWARE" | "PROFILE"): ProductRow => ({
   spec: "",
   surfaceProcessCode: "",
   surfaceColorCode: "",
+  weightPerMeter: "",
+  materialStage: "RAW",
   lengthMm: category === "PROFILE" ? "3600" : "",
   retailPrice: "",
   purchasePrice: "",
@@ -78,6 +84,8 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
     spec: "",
     surfaceProcessCode: "",
     surfaceColorCode: "",
+    weightPerMeter: "",
+    materialStage: "RAW",
     lengthMm: "3600",
     retailPrice: "",
     purchasePrice: "",
@@ -100,7 +108,7 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
   }
 
   function resetForm() {
-    setForm({ sku: "", productName: "", series: "", spec: "", surfaceProcessCode: "", surfaceColorCode: "", lengthMm: "3600", retailPrice: "", purchasePrice: "", unit: "根", drawingRequired: false, isRawMaterial: false, yieldRate: "0.95" });
+    setForm({ sku: "", productName: "", series: "", spec: "", surfaceProcessCode: "", surfaceColorCode: "", weightPerMeter: "", materialStage: "RAW", lengthMm: "3600", retailPrice: "", purchasePrice: "", unit: "根", drawingRequired: false, isRawMaterial: false, yieldRate: "0.95" });
   }
 
   function openCreate() {
@@ -128,10 +136,10 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean)
-      .map((line) => {
+      .map((line): ProductRow => {
         const cols = line.split(/\t|,/).map((col) => col.trim());
         if (tab === "PROFILE") {
-          // 型材简化列序：SKU、系列名称、表面处理码、颜色码、零售价、采购成本、单位、原料棒长、良率、图纸、原料
+          // 型材简化列序：SKU、系列名称、表面处理码、颜色码、零售价、采购成本、单位、原料棒长、良率、米重kg/m、阶段(RAW/SEMI)、图纸、是否原料
           return {
             ...emptyRow(tab),
             sku: cols[0] ?? "",
@@ -144,8 +152,10 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
             unit: cols[6] || "根",
             lengthMm: cols[7] || "3600",
             yieldRate: cols[8] || "0.95",
-            drawingRequired: ["1", "true", "是", "必传"].includes((cols[9] ?? "").toLowerCase()),
-            isRawMaterial: !["0", "false", "否", "非原料"].includes((cols[10] ?? "").toLowerCase()),
+            weightPerMeter: cols[9] ?? "",
+            materialStage: (cols[10] ?? "").toUpperCase() === "SEMI" ? "SEMI" : "RAW",
+            drawingRequired: ["1", "true", "是", "必传"].includes((cols[11] ?? "").toLowerCase()),
+            isRawMaterial: !["0", "false", "否", "非原料"].includes((cols[12] ?? "").toLowerCase()),
           };
         }
         return {
@@ -179,6 +189,12 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
       setStatus(`✗ ${requiredLabel}为必填`);
       return;
     }
+    // 原料棒长必填（API 也会拦）：缺棒长会让扣料/缺料按 3600 魔法默认折算
+    const noBarLength = tab === "PROFILE" ? rows.find((row) => row.isRawMaterial && !row.lengthMm) : undefined;
+    if (noBarLength) {
+      setStatus(`✗ 原料 ${noBarLength.sku || "(未填SKU)"} 缺原料棒长（半成品段填段长），必填`);
+      return;
+    }
 
     setStatus("批量保存中...");
     const r = await fetch("/api/products", {
@@ -194,6 +210,8 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
           spec: tab === "PROFILE" ? null : (row.spec.trim() || null),
           surfaceProcessCode: tab === "PROFILE" ? (row.surfaceProcessCode.trim().toUpperCase() || null) : null,
           surfaceColorCode: tab === "PROFILE" ? (row.surfaceColorCode.trim().toUpperCase() || null) : null,
+          weightPerMeter: tab === "PROFILE" && row.weightPerMeter ? parseFloat(row.weightPerMeter) : null,
+          materialStage: tab === "PROFILE" && row.isRawMaterial ? row.materialStage : null,
           retailPrice: parseFloat(row.retailPrice) || 0,
           purchasePrice: row.purchasePrice ? parseFloat(row.purchasePrice) : null,
           unit: row.unit.trim() || (tab === "PROFILE" ? "根" : "件"),
@@ -226,6 +244,8 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
       spec: product.spec ?? "",
       surfaceProcessCode: product.surfaceProcessCode ?? "",
       surfaceColorCode: product.surfaceColorCode ?? "",
+      weightPerMeter: product.weightPerMeter != null ? String(product.weightPerMeter) : "",
+      materialStage: product.materialStage === "SEMI" ? "SEMI" : "RAW",
       lengthMm: product.lengthMm != null ? String(product.lengthMm) : "3600",
       retailPrice: String(product.retailPrice),
       purchasePrice: product.purchasePrice != null ? String(product.purchasePrice) : "",
@@ -251,6 +271,8 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
         spec: category === "PROFILE" ? null : (form.spec.trim() || null),
         surfaceProcessCode: category === "PROFILE" ? (form.surfaceProcessCode || null) : null,
         surfaceColorCode: category === "PROFILE" ? (form.surfaceColorCode || null) : null,
+        weightPerMeter: category === "PROFILE" && form.weightPerMeter ? parseFloat(form.weightPerMeter) : null,
+        materialStage: category === "PROFILE" && form.isRawMaterial ? form.materialStage : null,
         retailPrice: parseFloat(form.retailPrice) || 0,
         purchasePrice: form.purchasePrice ? parseFloat(form.purchasePrice) : null,
         unit: form.unit.trim() || "件",
@@ -309,7 +331,7 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
   }
 
   async function editProfileRules(p: P) {
-    const newLength = prompt(`原料棒长 mm（当前 ${p.lengthMm ?? 3600}）`, String(p.lengthMm ?? 3600));
+    const newLength = prompt(`原料棒长 mm（当前 ${p.lengthMm ?? 3600}；半成品段填段长）`, String(p.lengthMm ?? 3600));
     if (newLength == null) return;
     const lengthMm = parseFloat(newLength);
     if (isNaN(lengthMm) || lengthMm <= 0) return;
@@ -317,10 +339,13 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
     if (newYield == null) return;
     const yieldRate = parseFloat(newYield);
     if (isNaN(yieldRate) || yieldRate <= 0 || yieldRate > 1) return;
+    const newWeight = prompt(`截面米重 kg/m（当前 ${p.weightPerMeter ?? "未设"}，成本换算基数）`, p.weightPerMeter != null ? String(p.weightPerMeter) : "");
+    const weightPerMeter = newWeight != null && newWeight.trim() !== "" ? parseFloat(newWeight) : null;
+    if (newWeight != null && weightPerMeter != null && (isNaN(weightPerMeter) || weightPerMeter <= 0)) return;
     await fetch(`/api/products/${p.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lengthMm, yieldRate, isRawMaterial: true }),
+      body: JSON.stringify({ lengthMm, yieldRate, isRawMaterial: true, weightPerMeter }),
     });
     router.refresh();
   }
@@ -354,7 +379,7 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
           <CardContent className="space-y-4">
             <div className="rounded-2xl border bg-card/60 p-3 text-xs leading-6 text-muted-foreground">
               {tab === "PROFILE"
-                ? "可从 Excel 复制多行粘贴。型材列顺序：SKU、系列名称、表面处理码、颜色码、零售价、采购成本、单位、原料棒长、良率、图纸必传、是否原料。系列名称即型号（如 MR2525），名称与规格自动等于系列名称。"
+                ? "可从 Excel 复制多行粘贴。列顺序：SKU、系列名称、表面处理码、颜色码、零售价、采购成本、单位、原料棒长、良率、米重kg/m、阶段(RAW/SEMI)、图纸必传、是否原料。系列名称即型号（如 MR2525）；半成品段（已截断备货）阶段填 SEMI，棒长填段长。"
                 : "可从 Excel 复制多行粘贴。五金列顺序：SKU、名称、系列、规格、零售价、采购成本、单位、图纸必传。"}
             </div>
             <textarea
@@ -377,7 +402,7 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
                       ? <><th className="p-2">系列名称*</th><th className="p-2">表面处理</th><th className="p-2">颜色</th></>
                       : <><th className="p-2">名称*</th><th className="p-2">系列*</th><th className="p-2">规格</th></>}
                     <th className="p-2">零售价</th><th className="p-2">采购成本</th><th className="p-2">单位</th>
-                    {tab === "PROFILE" && <><th className="p-2">原料棒长</th><th className="p-2">良率</th><th className="p-2">原料</th></>}
+                    {tab === "PROFILE" && <><th className="p-2">原料棒长</th><th className="p-2">良率</th><th className="p-2">米重kg/m</th><th className="p-2">阶段</th><th className="p-2">原料</th></>}
                     <th className="p-2">图纸</th><th className="p-2"></th>
                   </tr>
                 </thead>
@@ -405,6 +430,13 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
                         <>
                           <td className="p-2"><Input type="number" value={row.lengthMm} onChange={(e) => patchBulkRow(index, { lengthMm: e.target.value })} /></td>
                           <td className="p-2"><Input type="number" min="0.01" max="1" step="0.01" value={row.yieldRate} onChange={(e) => patchBulkRow(index, { yieldRate: e.target.value })} /></td>
+                          <td className="p-2"><Input type="number" step="0.0001" value={row.weightPerMeter} onChange={(e) => patchBulkRow(index, { weightPerMeter: e.target.value })} placeholder="0.72" className="w-20" /></td>
+                          <td className="p-2">
+                            <select className="h-8 w-20 rounded-lg border border-input bg-card/75 px-1.5 text-xs" value={row.materialStage} onChange={(e) => patchBulkRow(index, { materialStage: e.target.value as "RAW" | "SEMI" })}>
+                              <option value="RAW">RAW 长管</option>
+                              <option value="SEMI">SEMI 半成品</option>
+                            </select>
+                          </td>
                           <td className="p-2 text-center"><input type="checkbox" checked={row.isRawMaterial} onChange={(e) => patchBulkRow(index, { isRawMaterial: e.target.checked })} /></td>
                         </>
                       )}
@@ -459,6 +491,14 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
               <>
                 <div><Label>原料棒长(mm)</Label><Input type="number" value={form.lengthMm} onChange={(e) => setForm({ ...form, lengthMm: e.target.value })} /></div>
                 <div><Label>生产良率(0-1)</Label><Input type="number" min="0.01" max="1" step="0.01" value={form.yieldRate} onChange={(e) => setForm({ ...form, yieldRate: e.target.value })} /></div>
+                <div><Label>截面米重(kg/m)</Label><Input type="number" step="0.0001" value={form.weightPerMeter} onChange={(e) => setForm({ ...form, weightPerMeter: e.target.value })} placeholder="如 0.72（成本换算基数）" /></div>
+                <div>
+                  <Label>原料阶段</Label>
+                  <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={form.materialStage} onChange={(e) => setForm({ ...form, materialStage: e.target.value as "RAW" | "SEMI" })}>
+                    <option value="RAW">RAW · 定尺长管（挤压+表面完成）</option>
+                    <option value="SEMI">SEMI · 半成品段（已截断，总部仓备货）</option>
+                  </select>
+                </div>
                 <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" checked={form.isRawMaterial} onChange={(e) => setForm({ ...form, isRawMaterial: e.target.checked })} />
                   作为原料型材参与工单扣减
@@ -527,7 +567,9 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
                     <td className="p-3 text-xs">
                       {p.isRawMaterial ? (
                         <button className="text-left text-sky-400 hover:underline" onClick={() => editProfileRules(p)}>
+                          {p.materialStage === "SEMI" && <span className="mr-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-300 ring-1 ring-inset ring-amber-400/20">半成品段</span>}
                           原料 · {p.lengthMm ?? 3600}mm · 良率 {p.yieldRate ?? 0.95}
+                          {p.weightPerMeter != null && <> · {p.weightPerMeter}kg/m</>}
                         </button>
                       ) : <span className="text-muted-foreground">非原料</span>}
                     </td>

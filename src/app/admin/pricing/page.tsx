@@ -32,6 +32,19 @@ export default function OpsPricingPage() {
   const [level, setLevel] = useState<"A" | "B" | "C">("C");
   const [data, setData] = useState<Full | null>(null);
   const [loading, setLoading] = useState(false);
+  // 报价参数来自设置，label 里的数值随设置动态显示（评审 B12：写死 28 元/kg 会误导）
+  const [params, setParams] = useState<Record<string, number>>({});
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.code === 0 && Array.isArray(j.data?.pricingFields)) {
+          setParams(Object.fromEntries(j.data.pricingFields.map((f: { key: string; value: number }) => [f.key, f.value])));
+        }
+      })
+      .catch(() => {});
+  }, []);
+  const p = (k: string) => (params[k] != null ? params[k] : null);
 
   async function calc(mm: number, lv: string) {
     if (!mm || mm <= 0) return;
@@ -84,13 +97,13 @@ export default function OpsPricingPage() {
                 <Row k="损耗重量" v={`${data.wasteWeight} kg`} />
                 <Row k="实际重量" v={`${data.actualWeight} kg`} />
                 <div className="border-t my-2"></div>
-                <Row k="素材成本（28元/kg）" v={formatMoney(data.materialCost)} />
-                <Row k="表面处理（5元/kg）" v={formatMoney(data.surfaceCost)} />
-                <Row k="加工费（3元/支）" v={formatMoney(data.processingCost)} />
-                <Row k="连接件（10元/支）" v={formatMoney(data.connectorCost)} />
+                <Row k={`素材成本${p("materialPrice") != null ? `（${p("materialPrice")}元/kg）` : ""}`} v={formatMoney(data.materialCost)} />
+                <Row k={`表面处理${p("surfacePricePerKg") != null ? `（${p("surfacePricePerKg")}元/kg）` : ""}`} v={formatMoney(data.surfaceCost)} />
+                <Row k={`加工费${p("processingFee") != null ? `（${p("processingFee")}元/支）` : ""}`} v={formatMoney(data.processingCost)} />
+                <Row k={`连接件${p("connectorFee") != null ? `（${p("connectorFee")}元/支）` : ""}`} v={formatMoney(data.connectorCost)} />
                 <div className="border-t my-2"></div>
                 <Row k="总成本" v={formatMoney(data.totalCost)} bold />
-                <Row k="毛利率" v="65%" />
+                <Row k="毛利率" v={p("grossMarginRate") != null ? `${Math.round(p("grossMarginRate")! * 100)}%` : "-"} />
               </CardContent>
             </Card>
 
@@ -100,8 +113,8 @@ export default function OpsPricingPage() {
                 <Price label="零售价（不含税）" value={data.retailPrice} />
                 <Price label="零售价（含税 10%）" value={data.retailPriceTax} tone="muted" />
                 <div className="border-t my-2"></div>
-                <Price label="一级代理（50%）" value={data.level1Price} tone="blue" />
-                <Price label="二级代理（60%）" value={data.level2Price} tone="blue" />
+                <Price label={`一级代理${p("level1Rate") != null ? `（${Math.round(p("level1Rate")! * 100)}%）` : ""}`} value={data.level1Price} tone="blue" />
+                <Price label={`二级代理${p("level2Rate") != null ? `（${Math.round(p("level2Rate")! * 100)}%）` : ""}`} value={data.level2Price} tone="blue" />
                 <div className="border-t my-2"></div>
                 <Price label={`等级 ${data.priceLevel}（${data.discountPercent}%）`} value={data.dealerPrice} tone="green" big />
               </CardContent>

@@ -317,6 +317,10 @@ model Product {
   // 型材默认表面处理/颜色（可空=未指定）；代下选用到该原料时预填到订单行
   surfaceProcessCode String?
   surfaceColorCode   String?
+  // 原料阶段：RAW=定尺长管（挤压+表面处理完成）、SEMI=半成品段（已截断待铣孔/预埋，总部仓备货）；null=普通成品/五金
+  materialStage      String?
+  // 截面米重 kg/m（物理常数，同截面各表面变体共享；成本=每米价×切长÷良率 的换算基数）
+  weightPerMeter     Decimal? @db.Decimal(7, 4)
   isRawMaterial   Boolean         @default(false)
   yieldRate       Decimal         @default(0.95) @db.Decimal(5, 4)
   isActive        Boolean         @default(true)
@@ -426,6 +430,8 @@ model SalesOrderLine {
   targetPrice      Decimal?      @db.Decimal(10, 2)
   confirmedPrice   Decimal?      @db.Decimal(10, 2)
   lineAmount       Decimal       @db.Decimal(12, 2)
+  // 下单时冻结的成本构成 JSON（{perMeter, meterWeight, yieldRate, unitCost, source}）；null=未快照，利润页回退实时重算
+  costSnapshot     String?
   includedInProfit Boolean       @default(true)
   workOrderNo      String?
   isCustom         Boolean       @default(false)
@@ -584,6 +590,8 @@ model WorkshopInventory {
   productName       String
   quantity          Int      @default(0)
   lowStockThreshold Int      @default(0)
+  // 移动加权平均每米成本（元/米，分车间滚动）；仅采购收货时重算，扣料/盘点只动数量
+  avgCostPerMeter   Decimal? @db.Decimal(10, 4)
   updatedAt         DateTime @updatedAt
 
   workshop Workshop @relation(fields: [workshopId], references: [id], onDelete: Cascade)
@@ -600,6 +608,8 @@ model StockMovement {
   type         StockMovementType
   quantity     Int
   balanceAfter Int
+  // 出入库时点的每米成本快照（元/米）：收货写批次价、扣料写当时车间均价，供成本追溯与加权回放
+  unitCost     Decimal? @db.Decimal(12, 4)
   refType      String?
   refNo        String?
   note         String?
