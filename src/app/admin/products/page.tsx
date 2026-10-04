@@ -1,12 +1,18 @@
 import { prisma } from "@/lib/prisma";
+import { loadSettings } from "@/lib/settings";
 import { ProductManager } from "./manager";
 
 export default async function ProductsPage() {
-  const products = await prisma.product.findMany({
-    orderBy: [{ category: "asc" }, { series: "asc" }, { sku: "asc" }],
-  });
+  const [products, settings] = await Promise.all([
+    prisma.product.findMany({
+      orderBy: [{ category: "asc" }, { series: "asc" }, { sku: "asc" }],
+    }),
+    loadSettings(),
+  ]);
   return (
     <ProductManager
+      surfaceProcessOptions={settings.surfaceProcesses}
+      surfaceColorOptions={settings.surfaceColors}
       products={products.map((p) => ({
         id: p.id,
         sku: p.sku,
@@ -15,6 +21,8 @@ export default async function ProductsPage() {
         category: p.category,
         lengthMm: p.lengthMm != null ? Number(p.lengthMm) : null,
         spec: p.spec,
+        surfaceProcessCode: p.surfaceProcessCode,
+        surfaceColorCode: p.surfaceColorCode,
         retailPrice: Number(p.retailPrice),
         purchasePrice: p.purchasePrice != null ? Number(p.purchasePrice) : null,
         unit: p.unit,
