@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { AllSettings, Option, PricingField } from "@/lib/settings";
+import type { RawSeriesSummary } from "./page";
 import { PRICE_TIERS, PRICE_TIER_LABEL } from "@/lib/pricing";
 
 type BackupRow = {
@@ -18,7 +19,7 @@ type BackupRow = {
   counts?: Record<string, number>;
 };
 
-export function SettingsForm({ initial }: { initial: AllSettings }) {
+export function SettingsForm({ initial, rawSeries }: { initial: AllSettings; rawSeries: RawSeriesSummary[] }) {
   const [surfaceProcesses, setSurfaceProcesses] = useState<Option[]>(initial.surfaceProcesses);
   const [surfaceColors, setSurfaceColors] = useState<Option[]>(initial.surfaceColors);
   const [processingOperations, setProcessingOperations] = useState<Option[]>(initial.processingOperations);
@@ -152,6 +153,60 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
                 {backups.length === 0 && <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">暂无备份记录，点击“立即执行备份”生成第一份。</td></tr>}
               </tbody>
             </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>型材系列总览（下单可选的型材）</CardTitle>
+          <CardDescription>
+            下单页「型材 / 表面处理 / 颜色」下拉的选项来自<b>产品目录的原料档案</b>，此处为只读总览。
+            新增系列、新棒长或新颜色：到产品目录新增原料行（填系列、原料棒长、表面码、颜色码、米重）；
+            新颜色需先在下方「颜色选项」添加色码，否则档案无法选到。系列名即型号，请保持同一型材一个名字（如 MR2525/9），避免下拉出现重复选项。
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {rawSeries.length === 0 && (
+            <p className="text-sm text-muted-foreground">暂无原料档案——到产品目录新增原料型材后，下单页即可选到。</p>
+          )}
+          {rawSeries.map(({ series, items }) => {
+            const activeCount = items.filter((i) => i.active).length;
+            return (
+              <div key={series}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-semibold text-sm">{series}</span>
+                  <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">{items.length} 个原料 SKU</span>
+                  {activeCount < items.length && (
+                    <span className="text-xs text-amber-300">（{items.length - activeCount} 个已停用）</span>
+                  )}
+                </div>
+                <table className="w-full min-w-[720px] text-xs">
+                  <thead className="border-b bg-card/40"><tr className="text-left">
+                    <th className="p-1.5">内部 SKU</th><th className="p-1.5">备料棒长</th>
+                    <th className="p-1.5">表面-颜色</th><th className="p-1.5">米重</th>
+                    <th className="p-1.5">阶段</th><th className="p-1.5">状态</th>
+                  </tr></thead>
+                  <tbody>
+                    {items.map((it) => (
+                      <tr key={it.sku} className={`border-b ${it.active ? "" : "opacity-50"}`}>
+                        <td className="p-1.5 font-mono">{it.sku}</td>
+                        <td className="p-1.5">{it.barMm ? `${(it.barMm / 1000).toFixed(1)}m` : "—"}</td>
+                        <td className="p-1.5">{it.code}</td>
+                        <td className="p-1.5">{it.weight ?? "未核定"}</td>
+                        <td className="p-1.5">{it.stage === "SEMI" ? "半成品段" : "原料棒"}</td>
+                        <td className="p-1.5">{it.active ? "启用" : "停用"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })}
+          <div className="pt-1">
+            <a href="/admin/products" className="inline-flex items-center h-9 px-4 rounded-md border text-sm hover:bg-secondary">
+              去产品目录维护原料 →
+            </a>
           </div>
         </CardContent>
       </Card>
