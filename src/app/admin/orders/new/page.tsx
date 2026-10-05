@@ -291,6 +291,7 @@ export default function NewInternalOrderPage() {
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   }
   function setCut(r: OrderLineRow, val: string, unit: "inch" | "mm") {
+    // 寸/mm 任意填一个，另一个自动换算
     if (unit === "inch") {
       const mm = val ? String(Math.round(parseFloat(val) * 25.4)) : "";
       patchRow(r.key, { cutInch: val, cutMm: mm, unit });
@@ -591,15 +592,22 @@ export default function NewInternalOrderPage() {
                     </div>
                   </div>
                   <div className="md:col-span-2">
-                    <Label className="text-xs">切长（寸 ⇄ mm）</Label>
+                    <Label className="text-xs">切长（寸 / mm 任意填一个）</Label>
                     <div className="flex gap-1">
-                      <Input value={r.unit === "inch" ? r.cutInch : r.cutMm}
-                        onChange={(e) => setCut(r, e.target.value, r.unit)} onBlur={() => fetchPrice(r)} />
-                      <button className="border rounded px-2 text-xs" onClick={() => setCut(r, r.unit === "inch" ? r.cutInch : r.cutMm, r.unit === "inch" ? "mm" : "inch")}>
-                        {r.unit === "inch" ? "寸" : "mm"}
-                      </button>
+                      <div className="relative flex-1">
+                        <Input type="number" step="0.1" value={r.cutInch} className="pr-7"
+                          onChange={(e) => setCut(r, e.target.value, "inch")} onBlur={() => fetchPrice(r)} />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">寸</span>
+                      </div>
+                      <div className="relative flex-1">
+                        <Input type="number" step="1" value={r.cutMm} className="pr-7"
+                          onChange={(e) => setCut(r, e.target.value, "mm")} onBlur={() => fetchPrice(r)} />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">mm</span>
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{r.cutMm ? `${r.cutMm}mm` : ""}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {r.cutMm ? `${r.cutInch || "?"}寸 = ${r.cutMm}mm` : "填寸或mm，另一个自动换算"}
+                    </div>
                   </div>
                   <div className="md:col-span-3">
                     <Label className="text-xs">工序</Label>
