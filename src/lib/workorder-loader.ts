@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { WorkOrderDetailData } from "@/components/work-order-detail";
+import { surfaceCodesText } from "@/lib/surface";
 
 export async function loadWorkOrderDetail(workOrderNo: string, opts: { includeDealer: boolean }): Promise<WorkOrderDetailData | null> {
   const wo = await prisma.workOrder.findUnique({
@@ -51,7 +52,7 @@ export async function loadWorkOrderDetail(workOrderNo: string, opts: { includeDe
         sku: l.sku,
         quantity: l.quantity,
         preprocessing: l.preprocessing,
-        surfaceTreatment: l.surfaceTreatment,
+        surfaceTreatment: surfaceCodesText(l),
         drawingUrl: l.drawingUrl,
         drawingFileName: l.drawingFileName,
       })),

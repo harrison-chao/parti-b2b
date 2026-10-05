@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { formatMoney, formatDate } from "@/lib/utils";
 import { numToChinese, PRINT_CSS, PRINT_SCRIPT } from "@/lib/print-utils";
+import { surfaceCodesText } from "@/lib/surface";
 
 export const dynamic = "force-dynamic";
 
@@ -97,7 +98,7 @@ export default async function QuotePrintPage({ params }: { params: { orderNo: st
                 <td className="center">{l.lineNo}</td>
                 <td>
                   <div>{l.productName}{l.spec ? ` · ${l.spec}` : ""}</div>
-                  {l.surfaceTreatment && <div style={{ fontSize: 11, color: "#666" }}>表面处理：{l.surfaceTreatment}</div>}
+                  {(surfaceCodesText(l) ?? l.surfaceTreatment) && <div style={{ fontSize: 11, color: "#666" }}>表面处理：{surfaceCodesText(l) ?? l.surfaceTreatment}</div>}
                 </td>
                 <td style={{ fontSize: 11 }}>{l.preprocessing || "—"}</td>
                 <td className="num">{l.quantity}</td>

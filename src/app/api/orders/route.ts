@@ -8,6 +8,7 @@ import { queueLoad, skuCycleStats, globalCycleStats, suggestDeliveryDays } from 
 import { genWorkOrderNo } from "@/lib/utils";
 import { LEVEL_DISCOUNT, calcPricing } from "@/lib/pricing";
 import { resolveRawBasis } from "@/lib/pricing-source";
+import { surfaceMismatch } from "@/lib/surface";
 import { loadSettings, pricingFieldsToConfig } from "@/lib/settings";
 import { notifyFeishu } from "@/lib/feishu";
 import { z } from "zod";
@@ -128,10 +129,16 @@ export async function POST(req: NextRequest) {
     if (!basisMap.has(raw.id)) basisMap.set(raw.id, await resolveRawBasis(raw));
   }
 
-  const resolvedLines = data.lines.map((l) => {
+  let resolvedLines: any[] = [];
+  try {
+    const resolvedLines = data.lines.map((l) => {
     if (l.lineType === "PROFILE") {
       if (!l.rawProductId) throw new Error(`PROFILE 行缺原料型材`);
       if (!rawMap.has(l.rawProductId)) throw new Error(`原料型材不存在或非原料: ${l.rawProductId}`);
+      // 第 3 步绑定校验：原料 SKU 已按表面拆分，行表面必须与原料一致，否则扣错桶/假性缺料
+      const rawProd = rawMap.get(l.rawProductId)!;
+      const mismatch = surfaceMismatch(l, rawProd);
+      if (mismatch) throw new Error(`行 ${l.sku}：${mismatch}`);
       // Server-side authoritative pricing for PROFILE (client-provided price is advisory),
       // using the same engine as GET /api/pricing/calculate.
       const length = l.cutLengthMm ?? l.lengthMm;
@@ -166,6 +173,10 @@ export async function POST(req: NextRequest) {
     }
     return l;
   });
+  } catch (e: any) {
+    // 行校验（缺原料/不存在/表面与原料不符）按业务错误返回，而非 500
+    return fail(String(e?.message ?? e));
+  }
 
   const totalAmount = resolvedLines.reduce((s, l) => s + l.quantity * l.unitPrice, 0);
   if (dealer.status !== "ACTIVE") {

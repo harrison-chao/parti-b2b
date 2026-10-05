@@ -1,6 +1,7 @@
 "use client";
 import type { WorkOrderDetailData } from "@/components/work-order-detail";
 import { formatDate, formatDateTime, WORK_ORDER_STATUS_LABEL } from "@/lib/utils";
+import { surfaceCodesText } from "@/lib/surface";
 
 export function WorkOrderPrint({ data }: { data: WorkOrderDetailData }) {
   return (
@@ -87,7 +88,7 @@ export function WorkOrderPrint({ data }: { data: WorkOrderDetailData }) {
               <td>{l.lineNo}</td>
               <td>{l.productName}</td>
               <td style={{ fontFamily: "monospace" }}>{l.sku}</td>
-              <td>{l.surfaceTreatment ?? "-"}</td>
+              <td>{surfaceCodesText(l) ?? l.surfaceTreatment ?? "-"}</td>
               <td>{l.preprocessing ?? "-"}</td>
               <td style={{ textAlign: "right" }}>{l.quantity}</td>
               <td>{l.drawingFileName ?? (l.drawingUrl ? "见附件" : "-")}</td>

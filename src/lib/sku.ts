@@ -2,15 +2,15 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 
 type Db = Prisma.TransactionClient | PrismaClient;
 
-const sanitize = (s: string) => (s ?? "").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "");
+const sanitize = (s: string) => (s ?? "").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
 /**
  * 产品 SKU 自动生成（用户决策 2026-10：SKU 编码自动生成，目录里留空即生成；手工填写优先不改写）。
- * 规则：
- *   RAW  原料长管   RAW-{系列}-{表面码}-{颜色码}           如 RAW-MR2525-A-SV
+ * 规则（v2：RAW 含棒长——同系列存在 3.6m/4m/6m 多定尺，物理上是不同库存）：
+ *   RAW  原料长管   RAW-{系列}-{棒长mm}-{表面码}-{颜色码}    如 RAW-MR2525-9-4000-A-SV
  *   SEMI 半成品段   SEMI-{系列}-{段长mm}-{表面码}-{颜色码}   如 SEMI-MR2525-500-A-BK
  *   型材非原料      P-{系列}
- *   五金           HW-{YYMM}-{3位序号}                    如 HW-2610-001（序号只在当月桶内递增，天然避开历史时间戳式 SKU）
+ *   五金           HW-{YYMM}-{3位序号}                     如 HW-2610-001
  * 冲突时尾部追加 -2/-3；系列净化后为空（纯中文等）时退化为 {前缀}-YYMM-NNN。
  */
 export async function generateProductSku(
@@ -42,7 +42,12 @@ export async function generateProductSku(
     return freeSku(db, await nextBucketSku(db, `${prefix}-${yymm}-`));
   }
   const parts = [series];
-  if (input.materialStage === "SEMI" && input.lengthMm) parts.push(String(Math.round(input.lengthMm)));
+  if (input.isRawMaterial && input.materialStage !== "SEMI" && input.lengthMm) {
+    parts.push(String(Math.round(input.lengthMm)));
+  }
+  if (input.materialStage === "SEMI" && input.lengthMm) {
+    parts.push(String(Math.round(input.lengthMm)));
+  }
   if (proc) parts.push(proc);
   if (color) parts.push(color);
   return freeSku(db, `${prefix}-${parts.join("-")}`);

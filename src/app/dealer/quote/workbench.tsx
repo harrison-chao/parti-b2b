@@ -19,6 +19,7 @@ type HardwareItem = {
 };
 type RawProfileItem = {
   id: string; sku: string; productName: string; series: string; spec: string | null; lengthMm: number | null;
+  surfaceProcessCode?: string | null; surfaceColorCode?: string | null;
 };
 type CrmCustomerOption = {
   id: string;
@@ -528,7 +529,11 @@ function ProfileTable({
                     value={r.rawProductId}
                     onChange={(e) => {
                       const raw = rawProfileCatalog.find((x: RawProfileItem) => x.id === e.target.value);
-                      patchRow(r.id, { rawProductId: raw?.id ?? "", rawSku: raw?.sku ?? "", rawSeries: raw?.series ?? "" });
+                      patchRow(r.id, {
+                        rawProductId: raw?.id ?? "", rawSku: raw?.sku ?? "", rawSeries: raw?.series ?? "",
+                        // 原料 SKU 已按表面拆分：颜色随原料锁定，避免与档案不一致被服务端拒绝
+                        ...(raw?.surfaceColorCode ? { colorCode: raw.surfaceColorCode } : {}),
+                      });
                     }}>
                     <option value="">请选择型材系列/规格</option>
                     {rawProfileCatalog.map((x: RawProfileItem) => (
@@ -539,7 +544,9 @@ function ProfileTable({
                 <td className="p-2"><Input type="number" min={1} className="h-8 w-24" value={r.lengthMm}
                   onChange={(e) => patchRow(r.id, { lengthMm: e.target.value })} onBlur={() => onLengthBlur(r)} /></td>
                 <td className="p-2"><Sel value={r.processCode} onChange={(v: string) => patchRow(r.id, { processCode: v })} options={options.surfaceProcesses} /></td>
-                <td className="p-2"><Sel value={r.colorCode} onChange={(v: string) => patchRow(r.id, { colorCode: v })} options={options.surfaceColors} /></td>
+                <td className="p-2">{(() => { const rp = rawProfileCatalog.find((x: RawProfileItem) => x.id === r.rawProductId); return (
+                  <Sel value={r.colorCode} onChange={(v: string) => patchRow(r.id, { colorCode: v })} options={options.surfaceColors} disabled={!!rp?.surfaceColorCode} />
+                ); })()}</td>
                 <td className="p-2"><Sel value={r.operationCode} onChange={(v: string) => patchRow(r.id, { operationCode: v })} options={options.processingOperations} /></td>
                 <td className="p-2"><DrawingCell row={r} uploadDrawing={uploadDrawing} clearDrawing={clearDrawing} /></td>
                 <td className="p-2"><Input type="number" min={1} className="h-8 w-16" value={r.quantity}
@@ -679,9 +686,9 @@ function DrawingCell({ row, uploadDrawing, clearDrawing }: any) {
     </div>
   );
 }
-function Sel({ value, onChange, options }: any) {
+function Sel({ value, onChange, options, disabled }: any) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className="h-8 border rounded px-2 text-sm bg-card min-w-[120px]">
+    <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-8 border rounded px-2 text-sm bg-card min-w-[120px]">
       <option value="">请选择</option>
       {options.map((o: Option) => <option key={o.code} value={o.code}>{o.code} · {o.label}</option>)}
     </select>

@@ -379,7 +379,7 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
           <CardContent className="space-y-4">
             <div className="rounded-2xl border bg-card/60 p-3 text-xs leading-6 text-muted-foreground">
               {tab === "PROFILE"
-                ? "可从 Excel 复制多行粘贴。列顺序：SKU、系列名称、表面处理码、颜色码、零售价、采购成本、单位、原料棒长、良率、米重kg/m、阶段(RAW/SEMI)、图纸必传、是否原料。SKU 留空自动生成（RAW-系列-表面-颜色，半成品 SEMI-系列-段长-表面-颜色）。系列名称即型号（如 MR2525）；半成品段阶段填 SEMI，棒长填段长。"
+                ? "可从 Excel 复制多行粘贴。列顺序：SKU、系列名称、表面处理码、颜色码、零售价、采购成本、单位、原料棒长、良率、米重kg/m、阶段(RAW/SEMI)、图纸必传、是否原料。SKU 留空自动生成（RAW-系列-棒长-表面-颜色，如 RAW-MR2525-9-4000-A-SV；半成品 SEMI-系列-段长-…）。系列名称即型号（如 MR2525）；半成品段阶段填 SEMI，棒长填段长。"
                 : "可从 Excel 复制多行粘贴。五金列顺序：SKU、名称、系列、规格、零售价、采购成本、单位、图纸必传。SKU 留空自动生成（HW-年月-序号）。"}
             </div>
             <textarea
@@ -409,7 +409,7 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
                 <tbody>
                   {bulkRows.map((row, index) => (
                     <tr key={index} className="border-b">
-                          <td className="p-2"><Input value={row.sku} onChange={(e) => patchBulkRow(index, { sku: e.target.value })} placeholder={tab === "PROFILE" ? "留空自动（RAW-系列-表面-颜色）" : "留空自动（HW-年月-序号）"} /></td>
+                          <td className="p-2"><Input value={row.sku} onChange={(e) => patchBulkRow(index, { sku: e.target.value })} placeholder={tab === "PROFILE" ? "留空自动（RAW-系列-棒长-表面-颜色）" : "留空自动（HW-年月-序号）"} /></td>
                       {tab === "PROFILE" ? (
                         <>
                           <td className="p-2"><Input value={row.series} onChange={(e) => patchBulkRow(index, { series: e.target.value })} placeholder="如 MR2525" /></td>
@@ -461,7 +461,7 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
         <Card>
           <CardHeader><CardTitle>编辑 {PRODUCT_CATEGORY_LABEL[editing.category as "HARDWARE" | "PROFILE"]} SKU</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <div><Label>SKU</Label><Input value={form.sku} disabled={!!editing} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder={((editing?.category ?? tab) === "PROFILE") ? "留空自动（RAW-系列-表面-颜色）" : "留空自动（HW-年月-序号）"} /></div>
+            <div><Label>SKU</Label><Input value={form.sku} disabled={!!editing} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder={((editing?.category ?? tab) === "PROFILE") ? "留空自动（RAW-系列-棒长-表面-颜色）" : "留空自动（HW-年月-序号）"} /></div>
             {((editing?.category ?? tab) === "PROFILE") ? (
               <>
                 <div><Label>系列名称</Label><Input value={form.series} onChange={(e) => setForm({ ...form, series: e.target.value })} placeholder="如 MR2525（即名称即规格）" /></div>
