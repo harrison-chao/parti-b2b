@@ -78,6 +78,10 @@ export default async function PODetailPage({ params }: { params: { poNo: string 
           receivedQty: l.receivedQty,
           unitPrice: Number(l.unitPrice),
           lineAmount: Number(l.lineAmount),
+          pricingUnit: l.pricingUnit,
+          totalWeightKg: l.totalWeightKg != null ? Number(l.totalWeightKg) : null,
+          receivedWeightKg: l.receivedWeightKg != null ? Number(l.receivedWeightKg) : null,
+          settleUnitPrice: l.settleUnitPrice != null ? Number(l.settleUnitPrice) : null,
         }))}
         totalAmount={Number(po.totalAmount)}
       />

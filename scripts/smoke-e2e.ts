@@ -10,6 +10,7 @@ import { suggestDeliveryDays } from "../src/lib/delivery-insight";
 import { WORK_ORDER_TRANSITIONS, nextWorkOrderStatus } from "../src/lib/workorder";
 import { calcPricing } from "../src/lib/pricing";
 import { resolveRawBasis } from "../src/lib/pricing-source";
+import { movingAveragePerMeter, theoreticalWeightKg, weightDeviation, WEIGHT_TOLERANCE } from "../src/lib/inventory";
 import { Prisma as PrismaNS } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -901,6 +902,25 @@ async function main() {
     const snap = JSON.stringify({ source: "PURCHASE", perMeterPrice: 20, meterWeight: 0.72, yieldRate: 0.95, unitCost: 34.05, cutLengthMm: 1000, pricedAt: new Date().toISOString() });
     const parsed = JSON.parse(snap) as { unitCost: number; source: string };
     check("H4 snapshot roundtrip keeps unitCost & source", parsed.unitCost === 34.05 && parsed.source === "PURCHASE");
+  }
+
+  // ---------- Phase I: 批次收货（移动加权均价 + 磅差容忍带） ----------
+  {
+    // I1 移动加权：10根×6m 旧均价20 + 5根×6m 批次25 → (1200+750)/90 = 21.6667
+    const avg = movingAveragePerMeter(10, 6000, 20, 5, 25);
+    check("I1 moving average (60m@20 + 30m@25) / 90m = 21.6667", Math.abs(avg - 21.6667) < 0.001, `avg=${avg}`);
+    // I2 首次入库（无旧价）直接取批次价
+    check("I2 first receipt initializes to batch price", movingAveragePerMeter(0, 6000, null, 5, 25) === 25);
+    check("I2 null old avg adopts batch price", movingAveragePerMeter(10, 6000, null, 5, 25) === 25);
+    // I3 理论重量 = 根×定尺×米重
+    const tw = theoreticalWeightKg(10, 6000, 0.72);
+    check("I3 theoretical weight 10×6m×0.72 = 43.2kg", tw === 43.2, `tw=${tw}`);
+    // I4 磅差：45/43.2 偏差 4.2% 在容忍带内；48kg 偏差 11.1% 超带
+    const dev1 = weightDeviation(45, 43.2);
+    const dev2 = weightDeviation(48, 43.2);
+    check("I4 deviation 45kg = 4.2% within band", dev1 != null && dev1 > 0.04 && dev1 < 0.05, `dev=${dev1}`);
+    check("I4 deviation 48kg = 11.1% exceeds 5% band", dev2 != null && dev2 > WEIGHT_TOLERANCE, `dev=${dev2}`);
+    check("I4 missing theoretical skips check", weightDeviation(50, null) === null);
   }
 
   console.log(`\nSmoke E2E passed: ${results.length} assertions`);

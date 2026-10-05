@@ -11,6 +11,12 @@ const lineSchema = z.object({
   spec: z.string().optional().nullable(),
   quantity: z.number().int().positive(),
   unitPrice: z.number().nonnegative(),
+  // 批次计价第 2 步：KG=按重量结算（磅单×元/kg），BAR/缺省=按根（元/根）
+  pricingUnit: z.enum(["BAR", "KG"]).optional(),
+  totalWeightKg: z.number().positive().optional().nullable(),
+  settleUnitPrice: z.number().positive().optional().nullable(),
+}).refine((l) => l.pricingUnit !== "KG" || (l.totalWeightKg != null && l.settleUnitPrice != null), {
+  message: "按重量结算行需填 约重(kg) 与 结算单价(元/kg)",
 });
 
 const createSchema = z.object({
@@ -53,7 +59,12 @@ export async function POST(req: NextRequest) {
   const workshop = await prisma.workshop.findUnique({ where: { id: d.workshopId } });
   if (!workshop || !workshop.isActive) return fail("车间不存在或已停用");
 
-  const totalAmount = d.lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
+  // KG 行金额 = 约重×结算单价（下单预估）；BAR 行 = 数量×单价。收货后应付按实收重算（对账侧）。
+  const lineAmountOf = (l: z.infer<typeof lineSchema>) =>
+    l.pricingUnit === "KG" && l.totalWeightKg != null && l.settleUnitPrice != null
+      ? l.totalWeightKg * l.settleUnitPrice
+      : l.unitPrice * l.quantity;
+  const totalAmount = d.lines.reduce((s, l) => s + lineAmountOf(l), 0);
   const poNo = genPoNo();
 
   const po = await prisma.purchaseOrder.create({
@@ -77,7 +88,10 @@ export async function POST(req: NextRequest) {
           spec: l.spec ?? null,
           quantity: l.quantity,
           unitPrice: l.unitPrice,
-          lineAmount: l.unitPrice * l.quantity,
+          lineAmount: lineAmountOf(l),
+          pricingUnit: l.pricingUnit ?? "BAR",
+          totalWeightKg: l.totalWeightKg ?? null,
+          settleUnitPrice: l.settleUnitPrice ?? null,
         })),
       },
     },

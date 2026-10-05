@@ -86,8 +86,8 @@ export default async function POPrintPage({ params }: { params: { poNo: string }
                 <td className="center">{l.lineNo}</td>
                 <td style={{ fontFamily: "monospace" }}>{l.sku}</td>
                 <td>{l.productName}{l.spec ? ` · ${l.spec}` : ""}</td>
-                <td className="num">{l.quantity}</td>
-                <td className="num">{formatMoney(Number(l.unitPrice))}</td>
+                <td className="num">{l.quantity}{l.pricingUnit === "KG" && l.totalWeightKg ? ` 根 · 约 ${Number(l.totalWeightKg)}kg` : ""}</td>
+                <td className="num">{l.pricingUnit === "KG" && l.settleUnitPrice != null ? `${Number(l.settleUnitPrice)} 元/kg` : formatMoney(Number(l.unitPrice))}</td>
                 <td className="num">{formatMoney(Number(l.lineAmount))}</td>
               </tr>
             ))}
@@ -111,6 +111,9 @@ export default async function POPrintPage({ params }: { params: { poNo: string }
             <li>质量要求：货物须符合国标及双方确认的技术规范，外观、尺寸、材质均不得有瑕疵。</li>
             <li>验收标准：甲方于到货后 3 个工作日内完成验收，不合格批次由乙方无偿换货或退款。</li>
             <li>结算方式：凭增值税专用发票（13%）以银行转账方式结清，账期以双方付款协议为准。</li>
+            {po.lines.some((l) => l.pricingUnit === "KG") && (
+              <li>计量与结算：铝型材以实际过磅重量结算（磅单为准），结算金额 = 结算单价 × 实收磅重；理论重量（根数×定尺×米重）仅作收货校验，偏差以双方确认的磅单为准。</li>
+            )}
             <li>违约责任：任一方逾期履行本合同义务，逾期部分按日 0.3% 计算违约金。</li>
             <li>争议解决：合同履行过程中发生争议协商解决；协商不成提交甲方所在地人民法院诉讼。</li>
             {po.remark && <li>备注：{po.remark}</li>}

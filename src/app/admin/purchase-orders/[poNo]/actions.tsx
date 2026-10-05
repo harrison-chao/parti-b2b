@@ -16,6 +16,10 @@ type Line = {
   receivedQty: number;
   unitPrice: number;
   lineAmount: number;
+  pricingUnit: string | null;
+  totalWeightKg: number | null;
+  receivedWeightKg: number | null;
+  settleUnitPrice: number | null;
 };
 
 export function PODetailActions({ poNo, status, lines, totalAmount }: { poNo: string; status: string; lines: Line[]; totalAmount: number }) {
@@ -23,9 +27,14 @@ export function PODetailActions({ poNo, status, lines, totalAmount }: { poNo: st
   const [receiveInput, setReceiveInput] = useState<Record<string, number>>(() =>
     Object.fromEntries(lines.map((l) => [l.id, 0])),
   );
+  const [weightInput, setWeightInput] = useState<Record<string, number>>(() =>
+    Object.fromEntries(lines.map((l) => [l.id, 0])),
+  );
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // 磅差超容忍带时服务端 409，勾选后带 confirm 重发
+  const [confirmWeighed, setConfirmWeighed] = useState(false);
 
   const canEdit = status === "DRAFT";
   const canReceive = ["SENT", "PARTIALLY_RECEIVED", "DRAFT"].includes(status);
@@ -56,19 +65,30 @@ export function PODetailActions({ poNo, status, lines, totalAmount }: { poNo: st
   async function receive() {
     setError("");
     const payload = lines
-      .map((l) => ({ lineId: l.id, receiveQty: receiveInput[l.id] || 0 }))
-      .filter((l) => l.receiveQty > 0);
-    if (payload.length === 0) { setError("请填写至少一行的本次收货数量"); return; }
+      .map((l) => ({
+        lineId: l.id,
+        receiveQty: receiveInput[l.id] || 0,
+        weightKg: weightInput[l.id] > 0 ? weightInput[l.id] : null,
+      }))
+      .filter((l) => l.receiveQty > 0 || l.weightKg);
+    const withQty = payload.filter((l) => l.receiveQty > 0);
+    if (withQty.length === 0) { setError("请填写至少一行的本次收货数量"); return; }
+    for (const l of withQty) {
+      const line = lines.find((x) => x.id === l.lineId)!;
+      if (line.pricingUnit === "KG" && !l.weightKg) { setError(`行 ${line.sku} 按重量结算，需填本批磅重（kg）`); return; }
+    }
     setBusy(true);
     const r = await fetch(`/api/purchase-orders/${poNo}/receive`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lines: payload, note: note || null }),
+      body: JSON.stringify({ lines: withQty, note: note || null, confirm: confirmWeighed || undefined }),
     });
     const j = await r.json();
     setBusy(false);
     if (j.code !== 0) { setError(j.message); return; }
     setNote("");
+    setConfirmWeighed(false);
     setReceiveInput(Object.fromEntries(lines.map((l) => [l.id, 0])));
+    setWeightInput(Object.fromEntries(lines.map((l) => [l.id, 0])));
     router.refresh();
   }
 
@@ -95,11 +115,12 @@ export function PODetailActions({ poNo, status, lines, totalAmount }: { poNo: st
             <th className="p-3 text-right">剩余</th>
             <th className="p-3 text-right">单价</th>
             <th className="p-3 text-right">小计</th>
-            {canReceive && <th className="p-3 text-right">本次收货</th>}
+            {canReceive && <th className="p-3 text-right">本次收货（根 + 磅重kg）</th>}
           </tr></thead>
           <tbody>
             {lines.map((l) => {
               const remaining = l.quantity - l.receivedQty;
+              const isKg = l.pricingUnit === "KG";
               return (
                 <tr key={l.id} className="border-b">
                   <td className="p-3">{l.lineNo}</td>
@@ -107,18 +128,28 @@ export function PODetailActions({ poNo, status, lines, totalAmount }: { poNo: st
                   <td className="p-3">
                     <div>{l.productName}</div>
                     {l.spec && <div className="text-xs text-muted-foreground">{l.spec}</div>}
+                    {isKg && l.receivedWeightKg != null && Number(l.receivedWeightKg) > 0 && (
+                      <div className="text-xs text-sky-300">已收磅重 {Number(l.receivedWeightKg)}kg</div>
+                    )}
                   </td>
                   <td className="p-3 text-right">{l.quantity}</td>
                   <td className="p-3 text-right">{l.receivedQty}</td>
                   <td className={`p-3 text-right ${remaining > 0 ? "text-amber-300" : "text-muted-foreground"}`}>{remaining}</td>
-                  <td className="p-3 text-right">{formatMoney(l.unitPrice)}</td>
+                  <td className="p-3 text-right">
+                    {isKg ? <span>{Number(l.settleUnitPrice)} 元/kg</span> : formatMoney(l.unitPrice)}
+                  </td>
                   <td className="p-3 text-right font-medium">{formatMoney(l.lineAmount)}</td>
                   {canReceive && (
                     <td className="p-3 text-right">
                       {remaining > 0 ? (
-                        <Input type="number" min={0} max={remaining} value={receiveInput[l.id] || 0}
-                          onChange={(e) => setReceiveInput({ ...receiveInput, [l.id]: parseInt(e.target.value) || 0 })}
-                          className="w-20 text-right" />
+                        <div className="flex gap-1 justify-end">
+                          <Input type="number" min={0} max={remaining} value={receiveInput[l.id] || 0}
+                            onChange={(e) => setReceiveInput({ ...receiveInput, [l.id]: parseInt(e.target.value) || 0 })}
+                            className="w-16 text-right" placeholder="根" />
+                          <Input type="number" step="0.01" min={0} value={weightInput[l.id] || ""}
+                            onChange={(e) => setWeightInput({ ...weightInput, [l.id]: parseFloat(e.target.value) || 0 })}
+                            className="w-20 text-right" placeholder={isKg ? "磅重kg*" : "磅重kg"} />
+                        </div>
                       ) : <span className="text-xs text-muted-foreground">已收齐</span>}
                     </td>
                   )}
@@ -135,10 +166,21 @@ export function PODetailActions({ poNo, status, lines, totalAmount }: { poNo: st
         </table>
 
         {canReceive && (
-          <div className="p-4 border-t bg-muted/50/50 flex items-center gap-3">
-            <Input placeholder="收货备注（可选）" value={note} onChange={(e) => setNote(e.target.value)} className="flex-1" />
-            <Button onClick={receive} disabled={busy}>{busy ? "处理中..." : "确认收货入库"}</Button>
-            {error && <span className="text-xs text-red-400">{error}</span>}
+          <div className="p-4 border-t bg-muted/50/50 space-y-2">
+            <div className="flex items-center gap-3">
+              <Input placeholder="收货备注（可选）" value={note} onChange={(e) => setNote(e.target.value)} className="flex-1" />
+              <Button onClick={receive} disabled={busy}>{busy ? "处理中..." : "确认收货入库"}</Button>
+            </div>
+            <div className="flex items-center gap-3 text-xs">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" checked={confirmWeighed} onChange={(e) => setConfirmWeighed(e.target.checked)} />
+                确认按实磅收货（磅差超过 ±5% 时勾选后重试）
+              </label>
+              {error && <span className="text-red-400">{error}</span>}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              按重量结算行按「结算单价 × 实收磅重」计应付；收货会自动滚动该车间的移动加权平均每米成本（报价/成本即刻生效）。
+            </p>
           </div>
         )}
       </CardContent>

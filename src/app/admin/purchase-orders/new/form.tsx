@@ -12,7 +12,8 @@ type Supplier = { id: string; supplierNo: string; name: string };
 type Workshop = { id: string; code: string; name: string };
 type Product = { id: string; sku: string; productName: string; spec: string | null; category: string; isRawMaterial: boolean; purchasePrice: number | null };
 
-type Row = { id: string; sku: string; productName: string; spec: string | null; quantity: number; unitPrice: number };
+type Row = { id: string; sku: string; productName: string; spec: string | null; quantity: number; unitPrice: number;
+  isRawProfile?: boolean; pricingUnit: "BAR" | "KG"; totalWeightKg: number; settleUnitPrice: number };
 
 export function NewPOForm({ suppliers, workshops, products }: { suppliers: Supplier[]; workshops: Workshop[]; products: Product[] }) {
   const router = useRouter();
@@ -44,6 +45,10 @@ export function NewPOForm({ suppliers, workshops, products }: { suppliers: Suppl
         spec: p.spec,
         quantity: 1,
         unitPrice: p.purchasePrice ?? 0,
+        isRawProfile: p.category === "PROFILE" && p.isRawMaterial,
+        pricingUnit: "BAR",
+        totalWeightKg: 0,
+        settleUnitPrice: 0,
       }]);
     }
   }
@@ -56,7 +61,8 @@ export function NewPOForm({ suppliers, workshops, products }: { suppliers: Suppl
     setRows(rows.filter((r) => r.id !== id));
   }
 
-  const total = rows.reduce((s, r) => s + r.quantity * r.unitPrice, 0);
+  const subtotalOf = (r: Row) => (r.pricingUnit === "KG" ? r.totalWeightKg * r.settleUnitPrice : r.quantity * r.unitPrice);
+  const total = rows.reduce((s, r) => s + subtotalOf(r), 0);
 
   async function submit() {
     setError("");
@@ -64,7 +70,10 @@ export function NewPOForm({ suppliers, workshops, products }: { suppliers: Suppl
     if (rows.length === 0) return setError("请至少添加一行");
     for (const r of rows) {
       if (r.quantity <= 0) return setError(`行 ${r.sku} 数量必须 > 0`);
-      if (r.unitPrice < 0) return setError(`行 ${r.sku} 单价不能为负`);
+      if (r.pricingUnit === "KG") {
+        if (!r.totalWeightKg || r.totalWeightKg <= 0) return setError(`行 ${r.sku} 按重量结算需填约重（kg）`);
+        if (!r.settleUnitPrice || r.settleUnitPrice <= 0) return setError(`行 ${r.sku} 按重量结算需填结算单价（元/kg）`);
+      } else if (r.unitPrice < 0) return setError(`行 ${r.sku} 单价不能为负`);
     }
     setSubmitting(true);
     try {
@@ -84,7 +93,8 @@ export function NewPOForm({ suppliers, workshops, products }: { suppliers: Suppl
             productName: r.productName,
             spec: r.spec,
             quantity: r.quantity,
-            unitPrice: r.unitPrice,
+            unitPrice: r.pricingUnit === "KG" ? 0 : r.unitPrice,
+            ...(r.pricingUnit === "KG" ? { pricingUnit: "KG" as const, totalWeightKg: r.totalWeightKg, settleUnitPrice: r.settleUnitPrice } : {}),
           })),
         }),
       });
@@ -152,7 +162,8 @@ export function NewPOForm({ suppliers, workshops, products }: { suppliers: Suppl
             <table className="w-full text-sm">
               <thead className="bg-muted/50 border-b"><tr className="text-left">
                 <th className="p-3">SKU</th><th className="p-3">名称</th>
-                <th className="p-3 text-right">数量</th><th className="p-3 text-right">单价</th>
+                <th className="p-3 text-center">计价</th>
+                <th className="p-3 text-right">数量(根)</th><th className="p-3 text-right">单价</th>
                 <th className="p-3 text-right">小计</th><th className="p-3"></th>
               </tr></thead>
               <tbody>
@@ -163,21 +174,37 @@ export function NewPOForm({ suppliers, workshops, products }: { suppliers: Suppl
                       <div>{r.productName}</div>
                       {r.spec && <div className="text-xs text-muted-foreground">{r.spec}</div>}
                     </td>
+                    <td className="p-3 text-center">
+                      {r.isRawProfile ? (
+                        <select className="h-8 rounded-lg border border-input bg-card/75 px-1.5 text-xs" value={r.pricingUnit}
+                          onChange={(e) => patch(r.id, { pricingUnit: e.target.value as "BAR" | "KG" })}>
+                          <option value="BAR">按根</option>
+                          <option value="KG">按重量</option>
+                        </select>
+                      ) : <span className="text-xs text-muted-foreground">按根</span>}
+                    </td>
                     <td className="p-3 text-right">
                       <Input type="number" min={1} value={r.quantity} onChange={(e) => patch(r.id, { quantity: parseInt(e.target.value) || 0 })} className="w-20 text-right" />
                     </td>
                     <td className="p-3 text-right">
-                      <Input type="number" step="0.01" min={0} value={r.unitPrice} onChange={(e) => patch(r.id, { unitPrice: parseFloat(e.target.value) || 0 })} className="w-24 text-right" />
+                      {r.pricingUnit === "KG" ? (
+                        <div className="flex gap-1 justify-end">
+                          <Input type="number" step="0.01" min={0} placeholder="约重kg" value={r.totalWeightKg || ""} onChange={(e) => patch(r.id, { totalWeightKg: parseFloat(e.target.value) || 0 })} className="w-24 text-right" />
+                          <Input type="number" step="0.0001" min={0} placeholder="元/kg" value={r.settleUnitPrice || ""} onChange={(e) => patch(r.id, { settleUnitPrice: parseFloat(e.target.value) || 0 })} className="w-24 text-right" />
+                        </div>
+                      ) : (
+                        <Input type="number" step="0.01" min={0} value={r.unitPrice} onChange={(e) => patch(r.id, { unitPrice: parseFloat(e.target.value) || 0 })} className="w-24 text-right" />
+                      )}
                     </td>
-                    <td className="p-3 text-right font-medium">{formatMoney(r.quantity * r.unitPrice)}</td>
+                    <td className="p-3 text-right font-medium">{formatMoney(subtotalOf(r))}</td>
                     <td className="p-3"><button onClick={() => remove(r.id)} className="text-xs text-red-400 hover:underline">删除</button></td>
                   </tr>
                 ))}
-                {rows.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">左侧选择产品添加</td></tr>}
+                {rows.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">左侧选择产品添加</td></tr>}
               </tbody>
               {rows.length > 0 && (
                 <tfoot className="bg-muted/50">
-                  <tr><td colSpan={4} className="p-3 text-right font-semibold">合计</td>
+                  <tr><td colSpan={5} className="p-3 text-right font-semibold">合计</td>
                     <td className="p-3 text-right font-bold text-emerald-300 text-lg">{formatMoney(total)}</td><td></td></tr>
                 </tfoot>
               )}
