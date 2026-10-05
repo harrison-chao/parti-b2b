@@ -78,6 +78,14 @@ export function WorkshopsManager({ initial }: { initial: Workshop[] }) {
                         {expandedId === w.id ? "收起" : "账号"}
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => { setEditing(w); setCreating(false); }}>编辑</Button>
+                      <Button variant="ghost" size="sm" className="text-red-500" onClick={async () => {
+                        if (!confirm(`确认删除车间「${w.name}」？有工单/库存/账号的车间会被拒绝，请改用停用`)) return;
+                        const r = await fetch(`/api/workshops/${w.id}`, { method: "DELETE" });
+                        const j = await r.json();
+                        if (j.code !== 0) return alert(j.message);
+                        setWorkshops((prev) => prev.filter((x) => x.id !== w.id));
+                        router.refresh();
+                      }}>删除</Button>
                     </td>
                   </tr>
                   {expandedId === w.id && (

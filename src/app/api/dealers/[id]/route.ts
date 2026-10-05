@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
 const patchSchema = z.object({
@@ -82,4 +83,27 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return updated;
   });
   return ok(dealer);
+}
+
+// 管理员删除客户（经销商/直销）：有订单/账号/付款/CRM 线索则拒绝（保历史），无引用才物理删除（地址/联系人级联）
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const session = await auth();
+  if (!session) return fail("未登录", 401, 401);
+  if (session.user.role !== "ADMIN") return fail("仅管理员可删除客户", 403, 403);
+  const d = await prisma.dealer.findUnique({
+    where: { id: params.id },
+    include: { _count: { select: { salesOrders: true, users: true, payments: true, crmCustomers: true } } },
+  });
+  if (!d) return fail("客户不存在", 404, 404);
+  const refs = d._count;
+  const total = refs.salesOrders + refs.users + refs.payments + refs.crmCustomers;
+  if (total > 0) {
+    return fail(`该客户已有业务数据（订单 ${refs.salesOrders}、登录账号 ${refs.users}、付款 ${refs.payments}、CRM 线索 ${refs.crmCustomers}），不能删除；请改为停用`, 409, 409);
+  }
+  await prisma.dealer.delete({ where: { id: d.id } });
+  await logAudit({
+    action: "DEALER_DELETE", entityType: "Dealer", entityId: d.id,
+    summary: `删除客户 ${d.dealerNo} ${d.companyName}（无业务引用）`, actor: session.user,
+  });
+  return ok({ id: d.id });
 }

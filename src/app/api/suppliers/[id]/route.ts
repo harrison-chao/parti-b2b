@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
 const patchSchema = z.object({
@@ -61,4 +62,25 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return updated;
   });
   return ok(s);
+}
+
+// 管理员删除供应商：有采购单/付款记录则拒绝（保历史），无引用才物理删除（联系人级联）
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const session = await auth();
+  if (!session) return fail("未登录", 401, 401);
+  if (session.user.role !== "ADMIN") return fail("仅管理员可删除供应商", 403, 403);
+  const s = await prisma.supplier.findUnique({
+    where: { id: params.id },
+    include: { _count: { select: { purchaseOrders: true, payments: true } } },
+  });
+  if (!s) return fail("供应商不存在", 404, 404);
+  if (s._count.purchaseOrders > 0 || s._count.payments > 0) {
+    return fail(`该供应商已有 ${s._count.purchaseOrders} 张采购单、${s._count.payments} 笔付款记录，不能删除；请改为停用`, 409, 409);
+  }
+  await prisma.supplier.delete({ where: { id: s.id } });
+  await logAudit({
+    action: "SUPPLIER_DELETE", entityType: "Supplier", entityId: s.id,
+    summary: `删除供应商 ${s.supplierNo} ${s.name}（无业务引用）`, actor: session.user,
+  });
+  return ok({ id: s.id });
 }

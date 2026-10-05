@@ -15,7 +15,7 @@ const contactSchema = z.object({
 });
 
 const createSchema = z.object({
-  supplierNo: z.string().min(1),
+  supplierNo: z.string().optional(),
   name: z.string().min(1),
   category: z.enum(["RAW_MATERIAL", "HARDWARE", "OUTSOURCED", "LOGISTICS", "SERVICE", "OTHER"]).optional(),
   contactName: z.string().optional().nullable(),
@@ -55,11 +55,18 @@ export async function POST(req: NextRequest) {
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return fail("参数错误: " + parsed.error.message);
   const d = parsed.data;
-  const exists = await prisma.supplier.findUnique({ where: { supplierNo: d.supplierNo } });
-  if (exists) return fail("供应商编号已存在");
+  // 编号统一 SUP-xxx：留空自动顺延（取现有最大数字后缀 +1），不再出现 SP/SUP 双前缀
+  const all = await prisma.supplier.findMany({ select: { supplierNo: true } });
+  const maxNo = all.reduce((m, x) => {
+    const n = /^SUP-(\d+)$/.exec(x.supplierNo.trim().toUpperCase());
+    return n ? Math.max(m, parseInt(n[1], 10)) : m;
+  }, 0);
+  const supplierNo = (d.supplierNo?.trim() || `SUP-${String(maxNo + 1).padStart(3, "0")}`).toUpperCase();
+  const exists = await prisma.supplier.findUnique({ where: { supplierNo } });
+  if (exists) return fail(`供应商编号 ${supplierNo} 已存在`);
   const s = await prisma.supplier.create({
     data: {
-      supplierNo: d.supplierNo,
+      supplierNo,
       name: d.name,
       category: d.category ?? "OTHER",
       contactName: d.contactName ?? null,

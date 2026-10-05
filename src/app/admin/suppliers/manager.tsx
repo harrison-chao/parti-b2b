@@ -157,6 +157,14 @@ export function SupplierManager({ suppliers }: { suppliers: Supplier[] }) {
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => { setEditing(s); setCreating(false); }}>编辑</Button>
                         <Button variant="ghost" size="sm" onClick={() => toggleActive(s)}>{s.isActive ? "停用" : "启用"}</Button>
+                        <Button variant="ghost" size="sm" className="text-red-500" onClick={async () => {
+                          if (!confirm(`确认删除供应商「${s.name}」？有采购/付款记录的会被拒绝，请改用停用`)) return;
+                          const r = await fetch(`/api/suppliers/${s.id}`, { method: "DELETE" });
+                          const j = await r.json();
+                          if (j.code !== 0) return alert(j.message);
+                          setRows(rows.filter((x) => x.id !== s.id));
+                          router.refresh();
+                        }}>删除</Button>
                       </div>
                     </td>
                   </tr>
@@ -248,7 +256,7 @@ function SupplierForm({ supplier, onCancel, onSaved }: {
         <section>
           <h3 className="mb-3 text-sm font-bold text-foreground/80">基础资料</h3>
           <div className="grid gap-3 md:grid-cols-4">
-            <Field label="供应商编号"><Input value={form.supplierNo} disabled={!!supplier} onChange={(e) => patch("supplierNo", e.target.value)} placeholder="SUP-003" /></Field>
+            <Field label="供应商编号"><Input value={form.supplierNo} disabled={!!supplier} onChange={(e) => patch("supplierNo", e.target.value)} placeholder="留空自动生成（SUP-xxx 顺延）" /></Field>
             <Field label="供应商名称"><Input value={form.name} onChange={(e) => patch("name", e.target.value)} /></Field>
             <Field label="供应分类">
               <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={form.category} onChange={(e) => patch("category", e.target.value)}>
