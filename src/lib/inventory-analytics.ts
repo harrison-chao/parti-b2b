@@ -1,5 +1,5 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
-import { aggregateOrderRequirements } from "@/lib/stock-consume";
+import type { Prisma, PrismaClient, WorkOrderStatus } from "@prisma/client";
+import { aggregateOrderRequirements, barsFor, semiSegmentsFor } from "@/lib/stock-consume";
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 type Db = PrismaClient;
@@ -16,22 +16,82 @@ export type Allocations = {
   outsourced: Array<{ workshopId: string; workshopName: string; workOrderNo: string; orderNo: string; sku: string; productName: string; quantity: number }>;
 };
 
-/** 未结工单用料占用：接单不锁库的轻量替代——需求随工单实时聚合，扣料即释放 */
-export async function getAllocations(db: Db): Promise<Allocations> {
-  const wos = await db.workOrder.findMany({
-    where: { status: { in: [...OPEN_WO_STATUSES] } },
-    include: { workshop: { select: { id: true, name: true } } },
-  });
+/** 与 aggregateProfileLines 完全同口径（barsFor/semiSegmentsFor），但按 orderNos 批量预取后内存聚合 */
+function aggregateBatch(
+  lines: Array<{ orderNo: string; lineType: string; sku: string; productName: string; rawProductId: string | null; cutLengthMm: number | null; quantity: number }>,
+  productMap: Map<string, { id: string; sku: string; productName: string; materialStage: string | null; lengthMm: unknown; yieldRate: unknown }>,
+): Map<string, Map<string, { productName: string; quantity: number }>> {
+  // orderNo → sku → 需求量
+  const byOrder = new Map<string, Map<string, { productName: string; quantity: number }>>();
+  for (const l of lines) {
+    const order = byOrder.get(l.orderNo) ?? new Map<string, { productName: string; quantity: number }>();
+    byOrder.set(l.orderNo, order);
+    if (l.lineType === "HARDWARE") {
+      const e = order.get(l.sku) ?? { productName: l.productName, quantity: 0 };
+      e.quantity += l.quantity;
+      order.set(l.sku, e);
+    } else if (l.lineType === "PROFILE" && l.rawProductId && l.cutLengthMm) {
+      const product = productMap.get(l.rawProductId);
+      if (!product) continue;
+      const e = order.get(product.sku) ?? { productName: product.productName, quantity: 0 };
+      if (product.materialStage === "SEMI") {
+        const barMm = product.lengthMm != null ? Number(product.lengthMm) : 0;
+        e.quantity += barMm > 0 ? semiSegmentsFor(barMm, l.cutLengthMm, l.quantity) : l.quantity;
+      } else {
+        e.quantity += barsFor(l.cutLengthMm * l.quantity, product).bars;
+      }
+      order.set(product.sku, e);
+    }
+  }
+  return byOrder;
+}
+
+/**
+ * 指定状态工单的用料占用（未扣料的才占用），批量实现：
+ * 1 条 groupBy 拿已扣料工单集合 + 1 条工单 + 1 条订单行 + 1 条产品 = 4 条查询，替代逐单 3N。
+ */
+export async function allocationsByStatuses(
+  db: Db,
+  statuses: readonly WorkOrderStatus[],
+  opts?: { excludeOrderNos?: string[] },
+): Promise<{
+  allocations: Allocations;
+  /** workshopId|sku → 占用（与 allocations.bySku 同口径，按车间展开） */
+  byWsSku: Map<string, number>;
+}> {
+  const exclude = new Set(opts?.excludeOrderNos ?? []);
+  const [consumedGroups, wos] = await Promise.all([
+    db.stockMovement.groupBy({ by: ["refNo"], where: { refType: "WO", type: "WORK_ORDER_CONSUME" }, _count: { refNo: true } }),
+    db.workOrder.findMany({
+      where: { status: { in: [...statuses] } },
+      include: { workshop: { select: { id: true, name: true } } },
+    }),
+  ]);
+  const consumedWoNos = new Set(consumedGroups.map((g) => g.refNo));
+  const active = wos.filter((wo) => !consumedWoNos.has(wo.workOrderNo) && !exclude.has(wo.orderNo));
+  const orderNos = [...new Set(active.map((wo) => wo.orderNo))];
+
+  const [lines, products] = await Promise.all([
+    orderNos.length
+      ? db.salesOrderLine.findMany({
+          where: { orderNo: { in: orderNos }, lineType: { not: "OUTSOURCED" } },
+          select: { orderNo: true, lineType: true, sku: true, productName: true, rawProductId: true, cutLengthMm: true, quantity: true },
+        })
+      : Promise.resolve([]),
+    db.product.findMany({ select: { id: true, sku: true, productName: true, materialStage: true, lengthMm: true, yieldRate: true } }),
+  ]);
+  const productMap = new Map(products.map((p) => [p.id, p]));
+  const byOrder = aggregateBatch(lines, productMap);
+
   const bySku = new Map<string, number>();
+  const byWsSku = new Map<string, number>();
   const outsourced: Allocations["outsourced"] = [];
-  for (const wo of wos) {
-    const consumed = await db.stockMovement.count({
-      where: { refType: "WO", refNo: wo.workOrderNo, type: "WORK_ORDER_CONSUME" },
-    });
-    if (consumed > 0) continue;
-    const required = await aggregateOrderRequirements(db, wo.orderNo);
-    for (const [sku, item] of required.entries()) {
+  for (const wo of active) {
+    const order = byOrder.get(wo.orderNo);
+    if (!order) continue;
+    for (const [sku, item] of order.entries()) {
       bySku.set(sku, (bySku.get(sku) ?? 0) + item.quantity);
+      byWsSku.set(`${wo.workshopId}|${sku}`, (byWsSku.get(`${wo.workshopId}|${sku}`) ?? 0) + item.quantity);
       if (wo.status === "OUTSOURCING") {
         outsourced.push({
           workshopId: wo.workshopId, workshopName: wo.workshop.name,
@@ -41,7 +101,12 @@ export async function getAllocations(db: Db): Promise<Allocations> {
       }
     }
   }
-  return { bySku, outsourced };
+  return { allocations: { bySku, outsourced }, byWsSku };
+}
+
+/** 未结工单用料占用（语义糖：全开放状态） */
+export async function getAllocations(db: Db): Promise<Allocations> {
+  return (await allocationsByStatuses(db, OPEN_WO_STATUSES)).allocations;
 }
 
 export type AvailabilityRow = {
@@ -49,15 +114,17 @@ export type AvailabilityRow = {
   onHand: number; allocatedHere: number; availableHere: number;
 };
 
-/** 全网可用量 = Σ各车间现存 − Σ未结工单占用；另给车间视图（本车间现存 − 本车间在制占用） */
-export async function getAvailability(db: Db): Promise<{
+/** 全网可用量 = Σ各车间现存 − Σ未结工单占用；excludeOrderNos 用于下单自检时排除本单（否则本单工单吃掉自己的告警） */
+export async function getAvailability(db: Db, opts?: { excludeOrderNos?: string[]; statuses?: readonly WorkOrderStatus[] }): Promise<{
   totalBySku: Map<string, { onHand: number; allocated: number; available: number }>;
   rows: AvailabilityRow[];
   allocations: Allocations;
+  byWsSku: Map<string, number>;
 }> {
-  const [inv, allocations, workshops] = await Promise.all([
+  const statuses = opts?.statuses ?? OPEN_WO_STATUSES;
+  const [inv, { allocations, byWsSku }, workshops] = await Promise.all([
     db.workshopInventory.findMany({ select: { workshopId: true, sku: true, productName: true, quantity: true } }),
-    getAllocations(db),
+    allocationsByStatuses(db, statuses, { excludeOrderNos: opts?.excludeOrderNos }),
     db.workshop.findMany({ select: { id: true, name: true } }),
   ]);
   const wsName = new Map(workshops.map((w) => [w.id, w.name]));
@@ -74,32 +141,15 @@ export async function getAvailability(db: Db): Promise<{
   }
   for (const t of totalBySku.values()) t.available = t.onHand - t.allocated;
 
-  // 车间视图：占用按该车间在制工单归属
-  const perWsSku = new Map<string, number>();
-  const openWos = await db.workOrder.findMany({
-    where: { status: { in: [...OPEN_WO_STATUSES] } },
-    select: { workOrderNo: true, workshopId: true, orderNo: true },
-  });
-  for (const wo of openWos) {
-    const consumed = await db.stockMovement.count({
-      where: { refType: "WO", refNo: wo.workOrderNo, type: "WORK_ORDER_CONSUME" },
-    });
-    if (consumed > 0) continue;
-    const required = await aggregateOrderRequirements(db, wo.orderNo);
-    for (const [sku, item] of required.entries()) {
-      const key = `${wo.workshopId}|${sku}`;
-      perWsSku.set(key, (perWsSku.get(key) ?? 0) + item.quantity);
-    }
-  }
   const rows: AvailabilityRow[] = inv.map((row) => {
-    const allocatedHere = perWsSku.get(`${row.workshopId}|${row.sku}`) ?? 0;
+    const allocatedHere = byWsSku.get(`${row.workshopId}|${row.sku}`) ?? 0;
     return {
       workshopId: row.workshopId, workshopName: wsName.get(row.workshopId) ?? row.workshopId,
       sku: row.sku, productName: row.productName,
       onHand: row.quantity, allocatedHere, availableHere: row.quantity - allocatedHere,
     };
   });
-  return { totalBySku, rows, allocations };
+  return { totalBySku, rows, allocations, byWsSku };
 }
 
 // ── 库存估值 ─────────────────────────────────────────────
@@ -317,10 +367,11 @@ export async function getAbcClassification(db: Db): Promise<AbcRow[]> {
   const total = [...valueBySku.values()].reduce((s, x) => s + x.value, 0);
   const sorted = [...valueBySku.entries()].sort((a, b) => b[1].value - a[1].value);
   let cum = 0;
-  return sorted.map(([sku, e]) => {
+  return sorted.map(([sku, e], i) => {
     const share = total > 0 ? e.value / total : 0;
+    // 判档用累加前的累计（首项占比再大也是 A），防单一主耗 SKU 被打到 B/C
+    const klass: "A" | "B" | "C" = i === 0 || cum <= 0.7 ? "A" : cum <= 0.9 ? "B" : "C";
     cum += share;
-    const klass: "A" | "B" | "C" = cum <= 0.7 ? "A" : cum <= 0.9 ? "B" : "C";
     const cadenceDays = klass === "A" ? 30 : klass === "B" ? 90 : 180;
     const lastCountedAt = lastCounted.get(sku) ?? null;
     const base = lastCountedAt ?? new Date();

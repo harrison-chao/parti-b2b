@@ -73,6 +73,14 @@ export async function consumeWorkOrderMaterials(
 
   const { hwAgg, rawAgg, productMap } = await aggregateProfileLines(tx, opts.orderNo);
 
+  // 扣料时的每米均价快照（供 ABC 消耗价值/成本回放；与 schema 注释口径一致）
+  const avgBySku = new Map(
+    (await tx.workshopInventory.findMany({
+      where: { workshopId: opts.workshopId, sku: { in: [...hwAgg.keys(), ...rawAgg.keys()] } },
+      select: { sku: true, avgCostPerMeter: true },
+    })).map((r) => [r.sku, r.avgCostPerMeter != null ? Number(r.avgCostPerMeter) : null]),
+  );
+
   for (const { sku, productName, qty } of hwAgg.values()) {
     await applyStockMovement(tx, {
       workshopId: opts.workshopId, sku, productName,
@@ -98,6 +106,7 @@ export async function consumeWorkOrderMaterials(
       refType: "WO", refNo: opts.workOrderNo,
       note,
       operatorName: opts.operatorName ?? null,
+      unitCost: avgBySku.get(raw.sku) ?? null,
     });
   }
   return true;
@@ -135,11 +144,14 @@ export async function getMaterialShortages(
 ): Promise<Array<{ sku: string; productName: string; required: number; available: number }>> {
   const required = await aggregateOrderRequirements(tx, orderNo);
   const shortages: Array<{ sku: string; productName: string; required: number; available: number }> = [];
+  // 一次批量取齐本车间相关 SKU 库存，替代逐 SKU findUnique
+  const invRows = await tx.workshopInventory.findMany({
+    where: { workshopId, sku: { in: [...required.keys()] } },
+    select: { sku: true, quantity: true },
+  });
+  const invBySku = new Map(invRows.map((r) => [r.sku, r.quantity]));
   for (const [sku, item] of required.entries()) {
-    const inventory = await tx.workshopInventory.findUnique({
-      where: { workshopId_sku: { workshopId, sku } },
-    });
-    const available = inventory?.quantity ?? 0;
+    const available = invBySku.get(sku) ?? 0;
     if (available < item.quantity) {
       shortages.push({ sku, productName: item.productName, required: item.quantity, available });
     }

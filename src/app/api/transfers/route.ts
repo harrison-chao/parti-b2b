@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
 import { z } from "zod";
 import { logAudit } from "@/lib/audit";
-import { applyStockMovement } from "@/lib/inventory";
+import { applyStockMovement, movingAveragePerMeter } from "@/lib/inventory";
 
 const createSchema = z.object({
   fromWorkshopId: z.string().min(1),
@@ -52,17 +52,26 @@ export async function POST(req: NextRequest) {
   ]);
   if (!from || !to) return fail("仓库不存在", 404, 404);
 
+  // 并发撞号（transferNo 唯一约束 P2002）换号重试，最多 3 次
+  for (let attempt = 0; attempt < 3; attempt++) {
   try {
+    // 大批量调拨（整仓 50 行）逐行出入库会超过 Prisma 默认 5s 事务超时 → 放宽到 30s
     const result = await prisma.$transaction(async (tx) => {
       const seq = await tx.transferOrder.count();
-      const transferNo = `TR-${new Date().toISOString().slice(2, 10).replace(/-/g, "")}-${String(seq + 1).padStart(3, "0")}`;
+      const transferNo = `TR-${new Date().toISOString().slice(2, 10).replace(/-/g, "")}-${String(seq + 1 + attempt).padStart(3, "0")}`;
 
-      for (const line of d.lines) {
-        const src = await tx.workshopInventory.findUnique({
-          where: { workshopId_sku: { workshopId: d.fromWorkshopId, sku: line.sku } },
-        });
-        if (!src || src.quantity < line.quantity) {
-          throw new Error(`${from.name} 库存不足：${line.sku} 现存 ${src?.quantity ?? 0}，调拨 ${line.quantity}`);
+      // 预检一次批量做（applyStockMovement 内仍会逐行兜底负库存校验）
+      const skus = d.lines.map((l) => l.sku);
+      const preRows = await tx.workshopInventory.findMany({
+        where: { workshopId: d.fromWorkshopId, sku: { in: skus } },
+      });
+      const preBySku = new Map(preRows.map((r) => [r.sku, r]));
+      const wantBySku = new Map<string, number>();
+      for (const line of d.lines) wantBySku.set(line.sku, (wantBySku.get(line.sku) ?? 0) + line.quantity);
+      for (const [sku, qty] of wantBySku) {
+        const src = preBySku.get(sku);
+        if (!src || src.quantity < qty) {
+          throw new Error(`${from.name} 库存不足：${sku} 现存 ${src?.quantity ?? 0}，调拨 ${qty}`);
         }
       }
 
@@ -73,7 +82,7 @@ export async function POST(req: NextRequest) {
           toWorkshopId: d.toWorkshopId,
           note: d.note ?? null,
           operatorName: session.user?.name ?? session.user?.email ?? null,
-          lines: { create: d.lines.map((l) => ({ sku: l.sku, productName: "", quantity: l.quantity })) },
+          lines: { create: d.lines.map((l) => ({ sku: l.sku, productName: preBySku.get(l.sku)?.productName ?? l.sku, quantity: l.quantity })) },
         },
       });
 
@@ -81,7 +90,6 @@ export async function POST(req: NextRequest) {
         const src = (await tx.workshopInventory.findUnique({
           where: { workshopId_sku: { workshopId: d.fromWorkshopId, sku: line.sku } },
         }))!;
-        await tx.transferLine.updateMany({ where: { transferId: transfer.id, sku: line.sku }, data: { productName: src.productName } });
 
         await applyStockMovement(tx, {
           workshopId: d.fromWorkshopId, sku: line.sku, productName: src.productName,
@@ -98,10 +106,10 @@ export async function POST(req: NextRequest) {
         });
         let inboundAvg: number | null = src.avgCostPerMeter != null ? Number(src.avgCostPerMeter) : null;
         const product = await tx.product.findUnique({ where: { sku: line.sku }, select: { lengthMm: true } });
-        const m = product?.lengthMm != null ? Number(product.lengthMm) / 1000 : null;
-        if (dst && dst.avgCostPerMeter != null && inboundAvg != null && m && dst.quantity > 0) {
-          const totalMeters = (dst.quantity + line.quantity) * m;
-          inboundAvg = Math.round(((dst.quantity * m * Number(dst.avgCostPerMeter) + line.quantity * m * inboundAvg) / totalMeters) * 10000) / 10000;
+        const barMm = product?.lengthMm != null ? Number(product.lengthMm) : 0;
+        // 有棒长按米数、缺棒长按根数（barMm=0 时 movingAveragePerMeter 退化为根数加权），不静默覆盖有存量的均价
+        if (dst && dst.avgCostPerMeter != null && inboundAvg != null && dst.quantity > 0) {
+          inboundAvg = movingAveragePerMeter(dst.quantity, barMm, Number(dst.avgCostPerMeter), line.quantity, inboundAvg);
         }
 
         await applyStockMovement(tx, {
@@ -115,7 +123,7 @@ export async function POST(req: NextRequest) {
         });
       }
       return transfer;
-    });
+    }, { timeout: 30000 });
 
     await logAudit({
       action: "TRANSFER_CREATE", entityType: "TransferOrder", entityId: result.id,
@@ -125,6 +133,9 @@ export async function POST(req: NextRequest) {
     });
     return ok(result);
   } catch (e: any) {
+    if (e?.code === "P2002" && attempt < 2) continue; // 撞号换号重试
     return fail(e?.message ?? "调拨失败", 409, 409);
   }
+  }
+  return fail("调拨失败：重试耗尽", 409, 409);
 }

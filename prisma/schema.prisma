@@ -654,6 +654,8 @@ model StockMovement {
   refNo        String?
   // 炉批号：收货录入，同色不同批有色差风险，供追溯与同单同批核对
   batchNo      String?
+  // 余段回库的来源整棒原料 SKU（PRODUCTION_RETURN 专用，结构化反查替代 note 解析）
+  sourceSku    String?
   note         String?
   operatorName String?
   createdAt    DateTime          @default(now())
@@ -661,6 +663,7 @@ model StockMovement {
   workshop Workshop @relation(fields: [workshopId], references: [id], onDelete: Cascade)
 
   @@index([workshopId, sku, createdAt])
+  @@index([type, createdAt])
   @@index([refType, refNo])
 }
 

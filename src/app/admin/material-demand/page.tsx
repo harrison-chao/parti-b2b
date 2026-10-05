@@ -1,8 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { aggregateOrderRequirements } from "@/lib/stock-consume";
-import { getReorderSuggestions, getAvailability } from "@/lib/inventory-analytics";
+import { getReorderSuggestions, allocationsByStatuses } from "@/lib/inventory-analytics";
 import { formatMoney } from "@/lib/utils";
 import { MaterialDemandTable } from "./demand-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,11 +18,8 @@ export default async function MaterialDemandPage() {
   const session = await auth();
   if (!session || session.user.role !== "ADMIN") redirect("/login");
 
-  const [workOrders, inventories, poLines, products, suppliers, workshops, reorder, availability] = await Promise.all([
-    prisma.workOrder.findMany({
-      where: { status: { in: ["PENDING_START", "PROCESSING", "OUTSOURCING"] } },
-      select: { orderNo: true, workshopId: true, workOrderNo: true },
-    }),
+  const DEMAND_STATUSES = ["PENDING_START", "PROCESSING", "OUTSOURCING"] as const;
+  const [inventories, poLines, products, suppliers, workshops, reorder, demandAlloc] = await Promise.all([
     prisma.workshopInventory.findMany({ select: { workshopId: true, sku: true, quantity: true } }),
     prisma.purchaseOrderLine.findMany({
       where: { po: { status: { in: ["DRAFT", "SENT", "PARTIALLY_RECEIVED"] } } },
@@ -33,20 +29,17 @@ export default async function MaterialDemandPage() {
     prisma.supplier.findMany({ where: { isActive: true, category: "RAW_MATERIAL" }, select: { id: true, supplierNo: true, name: true } }),
     prisma.workshop.findMany({ where: { isActive: true }, select: { id: true, code: true, name: true } }),
     getReorderSuggestions(prisma),
-    getAvailability(prisma),
+    allocationsByStatuses(prisma, DEMAND_STATUSES),
   ]);
-  const outsourced = availability.allocations.outsourced;
+  const outsourced = demandAlloc.allocations.outsourced;
+  const workOrders = [...new Set(outsourced.map((o) => o.orderNo))].map((orderNo) => ({ orderNo })); // 计数用
 
   // 需求按「车间×SKU」聚合（与派单/开工的缺料检查同口径：A 有货 B 缺料不能互相抵扣）
+  // 复用 allocationsByStatuses 的批量结果（byWsSku），不再逐单 N+1 查询
   const demand = new Map<string, { workshopId: string; sku: string; productName: string; qty: number }>();
-  for (const wo of workOrders) {
-    const reqs = await aggregateOrderRequirements(prisma, wo.orderNo);
-    for (const [sku, item] of reqs.entries()) {
-      const key = `${wo.workshopId}|${sku}`;
-      const existing = demand.get(key) ?? { workshopId: wo.workshopId, sku, productName: item.productName, qty: 0 };
-      existing.qty += item.quantity;
-      demand.set(key, existing);
-    }
+  for (const [key, qty] of demandAlloc.byWsSku) {
+    const [workshopId, sku] = key.split("|");
+    demand.set(key, { workshopId, sku, productName: products.find((p) => p.sku === sku)?.productName ?? sku, qty });
   }
   const stockByWsSku = new Map<string, number>();
   for (const inv of inventories) stockByWsSku.set(`${inv.workshopId}|${inv.sku}`, inv.quantity);

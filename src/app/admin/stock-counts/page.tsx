@@ -1,11 +1,19 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime, STOCK_COUNT_STATUS_LABEL } from "@/lib/utils";
 import { ApproveStockCountButton } from "./actions";
 import { getAbcClassification } from "@/lib/inventory-analytics";
 import { formatMoney } from "@/lib/utils";
+
+
+async function requireAdmin() {
+  const session = await auth();
+  if (!session || session.user.role !== "ADMIN") redirect("/login");
+}
 
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: "bg-secondary text-foreground/80",
@@ -15,6 +23,7 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default async function AdminStockCountsPage() {
+  await requireAdmin();
   const [counts, abc] = await Promise.all([
     prisma.stockCount.findMany({
     orderBy: [{ status: "desc" }, { createdAt: "desc" }],
