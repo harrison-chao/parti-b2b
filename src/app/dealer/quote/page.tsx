@@ -66,6 +66,7 @@ export default async function QuotePage() {
         lengthMm: p.lengthMm ? Number(p.lengthMm) : null,
         surfaceProcessCode: (p as any).surfaceProcessCode ?? null,
         surfaceColorCode: (p as any).surfaceColorCode ?? null,
+        materialStage: (p as any).materialStage ?? null,
       }))}
       crmCustomers={crmCustomers.map((customer) => ({
         id: customer.id,
