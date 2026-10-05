@@ -127,6 +127,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
         </div>
         <Badge className={ORDER_STATUS_COLOR[order.orderStatus] + " text-base px-3 py-1"}>{ORDER_STATUS_LABEL[order.orderStatus]}</Badge>
           <a href={`/admin/orders/new?copy=${order.orderNo}`} className="text-sm text-sky-400 hover:underline">再来一单</a>
+          <a href={`/print/confirm/${order.orderNo}`} target="_blank" className="text-sm text-cyan-300 hover:underline">订单确认书 ↗</a>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

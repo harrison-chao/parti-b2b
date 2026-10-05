@@ -37,6 +37,14 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
           >
             导出报价单 PDF
           </a>
+          <a
+            href={`/print/confirm/${order.orderNo}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-cyan-300 hover:underline"
+          >
+            订单确认书 ↗
+          </a>
           <Badge className={ORDER_STATUS_COLOR[order.orderStatus] + " text-base px-3 py-1"}>{ORDER_STATUS_LABEL[order.orderStatus]}</Badge>
           {(order.orderStatus === "DRAFT" || order.orderStatus === "MODIFYING") && <SubmitBtn orderNo={order.orderNo} />}
         </div>
