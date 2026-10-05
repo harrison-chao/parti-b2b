@@ -78,6 +78,9 @@ enum StockMovementType {
   WORK_ORDER_CONSUME
   STOCK_COUNT_ADJUST
   MANUAL_ADJUST
+  TRANSFER_OUT
+  TRANSFER_IN
+  PRODUCTION_RETURN
 }
 
 enum StockCountStatus {
@@ -182,6 +185,8 @@ model Workshop {
   inventory      WorkshopInventory[]
   movements      StockMovement[]
   stockCounts    StockCount[]
+  transferOuts   TransferOrder[] @relation("TransferFrom")
+  transferIns    TransferOrder[] @relation("TransferTo")
 }
 
 model WorkOrder {
@@ -588,6 +593,36 @@ model PurchaseOrderLine {
   @@index([poNo])
 }
 
+// 库位间调拨：总部仓 ↔ 车间仓移库，两条流水（出/入），数量移动、每米成本随行
+model TransferOrder {
+  id             String   @id @default(cuid())
+  transferNo     String   @unique
+  fromWorkshopId String
+  toWorkshopId   String
+  note           String?
+  operatorName   String?
+  createdAt      DateTime @default(now())
+
+  fromWorkshop Workshop       @relation("TransferFrom", fields: [fromWorkshopId], references: [id])
+  toWorkshop   Workshop       @relation("TransferTo", fields: [toWorkshopId], references: [id])
+  lines        TransferLine[]
+
+  @@index([fromWorkshopId])
+  @@index([toWorkshopId])
+}
+
+model TransferLine {
+  id          String @id @default(cuid())
+  transferId  String
+  sku         String
+  productName String
+  quantity    Int
+
+  transfer TransferOrder @relation(fields: [transferId], references: [id], onDelete: Cascade)
+
+  @@index([transferId])
+}
+
 model WorkshopInventory {
   id                String   @id @default(cuid())
   workshopId        String
@@ -617,6 +652,8 @@ model StockMovement {
   unitCost     Decimal? @db.Decimal(12, 4)
   refType      String?
   refNo        String?
+  // 炉批号：收货录入，同色不同批有色差风险，供追溯与同单同批核对
+  batchNo      String?
   note         String?
   operatorName String?
   createdAt    DateTime          @default(now())

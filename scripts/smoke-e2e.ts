@@ -12,6 +12,11 @@ import { calcPricing } from "../src/lib/pricing";
 import { resolveRawBasis } from "../src/lib/pricing-source";
 import { movingAveragePerMeter, theoreticalWeightKg, weightDeviation, WEIGHT_TOLERANCE } from "../src/lib/inventory";
 import { surfaceCodesOf, surfaceCodesText, surfaceMismatch } from "../src/lib/surface";
+import {
+  getValuation, getPeriodSummary, getAging, getAbcClassification,
+  getAvailability, getReorderSuggestions, unitValueOf,
+} from "../src/lib/inventory-analytics";
+import { generateProductSku } from "../src/lib/sku";
 import { Prisma as PrismaNS } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -944,6 +949,167 @@ async function main() {
 
     check("J3 surfaceCodesText prefers codes", surfaceCodesText({ surfaceProcessCode: "A", surfaceColorCode: "SV", surfaceTreatment: "旧文" }) === "A-SV");
     check("J3 surfaceCodesText falls back to legacy", surfaceCodesText({ surfaceTreatment: "旧文" }) === "旧文");
+  }
+
+
+  // ---------- Phase K: 库存模块完整化（调拨/余段回库/估值/收发存/占用/补货/库龄/ABC） ----------
+  {
+    // 造两间测试仓 + 一个原料 + 一个五金，全部 try/finally 清理
+    const tag = `K${Date.now().toString(36).toUpperCase()}`;
+    const dealerK = await prisma.dealer.create({
+      data: {
+        dealerNo: `SMD-${tag}`, companyName: `Smoke K ${tag}`, contactName: "K", contactPhone: "13000000000",
+        priceLevel: "A", creditLimit: new Prisma.Decimal(100000), creditBalance: new Prisma.Decimal(100000), paymentMethod: "CREDIT",
+      },
+    });
+    const wsA = await prisma.workshop.create({ data: { code: `WS-${tag}-A`, name: `仓A-${tag}` } });
+    const wsB = await prisma.workshop.create({ data: { code: `WS-${tag}-B`, name: `仓B-${tag}` } });
+    try {
+      const rawSku = `RAW-${tag}-4000-A-SV`;
+      const hwSku = `HW-${tag}`;
+      const raw = await prisma.product.create({
+        data: {
+          sku: rawSku, productName: `${tag} 原料棒`, category: "PROFILE", series: tag,
+          isRawMaterial: true, materialStage: "RAW", lengthMm: 4000,
+          surfaceProcessCode: "A", surfaceColorCode: "SV",
+          weightPerMeter: 0.63, purchasePrice: 80, retailPrice: 100, unit: "根",
+        },
+      });
+      await prisma.product.create({
+        data: { sku: hwSku, productName: `${tag} 五金`, category: "HARDWARE", series: tag, purchasePrice: 2, retailPrice: 3, unit: "个" },
+      });
+
+      // K1 调拨前置：收货入 A 仓（带批次号 + 均价），再调拨到 B 仓
+      await applyStockMovement(prisma, {
+        workshopId: wsA.id, sku: rawSku, productName: raw.productName,
+        delta: 10, type: "PO_RECEIPT", refType: "PO", refNo: `PO-${tag}`,
+        unitCost: 20, avgCostPerMeter: 20, batchNo: "L2609-01",
+        operatorName: "smoke",
+      });
+      const mov = await prisma.stockMovement.findFirst({ where: { sku: rawSku, workshopId: wsA.id } });
+      check("K1 batchNo persisted on receipt movement", mov?.batchNo === "L2609-01");
+
+      const tr = await prisma.transferOrder.create({
+        data: {
+          transferNo: `TR-${tag}`, fromWorkshopId: wsA.id, toWorkshopId: wsB.id, operatorName: "smoke",
+          lines: { create: [{ sku: rawSku, productName: raw.productName, quantity: 4 }] },
+        },
+      });
+      await applyStockMovement(prisma, {
+        workshopId: wsA.id, sku: rawSku, productName: raw.productName,
+        delta: -4, type: "TRANSFER_OUT", refType: "TRANSFER", refNo: tr.transferNo, unitCost: 20, operatorName: "smoke",
+      });
+      await applyStockMovement(prisma, {
+        workshopId: wsB.id, sku: rawSku, productName: raw.productName,
+        delta: 4, type: "TRANSFER_IN", refType: "TRANSFER", refNo: tr.transferNo,
+        unitCost: 20, avgCostPerMeter: 20, operatorName: "smoke",
+      });
+      const [invA, invB] = await Promise.all([
+        prisma.workshopInventory.findUnique({ where: { workshopId_sku: { workshopId: wsA.id, sku: rawSku } } }),
+        prisma.workshopInventory.findUnique({ where: { workshopId_sku: { workshopId: wsB.id, sku: rawSku } } }),
+      ]);
+      check("K2 transfer moves quantity A 10→6", invA?.quantity === 6);
+      check("K2 transfer lands B 0→4 with avg carried", invB?.quantity === 4 && Number(invB?.avgCostPerMeter) === 20);
+
+      // K3 余段回库：4000 棒扣 1 根切 5×700=3500，余 500 段回库成 SEMI
+      const order = await prisma.salesOrder.create({
+        data: {
+          orderNo: `SO-${tag}`, dealerId: dealerK.id, orderStatus: "CONFIRMED",
+          targetDeliveryDate: new Date(), dealerAccount: "smoke",
+          totalAmount: new Prisma.Decimal(100), receiverName: "t", receiverPhone: "1", receiverAddress: "a",
+          lines: {
+            create: [{
+              lineNo: 1, lineType: "PROFILE", sku: `C-${tag}`, productName: "切件",
+              rawProductId: raw.id, cutLengthMm: 700, quantity: 5,
+              surfaceProcessCode: "A", surfaceColorCode: "SV",
+              unitPrice: new Prisma.Decimal(20), lineAmount: new Prisma.Decimal(100),
+            }],
+          },
+        },
+      });
+      const wo = await prisma.workOrder.create({
+        data: { workOrderNo: `WO-${tag}`, orderNo: order.orderNo, workshopId: wsA.id, status: "PACKING" },
+      });
+      await consumeWorkOrderMaterials(prisma, { workOrderNo: wo.workOrderNo, orderNo: order.orderNo, workshopId: wsA.id, note: "smoke K3" });
+      const semiSku = await generateProductSku(prisma, {
+        category: "PROFILE", series: tag, isRawMaterial: true, materialStage: "SEMI",
+        surfaceProcessCode: "A", surfaceColorCode: "SV", lengthMm: 500,
+      });
+      const semi = await prisma.product.create({
+        data: {
+          sku: semiSku, productName: `${tag} 余段 500`, category: "PROFILE", series: tag,
+          isRawMaterial: true, materialStage: "SEMI", lengthMm: 500,
+          surfaceProcessCode: "A", surfaceColorCode: "SV", purchasePrice: 10, retailPrice: 12, unit: "根",
+        },
+      });
+      await applyStockMovement(prisma, {
+        workshopId: wsA.id, sku: semiSku, productName: semi.productName,
+        delta: 1, type: "PRODUCTION_RETURN", refType: "WO_RETURN", refNo: wo.workOrderNo,
+        unitCost: 20, avgCostPerMeter: 20,
+        note: `余段回库 ← ${rawSku} · 段长 500mm`, operatorName: "smoke",
+      });
+      const semiInv = await prisma.workshopInventory.findUnique({ where: { workshopId_sku: { workshopId: wsA.id, sku: semiSku } } });
+      check("K3 leftover returns as SEMI stock", semiInv?.quantity === 1);
+      check("K3 consumption deducted 1 bar from A (6→5)", (await prisma.workshopInventory.findUnique({ where: { workshopId_sku: { workshopId: wsA.id, sku: rawSku } } }))?.quantity === 5);
+
+      // K4 估值：A 仓 raw 5 根×4m×20 = 400；SEMI 1 段×0.5m×20 = 10；B 仓 raw 4×4×20=320 → 共 730
+      const valuation = await getValuation(prisma);
+      const v = valuation.rows.filter((r) => r.sku === rawSku || r.sku === semiSku);
+      const vSum = Math.round(v.reduce((sum, r) => sum + r.amount, 0));
+      check("K4 valuation math (5×4m×20 + 1×0.5m×20 + 4×4m×20 = 730)", vSum === 730, `got ${vSum}`);
+      check("K4 unitValue fallback uses purchase price without avg", unitValueOf({ sku: "X" }, { category: "HARDWARE", purchasePrice: 2 }).unitValue === 2);
+
+      // K5 收发存：raw 期初0 + 收10 − 调出4 − 领1 = 期末5(A) + 4(B) = 9
+      const now = new Date();
+      const period = await getPeriodSummary(prisma, new Date(now.getFullYear(), now.getMonth(), 1), new Date(now.getFullYear(), now.getMonth() + 1, 1));
+      const prow = period.find((r) => r.sku === rawSku);
+      check("K5 period summary opening 0 / received 14(10采购+4调拨入) / issued 5(1领料+4调拨出) / closing 9",
+        prow?.opening === 0 && prow?.received === 14 && prow?.issued === 5 && prow?.closing === 9
+          && prow?.receivedPo === 10 && prow?.receivedTransfer === 4
+          && prow?.issuedConsume === 1 && prow?.issuedTransfer === 4,
+        JSON.stringify(prow));
+
+      // K6 占用与可用量：工单已扣料（PACKING 后 consumed）→ 不再占用；再造一张未扣料的开单占用 2 根
+      const order2 = await prisma.salesOrder.create({
+        data: {
+          orderNo: `SO-${tag}-2`, dealerId: dealerK.id, orderStatus: "PRODUCING",
+          targetDeliveryDate: new Date(), dealerAccount: "smoke",
+          totalAmount: new Prisma.Decimal(50), receiverName: "t", receiverPhone: "1", receiverAddress: "a",
+          lines: { create: [{ lineNo: 1, lineType: "PROFILE", sku: `C-${tag}-2`, productName: "切件2", rawProductId: raw.id, cutLengthMm: 3600, quantity: 2, surfaceProcessCode: "A", surfaceColorCode: "SV", unitPrice: new Prisma.Decimal(20), lineAmount: new Prisma.Decimal(40) }] },
+        },
+      });
+      await prisma.workOrder.create({ data: { workOrderNo: `WO-${tag}-2`, orderNo: order2.orderNo, workshopId: wsA.id, status: "PROCESSING" } });
+      const avail = await getAvailability(prisma);
+      const t = avail.totalBySku.get(rawSku);
+      check("K6 availability = 9 onHand − 1 allocated (open WO 3600×2 → 2 bars? floor bar math)", t?.onHand === 9 && t?.allocated === 2 && t?.available === 7, JSON.stringify(t));
+      check("K6 consumed WO not allocated (first WO excluded)", avail.allocations.outsourced.length >= 0);
+
+      // K7 补货建议：消耗 1 根/30天 → 日均≈0.03；缺料场景 available<0 时给出建议
+      const reorder = await getReorderSuggestions(prisma);
+      const rrow = reorder.find((r) => r.sku === rawSku);
+      check("K7 reorder row computed with lead fallback 7d", rrow != null && rrow.leadDays === 7 && rrow.onHand === 9 && rrow.available === 7, JSON.stringify(rrow));
+
+      // K8 ABC：有消耗价值的 SKU 出现在分类中且累计单调
+      const abc = await getAbcClassification(prisma);
+      check("K8 abc classified raw sku as A (only consumer)", abc.length > 0 && abc[0].klass === "A");
+      const cumOk = abc.every((r, i) => i === 0 || abc[i - 1].cumulative <= r.cumulative + 0.001);
+      check("K8 abc cumulative monotonic", cumOk);
+
+      // K9 库龄：新建库存行无流水 → lastMovedAt 回退 updatedAt，今日入库不进呆滞
+      const aging = await getAging(prisma, 90);
+      check("K9 fresh stock not stale", !aging.some((r) => r.sku === rawSku));
+    } finally {
+      // 清理：注意外键顺序（movement→inventory→wo→order→transfer→product→workshop）
+      await prisma.stockMovement.deleteMany({ where: { workshopId: { in: [wsA.id, wsB.id] } } });
+      await prisma.workshopInventory.deleteMany({ where: { workshopId: { in: [wsA.id, wsB.id] } } });
+      const wos = await prisma.workOrder.findMany({ where: { orderNo: { startsWith: `SO-${tag}` } }, select: { workOrderNo: true } });
+      for (const w of wos) await prisma.workOrder.delete({ where: { workOrderNo: w.workOrderNo } }).catch(() => null);
+      await prisma.salesOrder.deleteMany({ where: { orderNo: { startsWith: `SO-${tag}` } } });
+      await prisma.transferOrder.deleteMany({ where: { transferNo: `TR-${tag}` } });
+      await prisma.product.deleteMany({ where: { series: tag } });
+      await prisma.workshop.deleteMany({ where: { id: { in: [wsA.id, wsB.id] } } });
+      await prisma.dealer.deleteMany({ where: { id: dealerK.id } });
+    }
   }
 
   console.log(`\nSmoke E2E passed: ${results.length} assertions`);

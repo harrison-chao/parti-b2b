@@ -31,6 +31,8 @@ export function PODetailActions({ poNo, status, lines, totalAmount }: { poNo: st
     Object.fromEntries(lines.map((l) => [l.id, 0])),
   );
   const [note, setNote] = useState("");
+  // 炉批号：同色不同批有色差风险，随收货流水留痕
+  const [batchNo, setBatchNo] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   // 磅差超容忍带时服务端 409，勾选后带 confirm 重发
@@ -80,12 +82,13 @@ export function PODetailActions({ poNo, status, lines, totalAmount }: { poNo: st
     setBusy(true);
     const r = await fetch(`/api/purchase-orders/${poNo}/receive`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lines: withQty, note: note || null, confirm: confirmWeighed || undefined }),
+      body: JSON.stringify({ lines: withQty, note: note || null, batchNo: batchNo || null, confirm: confirmWeighed || undefined }),
     });
     const j = await r.json();
     setBusy(false);
     if (j.code !== 0) { setError(j.message); return; }
     setNote("");
+    setBatchNo("");
     setConfirmWeighed(false);
     setReceiveInput(Object.fromEntries(lines.map((l) => [l.id, 0])));
     setWeightInput(Object.fromEntries(lines.map((l) => [l.id, 0])));
@@ -168,6 +171,7 @@ export function PODetailActions({ poNo, status, lines, totalAmount }: { poNo: st
         {canReceive && (
           <div className="p-4 border-t bg-muted/50/50 space-y-2">
             <div className="flex items-center gap-3">
+              <Input placeholder="炉批号（同色防色差追溯，可选）" value={batchNo} onChange={(e) => setBatchNo(e.target.value)} className="w-44" />
               <Input placeholder="收货备注（可选）" value={note} onChange={(e) => setNote(e.target.value)} className="flex-1" />
               <Button onClick={receive} disabled={busy}>{busy ? "处理中..." : "确认收货入库"}</Button>
             </div>

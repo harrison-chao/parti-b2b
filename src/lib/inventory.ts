@@ -22,9 +22,12 @@ export async function applyStockMovement(
     allowNegative?: boolean;
     // 批次计价：出入库时点的每米成本快照（元/米）——收货写批次价，扣料写当时车间均价
     unitCost?: number | null;
+    // 炉批号（收货录入）；调拨/余段回库入向可带随行每米均价直接落到库存档
+    batchNo?: string | null;
+    avgCostPerMeter?: number | null;
   },
 ) {
-  const { workshopId, sku, productName, delta, type, refType, refNo, note, operatorName, allowNegative, unitCost } = args;
+  const { workshopId, sku, productName, delta, type, refType, refNo, note, operatorName, allowNegative, unitCost, batchNo, avgCostPerMeter } = args;
 
   const existing = await tx.workshopInventory.findUnique({
     where: { workshopId_sku: { workshopId, sku } },
@@ -38,11 +41,18 @@ export async function applyStockMovement(
   if (existing) {
     await tx.workshopInventory.update({
       where: { workshopId_sku: { workshopId, sku } },
-      data: { quantity: newQty, productName },
+      data: {
+        quantity: newQty,
+        productName,
+        ...(avgCostPerMeter != null ? { avgCostPerMeter } : {}),
+      },
     });
   } else {
     await tx.workshopInventory.create({
-      data: { workshopId, sku, productName, quantity: newQty },
+      data: {
+        workshopId, sku, productName, quantity: newQty,
+        ...(avgCostPerMeter != null ? { avgCostPerMeter } : {}),
+      },
     });
   }
 
@@ -59,6 +69,7 @@ export async function applyStockMovement(
       note: note ?? null,
       operatorName: operatorName ?? null,
       unitCost: unitCost != null ? unitCost : null,
+      batchNo: batchNo ?? null,
     },
   });
 

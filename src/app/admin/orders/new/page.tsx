@@ -419,6 +419,7 @@ export default function NewInternalOrderPage() {
       if (!rj.ok) { toast.error(rj.message ?? "创建失败"); return setErr(rj.message ?? "创建失败"); }
       toast.success(`订单 ${rj.data.displayOrderNo ?? rj.data.orderNo} 已创建${rj.data.autoDispatchedWorkOrderNo ? "，已派车间" : ""}`);
       if (rj.data.dispatchWarning) toast.warning(rj.data.dispatchWarning, { duration: 8000 });
+      if (rj.data.materialWarning) toast.warning(rj.data.materialWarning, { duration: 10000 });
       router.push(`/admin/orders/${rj.data.orderNo}`);
     } finally {
       setSubmitting(false);

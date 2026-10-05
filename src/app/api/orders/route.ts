@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { getAvailability } from "@/lib/inventory-analytics";
+import { aggregateOrderRequirements } from "@/lib/stock-consume";
 import { ok, fail } from "@/lib/api";
 import { genOrderNo, genDisplayOrderNo } from "@/lib/order-no";
 import { getMaterialShortages, formatShortages } from "@/lib/stock-consume";
@@ -365,7 +367,22 @@ export async function POST(req: NextRequest) {
         ...(created.lines.length > 8 ? [`…共 ${created.lines.length} 行`] : []),
       ]);
     }
-    return ok({ ...created, autoDispatchedWorkOrderNo: workOrderNo ?? null, dispatchWarning });
+    // 下单即示缺料（全网可用量 = 现存 − 未结工单占用；非阻断，提醒先备料/先采购）
+    let materialWarning: string | null = null;
+    try {
+      const required = await aggregateOrderRequirements(prisma, created.orderNo);
+      const { totalBySku } = await getAvailability(prisma);
+      const lacking: string[] = [];
+      for (const [sku, item] of required.entries()) {
+        const avail = totalBySku.get(sku);
+        if (!avail || avail.available < item.quantity) {
+          lacking.push(`${sku} 需 ${item.quantity}，全网可用 ${avail?.available ?? 0}（现存 ${avail?.onHand ?? 0} − 占用 ${avail?.allocated ?? 0}）`);
+        }
+      }
+      if (lacking.length > 0) materialWarning = `原料可用量不足：${lacking.join("；")}`;
+    } catch { /* 提醒失败不影响下单 */ }
+
+    return ok({ ...created, autoDispatchedWorkOrderNo: workOrderNo ?? null, dispatchWarning, materialWarning });
   } catch (e: any) {
     return fail("创建失败: " + (e?.message ?? e));
   }

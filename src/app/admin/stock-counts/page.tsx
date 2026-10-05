@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime, STOCK_COUNT_STATUS_LABEL } from "@/lib/utils";
 import { ApproveStockCountButton } from "./actions";
+import { getAbcClassification } from "@/lib/inventory-analytics";
+import { formatMoney } from "@/lib/utils";
 
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: "bg-secondary text-foreground/80",
@@ -13,14 +15,17 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default async function AdminStockCountsPage() {
-  const counts = await prisma.stockCount.findMany({
+  const [counts, abc] = await Promise.all([
+    prisma.stockCount.findMany({
     orderBy: [{ status: "desc" }, { createdAt: "desc" }],
     include: {
       workshop: { select: { code: true, name: true } },
       lines: { select: { diff: true } },
       _count: { select: { lines: true } },
     },
-  });
+  }),
+  getAbcClassification(prisma),
+  ]);
 
   const submitted = counts.filter((c) => c.status === "SUBMITTED").length;
 
@@ -36,6 +41,46 @@ export default async function AdminStockCountsPage() {
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">盘点单总数</div><div className="mt-1 text-3xl font-bold">{counts.length}</div></CardContent></Card>
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">已审核</div><div className="mt-1 text-3xl font-bold text-emerald-300">{counts.filter((c) => c.status === "APPROVED").length}</div></CardContent></Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>ABC 分类与盘点计划（近 90 天消耗价值）</CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            A 类（累计消耗价值 ≤70%）建议每月盘，B 类（≤90%）每季盘，C 类每半年盘。下次应盘日 = 上次盘点批准日 + 周期；从未盘过的立即应盘。已过期标红。
+          </p>
+        </CardHeader>
+        <CardContent className="overflow-x-auto p-0">
+          <table className="w-full min-w-[860px] text-sm">
+            <thead className="border-b bg-card/40"><tr className="text-left">
+              <th className="p-2">等级</th><th className="p-2">SKU</th><th className="p-2 text-right">90天消耗价值</th>
+              <th className="p-2 text-right">占比</th><th className="p-2 text-right">累计</th>
+              <th className="p-2 text-right">盘点周期</th><th className="p-2">上次盘点</th><th className="p-2">下次应盘</th>
+            </tr></thead>
+            <tbody>
+              {abc.map((r) => {
+                const overdue = r.nextDueAt.getTime() <= Date.now();
+                return (
+                  <tr key={r.sku} className="border-b">
+                    <td className="p-2">
+                      <Badge className={r.klass === "A" ? "bg-rose-500/15 text-rose-300 ring-1 ring-inset ring-rose-400/20" : r.klass === "B" ? "bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-400/20" : "bg-secondary text-foreground/80"}>{r.klass}</Badge>
+                    </td>
+                    <td className="p-2 font-mono text-xs">{r.sku}</td>
+                    <td className="p-2 text-right text-xs">{formatMoney(r.value90d)}</td>
+                    <td className="p-2 text-right text-xs">{r.share}%</td>
+                    <td className="p-2 text-right text-xs">{r.cumulative}%</td>
+                    <td className="p-2 text-right text-xs">{r.cadenceDays} 天</td>
+                    <td className="p-2 text-xs text-muted-foreground">{r.lastCountedAt ? formatDateTime(r.lastCountedAt) : "从未"}</td>
+                    <td className={`p-2 text-xs ${overdue ? "text-rose-700 font-semibold" : ""}`}>
+                      {r.nextDueAt.toLocaleDateString("zh-CN")}{overdue ? "（应盘）" : ""}
+                    </td>
+                  </tr>
+                );
+              })}
+              {abc.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">近 90 天无领料流水，暂无分类依据</td></tr>}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>盘点单列表</CardTitle></CardHeader>
