@@ -34,6 +34,7 @@ export function ShipmentForm() {
   const [note, setNote] = useState("");
   const [carriers, setCarriers] = useState<string[]>(["顺丰速运", "德邦物流", "京东物流", "中通快运", "安能物流", "自提"]);
   const [msg, setMsg] = useState<string | null>(null);
+  const [lastShipmentNo, setLastShipmentNo] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -86,6 +87,7 @@ export function ShipmentForm() {
       const rj = await res.json();
       if (!rj.ok) { toast.error(rj.message ?? "发货登记失败"); return setErr(rj.message ?? "发货登记失败"); }
       setMsg(`发货单 ${rj.data.shipmentNo} 已登记（${sel.length} 行）`);
+      setLastShipmentNo(rj.data.shipmentNo);
       toast.success(`发货单 ${rj.data.shipmentNo} 已登记`);
       setSel([]); setTrackingNo(""); setNote("");
       await load();
@@ -98,7 +100,14 @@ export function ShipmentForm() {
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-4 stagger-in">
       <h1 className="text-xl font-bold">发货登记</h1>
       {err && <div className="bg-destructive/10 border border-red-200 text-red-400 rounded p-3 text-sm">{err}</div>}
-      {msg && <div className="bg-emerald-500/10 border border-emerald-200 text-emerald-300 rounded p-3 text-sm">{msg}</div>}
+      {msg && (
+        <div className="bg-emerald-500/10 border border-emerald-200 text-emerald-300 rounded p-3 text-sm flex items-center gap-3">
+          <span>{msg}</span>
+          {lastShipmentNo && (
+            <a href={`/print/delivery/${lastShipmentNo}`} target="_blank" className="text-cyan-300 underline">打印送货单（含签收回执）↗</a>
+          )}
+        </div>
+      )}
 
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-base">① 勾选发货行（可跨订单合发）</CardTitle></CardHeader>
