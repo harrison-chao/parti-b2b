@@ -75,6 +75,27 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
   const lineCosts = order.lines.map((l) => {
     // 加工行按切长算成本（与下单算价同口径）；未记切长才回退型材标称长
     const mm = l.cutLengthMm ? Number(l.cutLengthMm) : l.lengthMm ? Number(l.lengthMm) : 0;
+    // 下单冻结的成本快照优先（口径切换）：历史订单毛利不随定价参数/批次价漂移；损坏或缺失回退实时估算
+    if (l.costSnapshot) {
+      try {
+        const snap = JSON.parse(l.costSnapshot);
+        if (typeof snap?.unitCost === "number") {
+          return {
+            lineNo: l.lineNo,
+            mm,
+            pricing: {
+              totalCost: snap.unitCost,
+              snapshot: true,
+              costSource: snap.source ?? "SETTINGS",
+              perMeterPrice: snap.perMeterPrice ?? null,
+              meterWeight: snap.meterWeight ?? null,
+              yieldRate: snap.yieldRate ?? null,
+              cutLengthMm: snap.cutLengthMm ?? mm,
+            } as any,
+          };
+        }
+      } catch { /* 快照损坏，走实时估算 */ }
+    }
     if (!mm) return { lineNo: l.lineNo, mm: 0, pricing: null as any };
     const p = calcPricing(mm, level, config, settings.discountRates);
     return { lineNo: l.lineNo, mm, pricing: p };
@@ -181,6 +202,12 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
                           connectorCost: c.pricing.connectorCost,
                           retailPrice: c.pricing.retailPrice,
                           actualWeight: c.pricing.actualWeight,
+                          snapshot: (c.pricing as any).snapshot ?? false,
+                          costSource: (c.pricing as any).costSource,
+                          perMeterPrice: (c.pricing as any).perMeterPrice ?? null,
+                          meterWeight: (c.pricing as any).meterWeight ?? null,
+                          yieldRate: (c.pricing as any).yieldRate ?? null,
+                          cutLengthMm: (c.pricing as any).cutLengthMm ?? null,
                         } : null}
                       />
                     );

@@ -42,23 +42,56 @@ export type PricingResult = {
   level1Price: number;
   level2Price: number;
   dealerPrice: number;
+  // 第 1 步口径切换：SKU 级参数与成本来源（AVG=移动加权均价 / PURCHASE=采购价折算 / SETTINGS=全局常数回退）
+  meterWeight: number;
+  yieldRate: number;
+  perMeterPrice: number | null;
+  costSource: "AVG" | "PURCHASE" | "SETTINGS";
+};
+
+/**
+ * 型材行的 SKU 级成本基数（由 resolveRawBasis 解析后传入）：
+ *  - perMeterPrice 有值（AVG/PURCHASE）：材料成本 = 切长÷良率 × 每米价，表面费不单列（原料已含表面处理）
+ *  - perMeterPrice 为 null（SETTINGS）：回退全局常数 重量×素材价+表面费（旧行为）
+ *  - 良率单源：Product.yieldRate 优先，缺省才用全局 utilization
+ */
+export type RawPricingBasis = {
+  meterWeight?: number | null;
+  yieldRate?: number | null;
+  perMeterPrice?: number | null;
+  costSource?: "AVG" | "PURCHASE" | "SETTINGS";
 };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
+const round4 = (n: number) => Math.round(n * 10000) / 10000;
 
 export function calcPricing(
   lengthMm: number,
   priceLevel: "A" | "B" | "C" | "D" | "E" = "C",
   config: { [K in keyof typeof PRICING_CONFIG]: number } = PRICING_CONFIG,
   discountRates: Record<"A" | "B" | "C" | "D" | "E", number> = LEVEL_DISCOUNT,
+  raw?: RawPricingBasis,
 ): PricingResult {
   const c = config;
-  const theoretical = (lengthMm / 1000) * c.meterWeight;
-  const actual = theoretical / c.utilization;
+  const meterWeight = raw?.meterWeight ?? c.meterWeight;
+  const yieldRate = raw?.yieldRate ?? c.utilization;
+  const theoretical = (lengthMm / 1000) * meterWeight;
+  const actual = theoretical / yieldRate;
   const waste = actual - theoretical;
-  const material = actual * c.materialPrice;
-  const surface = actual * c.surfacePricePerKg;
+  let material: number;
+  let surface: number;
+  let perMeterPrice: number | null = null;
+  let costSource: "AVG" | "PURCHASE" | "SETTINGS" = "SETTINGS";
+  if (raw?.perMeterPrice != null && raw.perMeterPrice > 0) {
+    perMeterPrice = round4(raw.perMeterPrice);
+    costSource = raw.costSource ?? "AVG";
+    material = ((lengthMm / 1000) / yieldRate) * perMeterPrice;
+    surface = 0;
+  } else {
+    material = actual * c.materialPrice;
+    surface = actual * c.surfacePricePerKg;
+  }
   const processing = c.processingFee;
   const connector = c.connectorFee;
   const totalCost = material + surface + processing + connector;
@@ -83,6 +116,10 @@ export function calcPricing(
     level1Price: round2(level1),
     level2Price: round2(level2),
     dealerPrice: round2(dealerPrice),
+    meterWeight: round4(meterWeight),
+    yieldRate: round4(yieldRate),
+    perMeterPrice,
+    costSource,
   };
 }
 

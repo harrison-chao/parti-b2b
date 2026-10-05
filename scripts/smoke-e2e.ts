@@ -8,6 +8,8 @@ import { RECEIVABLE_ORDER_STATUSES } from "../src/lib/reconcile";
 import { prepayViolation } from "../src/lib/payment-guard";
 import { suggestDeliveryDays } from "../src/lib/delivery-insight";
 import { WORK_ORDER_TRANSITIONS, nextWorkOrderStatus } from "../src/lib/workorder";
+import { calcPricing } from "../src/lib/pricing";
+import { resolveRawBasis } from "../src/lib/pricing-source";
 import { Prisma as PrismaNS } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -859,6 +861,46 @@ async function main() {
     check("G3 CANCELLED has no outgoing transitions", (WORK_ORDER_TRANSITIONS.CANCELLED ?? []).length === 0);
     check("G3 nextWorkOrderStatus(CANCELLED) is null", nextWorkOrderStatus("CANCELLED", true) === null);
     check("G3 salesOrderStatusFor(CANCELLED) = CANCELLED", salesOrderStatusFor("CANCELLED") === "CANCELLED");
+  }
+
+  // ---------- Phase H: 批次计价第 1 步（SKU 级口径 + 三级回退 + 成本快照） ----------
+  {
+    // H1 SKU 级口径：材料=切长÷良率×每米价，表面不单列（原料已含表面）
+    const p1 = calcPricing(1000, "C", undefined, undefined, { perMeterPrice: 20, yieldRate: 0.95, meterWeight: 0.72, costSource: "AVG" });
+    check("H1 per-meter material = (1m/0.95)×20 = 21.05", Math.abs(p1.materialCost - 21.05) < 0.01, `material=${p1.materialCost}`);
+    check("H1 surface excluded when per-meter price present", p1.surfaceCost === 0);
+    check("H1 costSource propagates", p1.costSource === "AVG");
+    check("H1 yield sourced from Product (0.95 not global 0.92)", Math.abs(p1.theoreticalWeight - 0.72) < 0.001 && Math.abs(p1.actualWeight - 0.72 / 0.95) < 0.001, `actual=${p1.actualWeight}`);
+
+    // H2 全局常数回退（无基数）：旧公式不变
+    const p2 = calcPricing(1000, "C");
+    check("H2 SETTINGS fallback keeps surface line", p2.surfaceCost > 0 && p2.costSource === "SETTINGS", `surface=${p2.surfaceCost}`);
+    check("H2 SETTINGS material = actual×28", Math.abs(p2.materialCost - (p2.theoreticalWeight / 0.92) * 28) < 0.05, `material=${p2.materialCost}`);
+
+    // H3 三级回退解析：PURCHASE（采购价÷棒长）→ AVG（车间均价优先）
+    const basisSku = "SMOKE-BASIS-TMP";
+    await prisma.product.upsert({
+      where: { sku: basisSku },
+      create: { sku: basisSku, productName: "basis", series: "BASIS", category: "PROFILE", retailPrice: money(0), purchasePrice: money(120), lengthMm: money(6000), isRawMaterial: true, materialStage: "RAW", weightPerMeter: money(0.72) },
+      update: { purchasePrice: money(120), lengthMm: money(6000), weightPerMeter: money(0.72) },
+    });
+    await prisma.workshopInventory.deleteMany({ where: { sku: basisSku } });
+    const basisProd = (await prisma.product.findUnique({ where: { sku: basisSku } }))!;
+    const b1 = await resolveRawBasis(basisProd);
+    check("H3 PURCHASE tier = 120元÷6m = 20 元/m", b1.costSource === "PURCHASE" && Math.abs((b1.perMeterPrice ?? 0) - 20) < 0.001, JSON.stringify({ s: b1.costSource, p: b1.perMeterPrice }));
+    const ws = await prisma.workshop.findFirst({ where: { isActive: true } });
+    if (ws) {
+      await prisma.workshopInventory.create({ data: { workshopId: ws.id, sku: basisSku, productName: "basis", quantity: 10, avgCostPerMeter: money(25) } });
+      const b2 = await resolveRawBasis(basisProd);
+      check("H3 AVG tier overrides purchase (25 元/m)", b2.costSource === "AVG" && Math.abs((b2.perMeterPrice ?? 0) - 25) < 0.001, JSON.stringify({ s: b2.costSource, p: b2.perMeterPrice }));
+      await prisma.workshopInventory.deleteMany({ where: { sku: basisSku } });
+    }
+    await prisma.product.deleteMany({ where: { sku: basisSku } });
+
+    // H4 快照 JSON 往返（构成与解析契约）
+    const snap = JSON.stringify({ source: "PURCHASE", perMeterPrice: 20, meterWeight: 0.72, yieldRate: 0.95, unitCost: 34.05, cutLengthMm: 1000, pricedAt: new Date().toISOString() });
+    const parsed = JSON.parse(snap) as { unitCost: number; source: string };
+    check("H4 snapshot roundtrip keeps unitCost & source", parsed.unitCost === 34.05 && parsed.source === "PURCHASE");
   }
 
   console.log(`\nSmoke E2E passed: ${results.length} assertions`);

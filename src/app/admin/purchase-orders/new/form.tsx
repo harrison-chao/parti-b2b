@@ -136,7 +136,7 @@ export function NewPOForm({ suppliers, workshops, products }: { suppliers: Suppl
                 <button key={p.id} onClick={() => addProduct(p)} className="w-full text-left p-2 rounded hover:bg-secondary border text-xs">
                   <div className="flex items-center gap-2">
                     <span className="font-mono">{p.sku}</span>
-                    {p.isRawMaterial && <Badge className="bg-amber-100 text-amber-800 text-[10px]">原料</Badge>}
+                    {p.isRawMaterial && <Badge className="bg-amber-500/15 text-amber-300 text-[10px] ring-1 ring-inset ring-amber-400/20">原料</Badge>}
                   </div>
                   <div className="text-muted-foreground">{p.productName}</div>
                   {p.purchasePrice != null && <div className="text-muted-foreground">建议 {formatMoney(p.purchasePrice)}</div>}

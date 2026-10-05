@@ -8,9 +8,9 @@ import { StockCountEditor } from "./editor";
 
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: "bg-secondary text-foreground/80",
-  SUBMITTED: "bg-blue-100 text-blue-800",
-  APPROVED: "bg-emerald-100 text-emerald-800",
-  CANCELLED: "bg-rose-100 text-rose-800",
+  SUBMITTED: "bg-sky-500/15 text-sky-300 ring-1 ring-inset ring-sky-400/20",
+  APPROVED: "bg-emerald-500/15 text-emerald-300 ring-1 ring-inset ring-emerald-400/20",
+  CANCELLED: "bg-rose-500/15 text-rose-300 ring-1 ring-inset ring-rose-400/20",
 };
 
 export default async function StockCountDetailPage({ params }: { params: { countNo: string } }) {

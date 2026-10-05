@@ -7,6 +7,7 @@ import { getMaterialShortages, formatShortages } from "@/lib/stock-consume";
 import { queueLoad, skuCycleStats, globalCycleStats, suggestDeliveryDays } from "@/lib/delivery-insight";
 import { genWorkOrderNo } from "@/lib/utils";
 import { LEVEL_DISCOUNT, calcPricing } from "@/lib/pricing";
+import { resolveRawBasis } from "@/lib/pricing-source";
 import { loadSettings, pricingFieldsToConfig } from "@/lib/settings";
 import { notifyFeishu } from "@/lib/feishu";
 import { z } from "zod";
@@ -121,6 +122,12 @@ export async function POST(req: NextRequest) {
     : [];
   const rawMap = new Map(rawProducts.map((p) => [p.id, p]));
 
+  // SKU 级计价基数（米重/良率/每米价三级回退），同原料只解析一次
+  const basisMap = new Map<string, Awaited<ReturnType<typeof resolveRawBasis>>>();
+  for (const raw of rawProducts) {
+    if (!basisMap.has(raw.id)) basisMap.set(raw.id, await resolveRawBasis(raw));
+  }
+
   const resolvedLines = data.lines.map((l) => {
     if (l.lineType === "PROFILE") {
       if (!l.rawProductId) throw new Error(`PROFILE 行缺原料型材`);
@@ -129,8 +136,19 @@ export async function POST(req: NextRequest) {
       // using the same engine as GET /api/pricing/calculate.
       const length = l.cutLengthMm ?? l.lengthMm;
       if (!length || length <= 0) throw new Error(`PROFILE 行缺有效切长`);
-      const pricing = calcPricing(length, dealer.priceLevel, pricingConfig, settings.discountRates);
-      return { ...l, unitPrice: pricing.dealerPrice };
+      const basis = basisMap.get(l.rawProductId);
+      const pricing = calcPricing(length, dealer.priceLevel, pricingConfig, settings.discountRates, basis);
+      // 口径切换：下单冻结成本构成，利润页不再随参数/批次价漂移
+      const costSnapshot = JSON.stringify({
+        source: pricing.costSource,
+        perMeterPrice: pricing.perMeterPrice,
+        meterWeight: pricing.meterWeight,
+        yieldRate: pricing.yieldRate,
+        unitCost: pricing.totalCost,
+        cutLengthMm: length,
+        pricedAt: new Date().toISOString(),
+      });
+      return { ...l, unitPrice: pricing.dealerPrice, costSnapshot };
     }
     if (l.lineType === "HARDWARE") {
       if (!l.productId) throw new Error(`HARDWARE 行缺 productId`);
@@ -222,6 +240,7 @@ export async function POST(req: NextRequest) {
             spec: l.spec ?? null,
             quantity: l.quantity,
             unitPrice: l.unitPrice,
+            costSnapshot: (l as any).costSnapshot ?? null,
             targetPrice: l.targetPrice ?? null,
             lineAmount: l.quantity * l.unitPrice,
             drawingUrl: l.drawingUrl ?? null,
