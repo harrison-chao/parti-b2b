@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { formatMoney, formatDate } from "@/lib/utils";
 import { PRINT_CSS, PRINT_SCRIPT } from "@/lib/print-utils";
 import { surfaceCodesText } from "@/lib/surface";
+import { roleHome } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ const FREIGHT_LABEL: Record<string, string> = { PREPAID: "寄付", COD: "到付"
 export default async function DeliveryPrintPage({ params }: { params: { shipmentNo: string } }) {
   const session = await auth();
   if (!session) redirect("/login");
-  if (session.user.role === "DEALER") redirect("/");
+  if (session.user.role === "DEALER") redirect(roleHome(session.user.role));
 
   const shipment = await prisma.shipment.findUnique({
     where: { shipmentNo: params.shipmentNo },
@@ -28,6 +29,14 @@ export default async function DeliveryPrintPage({ params }: { params: { shipment
     },
   });
   if (!shipment) notFound();
+  // 车间只能打印本车间工单的发货单（防 shipmentNo 枚举遍历他人收货人信息）
+  if (session.user.role === "WORKSHOP") {
+    const wo = await prisma.workOrder.findFirst({
+      where: { orderNo: { in: [...new Set(shipment.lines.map((l) => l.orderNo))] } },
+      select: { workshopId: true },
+    });
+    if (!wo || wo.workshopId !== session.user.workshopId) notFound();
+  }
 
   const byOrder = new Map<string, typeof shipment.lines>();
   for (const sl of shipment.lines) {

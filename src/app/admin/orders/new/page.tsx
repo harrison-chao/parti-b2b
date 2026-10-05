@@ -321,8 +321,7 @@ export default function NewInternalOrderPage() {
       cutMm: l.cutLengthMm ? String(l.cutLengthMm) : "", cutInch: l.cutLengthMm ? (l.cutLengthMm / 25.4).toFixed(1) : "",
       unit: "mm", quantity: String(l.quantity),
       processCodes: l.processCodes?.length ? l.processCodes : guessProcessCodes(l),
-      surfaceProcessCode: l.surfaceProcessCode ?? (l.surfaceTreatment ? l.surfaceTreatment.split("-")[0] : "A"),
-      surfaceColorCode: l.surfaceColorCode ?? (l.surfaceTreatment ? l.surfaceTreatment.split("-")[1] : "SV"),
+      ...parseLegacySurface(l.surfaceTreatment, l.surfaceProcessCode, l.surfaceColorCode),
       unitPrice: Number(l.unitPrice),
     })));
     setMsg(`已复制 ${o.displayOrderNo ?? o.orderNo}（${(o.lines ?? []).length} 行），改数量即可提交`);
@@ -379,7 +378,7 @@ export default function NewInternalOrderPage() {
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-4 stagger-in">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">内部代下单</h1>
-        <Badge className="bg-teal-100 text-teal-700">免审 · 提交即派车间</Badge>
+        <Badge className="bg-teal-500/15 text-teal-300 ring-1 ring-inset ring-teal-400/20">免审 · 提交即派车间</Badge>
       </div>
       {err && <div className="bg-destructive/10 border border-red-200 text-red-400 rounded p-3 text-sm">{err}</div>}
       {msg && <div className="bg-emerald-500/10 border border-emerald-200 text-emerald-300 rounded p-3 text-sm">{msg}</div>}

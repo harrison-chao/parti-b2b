@@ -128,7 +128,9 @@ export async function POST(req: NextRequest) {
   if (badLength) return badLength;
   const exists = await prisma.product.findUnique({ where: { sku: d.sku } });
   if (exists) return fail("SKU 已存在");
-  const product = await prisma.product.create({
+  let product;
+  try {
+  const product0 = await prisma.product.create({
     data: {
       sku: d.sku,
       productName: d.productName || d.series,
@@ -149,5 +151,35 @@ export async function POST(req: NextRequest) {
       isActive: d.isActive ?? true,
     },
   });
+  product = product0;
+  } catch (e: any) {
+    // 并发撞自动生成的 SKU：换号重试一次
+    if (e?.code === "P2002" && !body.sku) {
+      d.sku = await generateProductSku(prisma, d);
+      product = await prisma.product.create({
+        data: {
+          sku: d.sku,
+          productName: d.productName || d.series,
+          series: d.series,
+          category: d.category,
+          lengthMm: d.lengthMm ?? null,
+          spec: d.spec ?? null,
+          surfaceProcessCode: d.surfaceProcessCode ?? null,
+          surfaceColorCode: d.surfaceColorCode ?? null,
+          weightPerMeter: d.weightPerMeter ?? null,
+          materialStage: d.isRawMaterial ? d.materialStage ?? "RAW" : null,
+          retailPrice: d.retailPrice,
+          purchasePrice: d.purchasePrice ?? null,
+          unit: d.unit ?? "根",
+          drawingRequired: d.drawingRequired ?? false,
+          isRawMaterial: d.isRawMaterial ?? false,
+          yieldRate: d.yieldRate ?? 0.95,
+          isActive: d.isActive ?? true,
+        },
+      });
+    } else {
+      throw e;
+    }
+  }
   return ok(product);
 }

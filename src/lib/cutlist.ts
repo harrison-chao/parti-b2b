@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { loadSettings } from "@/lib/settings";
+import { surfaceCodesOf } from "@/lib/surface";
 
 export type CutRow = {
   key: string;
@@ -36,11 +37,13 @@ export async function buildCutList(workshopId?: string) {
   const rows = new Map<string, CutRow>();
   for (const wo of wos) {
     for (const l of wo.order.lines) {
-      const surface = [l.surfaceProcessCode ? (procLabel.get(l.surfaceProcessCode) ?? l.surfaceProcessCode) : null,
-                       l.surfaceColorCode ? (colorLabel.get(l.surfaceColorCode) ?? l.surfaceColorCode) : null]
+      // 门户历史单可能只有旧 surfaceTreatment 文本：码优先、旧文解析兜底（第 3 步读端统一）
+      const codes = surfaceCodesOf(l);
+      const surface = [codes.processCode ? (procLabel.get(codes.processCode) ?? codes.processCode) : null,
+                       codes.colorCode ? (colorLabel.get(codes.colorCode) ?? codes.colorCode) : null]
         .filter(Boolean).join("·") || "—";
       const isProfile = l.lineType === "PROFILE";
-      const key = `${isProfile ? "P" : "H"}|${l.surfaceProcessCode ?? ""}|${l.surfaceColorCode ?? ""}|${l.cutLengthMm ?? ""}|${l.sku}`;
+      const key = `${isProfile ? "P" : "H"}|${codes.processCode ?? ""}|${codes.colorCode ?? ""}|${l.cutLengthMm ?? ""}|${l.sku}`;
       const hit = rows.get(key);
       if (hit) {
         hit.quantity += l.quantity;

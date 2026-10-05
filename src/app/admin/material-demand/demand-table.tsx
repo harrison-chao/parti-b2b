@@ -20,6 +20,7 @@ export function MaterialDemandTable({ rows, suppliers }: {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
+  const noPrice = (r: Row) => r.unitPrice <= 0;
   const selected = rows.filter((r) => checked.has(r.key) && r.gap > 0);
   const totalEst = selected.reduce((s, r) => s + r.gap * r.unitPrice, 0);
 
@@ -89,14 +90,14 @@ export function MaterialDemandTable({ rows, suppliers }: {
               {rows.map((r) => (
                 <tr key={r.key} className="border-b">
                   <td className="p-3">
-                    <input type="checkbox" checked={checked.has(r.key)} onChange={() => toggle(r.key)} disabled={r.gap <= 0} />
+                    <input type="checkbox" checked={checked.has(r.key)} onChange={() => toggle(r.key)} disabled={r.gap <= 0 || noPrice(r)} title={noPrice(r) ? "档案缺采购价，请先在产品目录维护" : undefined} />
                   </td>
                   <td className="p-3 text-xs">{r.workshopName}</td>
                   <td className="p-3">
                     <div className="font-semibold">{r.productName}</div>
                     <div className="font-mono text-xs text-muted-foreground">{r.sku}</div>
                   </td>
-                  <td className="p-3 text-xs text-muted-foreground">{r.weightPerMeter != null ? `${r.weightPerMeter} kg/m` : "-"}</td>
+                  <td className="p-3 text-xs text-muted-foreground">{r.weightPerMeter != null ? `${r.weightPerMeter} kg/m` : "-"}{noPrice(r) && <span className="ml-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-300 ring-1 ring-inset ring-amber-400/20">档案缺价</span>}</td>
                   <td className="p-3 text-right">{r.demand}</td>
                   <td className="p-3 text-right">{r.stock}</td>
                   <td className="p-3 text-right text-sky-300">{r.transit}</td>

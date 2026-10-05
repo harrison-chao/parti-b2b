@@ -70,6 +70,18 @@ export async function createShipment(tx: Tx, input: CreateShipmentInput) {
   // 工单状态门槛：READY_TO_SHIP（或外协直发豁免）
   const orderNos = [...new Set(input.lines.map((l) => l.orderNo))];
   const workOrders = await tx.workOrder.findMany({ where: { orderNo: { in: orderNos } } });
+  // 合发一致性：所选订单必须同客户、同收货人（送货单/签收回执按单抬头打印，跨收货人合发会错货）
+  const headOrders = await tx.salesOrder.findMany({
+    where: { orderNo: { in: orderNos } },
+    select: { orderNo: true, dealerId: true, receiverName: true, receiverPhone: true, receiverAddress: true },
+  });
+  const first = headOrders[0];
+  const mismatch = headOrders.find(
+    (o) => o.dealerId !== first.dealerId || o.receiverName !== first.receiverName || o.receiverPhone !== first.receiverPhone || o.receiverAddress !== first.receiverAddress,
+  );
+  if (mismatch) {
+    throw new Error(`合发订单收货信息不一致（${mismatch.orderNo} 与 ${first.orderNo}），请分开发货`);
+  }
   const woByOrder = new Map(workOrders.map((w) => [w.orderNo, w]));
   for (const orderNo of orderNos) {
     const wo = woByOrder.get(orderNo);

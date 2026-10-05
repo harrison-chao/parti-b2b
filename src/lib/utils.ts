@@ -223,3 +223,10 @@ export function genShipmentNo(): string {
   const r = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
   return `SH-${y}${m}${day}-${r}`;
 }
+
+/** 角色首页：WORKSHOP → /workshop（防 /admin⇄/dealer 重定向死循环） */
+export function roleHome(role?: string | null): string {
+  if (role === "WORKSHOP") return "/workshop";
+  if (role === "DEALER") return "/dealer";
+  return "/admin";
+}

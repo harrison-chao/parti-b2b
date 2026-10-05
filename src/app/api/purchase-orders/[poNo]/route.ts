@@ -18,6 +18,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { poNo: stri
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return fail("参数错误: " + parsed.error.message);
   const d = parsed.data;
+  // 已收货的不可整单取消（否则实收应付从对账中蒸发）；如需处理请按已收结算后另行建单
+  if (d.status === "CANCELLED") {
+    const received = await prisma.purchaseOrderLine.count({ where: { poNo: params.poNo, receivedQty: { gt: 0 } } });
+    if (received > 0) return fail(`已有 ${received} 行收货记录，不能整单取消；请走已收结算或联系管理员冲销`);
+  }
   const po = await prisma.purchaseOrder.update({
     where: { poNo: params.poNo },
     data: {

@@ -25,7 +25,11 @@ export default async function OrderConfirmPrintPage({ params }: { params: { orde
     },
   });
   if (!order) notFound();
-  if (session.user.role === "DEALER" && order.dealerId !== session.user.dealerId) notFound();
+  if (session.user.role === "DEALER") {
+    if (order.dealerId !== session.user.dealerId) notFound();
+    // 未过审草稿不外发盖章确认书（防拿草稿约束终端客户后再改单）
+    if (["DRAFT", "MODIFYING"].includes(order.orderStatus)) notFound();
+  }
   if (session.user.role === "WORKSHOP") redirect("/workshop");
 
   const dealer = order.dealer;

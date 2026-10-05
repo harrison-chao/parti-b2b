@@ -111,9 +111,8 @@ function rowReady(r: Row): boolean {
 function rawProfileLabel(raw: RawProfileItem) {
   const parts = [
     raw.series,
-    raw.productName,
-    raw.spec,
-    raw.lengthMm ? `${raw.lengthMm}mm 原料棒` : null,
+    raw.lengthMm ? `${raw.lengthMm}mm` : null,
+    raw.surfaceProcessCode && raw.surfaceColorCode ? `${raw.surfaceProcessCode}-${raw.surfaceColorCode}` : (raw.surfaceProcessCode ?? raw.surfaceColorCode ?? null),
   ].filter(Boolean);
   return parts.join(" · ");
 }
