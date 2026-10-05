@@ -14,6 +14,8 @@ const schema = z.object({
     weightKg: z.number().positive().optional().nullable(),
   })).min(1),
   note: z.string().optional().nullable(),
+  // 炉批号：同色不同批有色差风险，收货时录入供追溯与同单同批核对
+  batchNo: z.string().optional().nullable(),
   // 磅差超过容忍带时需显式确认（前端弹窗后重发）；确认动作单独留痕
   confirm: z.boolean().optional(),
 });
@@ -25,7 +27,7 @@ export async function POST(req: NextRequest, { params }: { params: { poNo: strin
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) return fail("参数错误: " + parsed.error.message);
-  const { lines, note, confirm } = parsed.data;
+  const { lines, note, confirm, batchNo } = parsed.data;
 
   // 原料档案（棒长/米重）与磅差校验可在事务外做（只读）；写路径全部在事务内重读
   const po0 = await prisma.purchaseOrder.findUnique({ where: { poNo: params.poNo }, select: { status: true } });
@@ -123,6 +125,7 @@ export async function POST(req: NextRequest, { params }: { params: { poNo: strin
         note: noteParts.filter(Boolean).join(" · ") || null,
         operatorName: session.user.name,
         unitCost: batchPerMeter != null ? Math.round(batchPerMeter * 10000) / 10000 : null,
+        batchNo: batchNo?.trim() || null,
       });
 
       // 移动加权均价：库存行已被上面 applyStockMovement 更新，用收前数量与旧均价折算

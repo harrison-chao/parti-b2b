@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -214,6 +214,8 @@ export function WorkOrderDetail({
             </CardContent>
           </Card>
 
+          <MaterialReturnCard workOrderNo={data.workOrderNo} status={data.status} />
+
           <Card>
             <CardHeader><CardTitle>操作日志</CardTitle></CardHeader>
             <CardContent>
@@ -304,5 +306,115 @@ export function WorkOrderDetail({
         </div>
       </div>
     </div>
+  );
+}
+
+
+// ── 余料回库：切割剩余段按 SEMI 入库（账实闭环的关键一环）──────────
+function MaterialReturnCard({ workOrderNo, status }: { workOrderNo: string; status: string }) {
+  const [data, setData] = useState<{
+    suggestions: Array<{ sourceSku: string; productName: string; barMm: number; totalCutMm: number; barsConsumed: number; remainderMm: number; maxReturnMm: number }>;
+    history: Array<{ id: string; sku: string; quantity: number; note: string | null; createdAt: string }>;
+  } | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [rows, setRows] = useState<Array<{ sourceSku: string; segmentMm: string; quantity: string }>>([]);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+  const canReturn = ["PROCESSING", "QC", "PACKING", "READY_TO_SHIP", "SHIPPED"].includes(status);
+
+  async function load() {
+    setErr("");
+    const r = await fetch(`/api/work-orders/${workOrderNo}/material-return`);
+    const j = await r.json();
+    if (j.code !== 0) { setErr(j.message); setLoaded(true); return; }
+    setData(j.data);
+    setLoaded(true);
+  }
+  useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [workOrderNo]);
+
+  function prefill() {
+    if (!data) return;
+    setRows(data.suggestions
+      .filter((sg) => sg.remainderMm >= 300)
+      .map((sg) => ({ sourceSku: sg.sourceSku, segmentMm: String(sg.remainderMm), quantity: "1" })));
+  }
+
+  async function submit() {
+    setBusy(true); setErr(""); setMsg("");
+    try {
+      const payload = {
+        returns: rows
+          .filter((r) => r.sourceSku && r.segmentMm && Number(r.quantity) > 0)
+          .map((r) => ({ sourceSku: r.sourceSku, segmentMm: Math.round(Number(r.segmentMm)), quantity: Math.round(Number(r.quantity)) })),
+      };
+      if (payload.returns.length === 0) { setErr("请至少填写一行余段"); return; }
+      const r = await fetch(`/api/work-orders/${workOrderNo}/material-return`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
+      const j = await r.json();
+      if (j.code !== 0) { setErr(j.message); return; }
+      setMsg(`已回库：${j.data.created.map((c: any) => `${c.sku} ×${c.quantity}`).join("、")}`);
+      setRows([]);
+      void load(); // 重载建议与历史
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>余料回库（切割剩余段 → 半成品库存）</CardTitle>
+        <p className="text-xs text-muted-foreground mt-1">
+          整棒扣料后剩余的段料在这里回库，账实才能对齐；段长 ≥ 300mm 建议回库，更短的按损耗处理。回库段自动生成/复用 SEMI 半成品档案，可再用于短切长订单。
+          {!canReturn && <span className="text-amber-300"> 当前工单状态尚未领料，回库需在加工之后。</span>}
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {err && <div className="text-xs text-red-400">{err}</div>}
+        {data && data.suggestions.length > 0 && (
+          <div className="text-xs">
+            <div className="font-semibold mb-1">理论余量（扣棒数×棒长 − 切长合计）</div>
+            {data.suggestions.map((sg) => (
+              <div key={sg.sourceSku} className="text-muted-foreground">
+                {sg.sourceSku}：扣 {sg.barsConsumed} 根 × {sg.barMm}mm − 切长 {sg.totalCutMm}mm = 余 {sg.remainderMm}mm
+              </div>
+            ))}
+            <Button size="sm" variant="outline" className="mt-2" onClick={prefill} disabled={!canReturn}>按理论余量预填</Button>
+          </div>
+        )}
+        {loaded && data && data.suggestions.length === 0 && (
+          <div className="text-xs text-muted-foreground">本单无整棒原料行（纯半成品段/五金单），无余段可回。</div>
+        )}
+        {rows.map((row, i) => (
+          <div key={i} className="flex gap-2 items-center">
+            <select className="h-8 border rounded px-2 text-sm bg-card" value={row.sourceSku}
+              onChange={(e) => setRows(rows.map((r, j) => j === i ? { ...r, sourceSku: e.target.value } : r))}>
+              <option value="">选择源原料</option>
+              {(data?.suggestions ?? []).map((sg) => <option key={sg.sourceSku} value={sg.sourceSku}>{sg.sourceSku}</option>)}
+            </select>
+            <Input type="number" className="h-8 w-28" placeholder="段长 mm" value={row.segmentMm}
+              onChange={(e) => setRows(rows.map((r, j) => j === i ? { ...r, segmentMm: e.target.value } : r))} />
+            <Input type="number" className="h-8 w-20" placeholder="根数" value={row.quantity}
+              onChange={(e) => setRows(rows.map((r, j) => j === i ? { ...r, quantity: e.target.value } : r))} />
+            <Button size="sm" variant="ghost" className="text-red-400" onClick={() => setRows(rows.filter((_, j) => j !== i))}>移除</Button>
+          </div>
+        ))}
+        <div className="flex gap-2 items-center">
+          <Button size="sm" variant="outline" onClick={() => setRows([...rows, { sourceSku: "", segmentMm: "", quantity: "1" }])} disabled={!canReturn}>+ 加一段</Button>
+          <Button size="sm" onClick={submit} disabled={busy || !canReturn}>{busy ? "回库中..." : "确认回库"}</Button>
+          {msg && <span className="text-xs text-emerald-300">{msg}</span>}
+        </div>
+        {data && data.history.length > 0 && (
+          <div className="text-xs border-t pt-2">
+            <div className="font-semibold mb-1">已回库记录</div>
+            {data.history.map((h) => (
+              <div key={h.id} className="text-muted-foreground">
+                {new Date(h.createdAt).toLocaleString("zh-CN")} · {h.sku} ×{h.quantity} {h.note ?? ""}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
