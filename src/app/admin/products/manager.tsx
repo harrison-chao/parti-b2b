@@ -548,68 +548,84 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
               <th className="p-3">状态</th><th className="p-3"></th>
             </tr></thead>
             <tbody>
-              {list.map((p) => (
-                <tr key={p.id} className="border-b hover:bg-muted/50">
-                  <td className="p-3 font-mono">{p.sku}</td>
-                  {tab === "PROFILE" ? (
-                    <>
-                      <td className="p-3 font-semibold">{p.series}</td>
-                      <td className="p-3 text-xs">
-                        {p.surfaceProcessCode || p.surfaceColorCode ? (
-                          <span>
-                            {p.surfaceProcessCode
-                              ? <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-cyan-300 ring-1 ring-inset ring-cyan-400/20">{surfaceProcessOptions.find((o) => o.code === p.surfaceProcessCode)?.label ?? p.surfaceProcessCode}</span>
-                              : null}
-                            {p.surfaceColorCode && <span className="ml-1 rounded bg-fuchsia-500/15 px-1.5 py-0.5 text-fuchsia-300 ring-1 ring-inset ring-fuchsia-400/20">{surfaceColorOptions.find((o) => o.code === p.surfaceColorCode)?.label ?? p.surfaceColorCode}</span>}
-                          </span>
-                        ) : <span className="text-muted-foreground">-</span>}
+              {(() => {
+                // 按系列分栏：同一系列的型材/五金聚在一组，栏头显示系列名与数量
+                const groupKey = (p: typeof list[number]) => (p.series ?? "").trim() || "（未分系列）";
+                const groups = [...new Set(list.map(groupKey))].sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+                return groups.flatMap((g) => {
+                  const rows = list.filter((p) => groupKey(p) === g);
+                  return [
+                    <tr key={`g-${g}`} className="bg-slate-500/10">
+                      <td colSpan={tab === "PROFILE" ? 8 : 9} className="p-2">
+                        <span className="font-semibold text-sm">{g}</span>
+                        <span className="ml-2 text-xs text-muted-foreground font-normal">{rows.length} 项</span>
                       </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="p-3">{p.productName}</td>
-                      <td className="p-3 text-xs">{p.series}</td>
-                      <td className="p-3 text-xs text-muted-foreground">{p.spec ?? "-"}</td>
-                    </>
-                  )}
-                  {tab === "PROFILE" && (
-                    <td className="p-3 text-xs">
-                      {p.isRawMaterial ? (
-                        <button className="text-left text-sky-400 hover:underline" onClick={() => editProfileRules(p)}>
-                          {p.materialStage === "SEMI" && <span className="mr-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-300 ring-1 ring-inset ring-amber-400/20">半成品段</span>}
-                          原料 · {p.lengthMm ?? 3600}mm · 良率 {p.yieldRate ?? 0.95}
-                          {p.weightPerMeter != null && <> · {p.weightPerMeter}kg/m</>}
-                        </button>
-                      ) : <span className="text-muted-foreground">非原料</span>}
-                    </td>
-                  )}
-                  {tab !== "PROFILE" && (
-                    <td className="p-3 text-right cursor-pointer hover:underline" onClick={() => editPrice(p)}>
-                      {formatMoney(p.retailPrice)}
-                    </td>
-                  )}
-                  <td className="p-3 text-right text-xs text-muted-foreground">{p.purchasePrice != null ? formatMoney(p.purchasePrice) : "-"}</td>
-                  <td className="p-3 text-xs">{p.drawingRequired ? "必传" : "-"}</td>
-                  <td className="p-3">
-                    <Badge className={p.isActive ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-inset ring-emerald-400/20" : "bg-slate-500/15 text-slate-400 ring-1 ring-inset ring-slate-400/20"}>
-                      {p.isActive ? "启用" : "停用"}
-                    </Badge>
-                  </td>
-                  <td className="p-3">
-                    <div className="flex items-center gap-3">
-                      <button onClick={() => openEdit(p)} className="text-xs text-sky-400 hover:underline">
-                        编辑
-                      </button>
-                      <button onClick={() => toggleActive(p)} className="text-xs text-sky-400 hover:underline">
-                        {p.isActive ? "停用" : "启用"}
-                      </button>
-                      <button onClick={() => deleteProduct(p)} className="text-xs text-red-400 hover:underline">
-                        删除
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </tr>,
+                    ...rows.map((p) => (
+                      <tr key={p.id} className="border-b hover:bg-muted/50">
+                        <td className="p-3 font-mono">{p.sku}</td>
+                        {tab === "PROFILE" ? (
+                          <>
+                            <td className="p-3 font-semibold">{p.series}</td>
+                            <td className="p-3 text-xs">
+                              {p.surfaceProcessCode || p.surfaceColorCode ? (
+                                <span>
+                                  {p.surfaceProcessCode
+                                    ? <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-cyan-300 ring-1 ring-inset ring-cyan-400/20">{surfaceProcessOptions.find((o) => o.code === p.surfaceProcessCode)?.label ?? p.surfaceProcessCode}</span>
+                                    : null}
+                                  {p.surfaceColorCode && <span className="ml-1 rounded bg-fuchsia-500/15 px-1.5 py-0.5 text-fuchsia-300 ring-1 ring-inset ring-fuchsia-400/20">{surfaceColorOptions.find((o) => o.code === p.surfaceColorCode)?.label ?? p.surfaceColorCode}</span>}
+                                </span>
+                              ) : <span className="text-muted-foreground">-</span>}
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="p-3">{p.productName}</td>
+                            <td className="p-3 text-xs">{p.series}</td>
+                            <td className="p-3 text-xs text-muted-foreground">{p.spec ?? "-"}</td>
+                          </>
+                        )}
+                        {tab === "PROFILE" && (
+                          <td className="p-3 text-xs">
+                            {p.isRawMaterial ? (
+                              <button className="text-left text-sky-400 hover:underline" onClick={() => editProfileRules(p)}>
+                                {p.materialStage === "SEMI" && <span className="mr-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-300 ring-1 ring-inset ring-amber-400/20">半成品段</span>}
+                                原料 · {p.lengthMm ?? 3600}mm · 良率 {p.yieldRate ?? 0.95}
+                                {p.weightPerMeter != null && <> · {p.weightPerMeter}kg/m</>}
+                              </button>
+                            ) : <span className="text-muted-foreground">非原料</span>}
+                          </td>
+                        )}
+                        {tab !== "PROFILE" && (
+                          <td className="p-3 text-right cursor-pointer hover:underline" onClick={() => editPrice(p)}>
+                            {formatMoney(p.retailPrice)}
+                          </td>
+                        )}
+                        <td className="p-3 text-right text-xs text-muted-foreground">{p.purchasePrice != null ? formatMoney(p.purchasePrice) : "-"}</td>
+                        <td className="p-3 text-xs">{p.drawingRequired ? "必传" : "-"}</td>
+                        <td className="p-3">
+                          <Badge className={p.isActive ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-inset ring-emerald-400/20" : "bg-slate-500/15 text-slate-400 ring-1 ring-inset ring-slate-400/20"}>
+                            {p.isActive ? "启用" : "停用"}
+                          </Badge>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-3">
+                            <button onClick={() => openEdit(p)} className="text-xs text-sky-400 hover:underline">
+                              编辑
+                            </button>
+                            <button onClick={() => toggleActive(p)} className="text-xs text-sky-400 hover:underline">
+                              {p.isActive ? "停用" : "启用"}
+                            </button>
+                            <button onClick={() => deleteProduct(p)} className="text-xs text-red-400 hover:underline">
+                              删除
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )),
+                  ];
+                });
+              })()}
               {list.length === 0 && <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">暂无</td></tr>}
             </tbody>
           </table>
