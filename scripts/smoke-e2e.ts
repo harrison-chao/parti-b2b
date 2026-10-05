@@ -11,6 +11,7 @@ import { WORK_ORDER_TRANSITIONS, nextWorkOrderStatus } from "../src/lib/workorde
 import { calcPricing } from "../src/lib/pricing";
 import { resolveRawBasis } from "../src/lib/pricing-source";
 import { movingAveragePerMeter, theoreticalWeightKg, weightDeviation, WEIGHT_TOLERANCE } from "../src/lib/inventory";
+import { surfaceCodesOf, surfaceCodesText, surfaceMismatch } from "../src/lib/surface";
 import { Prisma as PrismaNS } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -921,6 +922,28 @@ async function main() {
     check("I4 deviation 45kg = 4.2% within band", dev1 != null && dev1 > 0.04 && dev1 < 0.05, `dev=${dev1}`);
     check("I4 deviation 48kg = 11.1% exceeds 5% band", dev2 != null && dev2 > WEIGHT_TOLERANCE, `dev=${dev2}`);
     check("I4 missing theoretical skips check", weightDeviation(50, null) === null);
+  }
+
+  // ---------- Phase J: 第 3 步表面化（旧文本解析 + 原料绑定校验 + 读端统一） ----------
+  {
+    const parse = (t: string) => surfaceCodesOf({ surfaceTreatment: t });
+    check("J1 legacy dict parses Silver太空银-氧化 → A/SV", JSON.stringify(parse("Silver太空银-氧化")) === JSON.stringify({ processCode: "A", colorCode: "SV" }));
+    check("J1 legacy dict parses 热转印白橡木纹 → T/WO", JSON.stringify(parse("热转印白橡木纹")) === JSON.stringify({ processCode: "T", colorCode: "WO" }));
+    check("J1 legacy dict parses 胚料本色 → NP/null", JSON.stringify(parse("胚料本色")) === JSON.stringify({ processCode: "NP", colorCode: null }));
+    check("J1 code pattern parses A-SV directly", JSON.stringify(parse("A-SV")) === JSON.stringify({ processCode: "A", colorCode: "SV" }));
+    check("J1 unparseable noise returns nulls", JSON.stringify(parse("诺贝脚轮")) === JSON.stringify({ processCode: null, colorCode: null }));
+    check("J1 line codes take precedence over legacy text", surfaceCodesOf({ surfaceProcessCode: "T", surfaceColorCode: "BK", surfaceTreatment: "A-SV" }).processCode === "T");
+
+    check("J2 matching surface passes", surfaceMismatch({ surfaceProcessCode: "A", surfaceColorCode: "SV" }, { surfaceProcessCode: "A", surfaceColorCode: "SV" }) === null);
+    check("J2 legacy text resolves before mismatch check", surfaceMismatch({ surfaceTreatment: "Silver太空银-氧化" }, { surfaceProcessCode: "A", surfaceColorCode: "SV" }) === null);
+    const mm = surfaceMismatch({ surfaceProcessCode: "A", surfaceColorCode: "BK" }, { surfaceProcessCode: "A", surfaceColorCode: "SV" });
+    check("J2 color mismatch rejected", mm != null && mm.includes("颜色"));
+    const mp = surfaceMismatch({ surfaceTreatment: "A-SV" }, { surfaceProcessCode: "T", surfaceColorCode: "WO" });
+    check("J2 process mismatch rejected", mp != null && mp.includes("表面处理"));
+    check("J2 raw without codes accepts anything", surfaceMismatch({ surfaceProcessCode: "W", surfaceColorCode: "BK" }, {}) === null);
+
+    check("J3 surfaceCodesText prefers codes", surfaceCodesText({ surfaceProcessCode: "A", surfaceColorCode: "SV", surfaceTreatment: "旧文" }) === "A-SV");
+    check("J3 surfaceCodesText falls back to legacy", surfaceCodesText({ surfaceTreatment: "旧文" }) === "旧文");
   }
 
   console.log(`\nSmoke E2E passed: ${results.length} assertions`);

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { surfaceCodesText } from "@/lib/surface";
 import {
   formatDate, formatDateTime,
   WORK_ORDER_STATUS_LABEL, WORK_ORDER_STATUS_COLOR, WORK_ORDER_STATUS_FLOW,
@@ -198,7 +199,7 @@ export function WorkOrderDetail({
                       <td className="p-3">{l.lineNo}</td>
                       <td className="p-3">{l.productName}</td>
                       <td className="p-3 font-mono text-xs">{l.sku}</td>
-                      <td className="p-3 text-xs">{l.surfaceTreatment ?? "-"}</td>
+                      <td className="p-3 text-xs">{surfaceCodesText(l) ?? l.surfaceTreatment ?? "-"}</td>
                       <td className="p-3 text-xs">{l.preprocessing ?? "-"}</td>
                       <td className="p-3 text-right">{l.quantity}</td>
                       <td className="p-3 text-xs">

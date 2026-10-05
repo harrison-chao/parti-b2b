@@ -551,16 +551,22 @@ export default function NewInternalOrderPage() {
                     </div>
                   </div>
                   <div className="md:col-span-2">
-                    <Label className="text-xs">表面</Label>
+                    <Label className="text-xs">表面{(() => { const rp = rawProducts.find((x) => x.id === r.rawProductId); return rp && (rp.surfaceProcessCode || rp.surfaceColorCode) ? "（随原料锁定）" : ""; })()}</Label>
                     <div className="flex gap-1">
-                      <select className="w-1/2 border rounded p-2 text-sm" value={r.surfaceProcessCode}
-                        onChange={(e) => patchRow(r.key, { surfaceProcessCode: e.target.value })}>
-                        {surfaceProcesses.map((o) => <option key={o.code} value={o.code}>{o.label}</option>)}
-                      </select>
-                      <select className="w-1/2 border rounded p-2 text-sm" value={r.surfaceColorCode}
-                        onChange={(e) => patchRow(r.key, { surfaceColorCode: e.target.value })}>
-                        {surfaceColors.map((o) => <option key={o.code} value={o.code}>{o.label}</option>)}
-                      </select>
+                      {(() => { const rp = rawProducts.find((x) => x.id === r.rawProductId); return (
+                        <>
+                          <select className="w-1/2 border rounded p-2 text-sm" value={r.surfaceProcessCode}
+                            disabled={!!rp?.surfaceProcessCode}
+                            onChange={(e) => patchRow(r.key, { surfaceProcessCode: e.target.value })}>
+                            {surfaceProcesses.map((o) => <option key={o.code} value={o.code}>{o.label}</option>)}
+                          </select>
+                          <select className="w-1/2 border rounded p-2 text-sm" value={r.surfaceColorCode}
+                            disabled={!!rp?.surfaceColorCode}
+                            onChange={(e) => patchRow(r.key, { surfaceColorCode: e.target.value })}>
+                            {surfaceColors.map((o) => <option key={o.code} value={o.code}>{o.label}</option>)}
+                          </select>
+                        </>
+                      ); })()}
                     </div>
                   </div>
                 </>
