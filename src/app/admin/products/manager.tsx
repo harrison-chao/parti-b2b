@@ -464,7 +464,16 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
             <div><Label>SKU</Label><Input value={form.sku} disabled={!!editing} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder={((editing?.category ?? tab) === "PROFILE") ? "留空自动（RAW-系列-棒长-表面-颜色）" : "留空自动（HW-年月-序号）"} /></div>
             {((editing?.category ?? tab) === "PROFILE") ? (
               <>
-                <div><Label>系列名称</Label><Input value={form.series} onChange={(e) => setForm({ ...form, series: e.target.value })} placeholder="如 MR2525（即名称即规格）" /></div>
+                <div>
+                  <Label>系列名称</Label>
+                  <Input value={form.series} list="raw-series-options" onChange={(e) => setForm({ ...form, series: e.target.value })} placeholder="如 MR2525（即名称即规格）" />
+                  <datalist id="raw-series-options">
+                    {[...new Set(list.map((p) => p.series).filter(Boolean))].sort().map((s) => (
+                      <option key={s} value={s} />
+                    ))}
+                  </datalist>
+                  <p className="text-xs text-muted-foreground mt-0.5">输入时自动提示已有系列——同一型材请沿用同一名字，避免下单下拉出现重复选项</p>
+                </div>
                 <div>
                   <Label>表面处理</Label>
                   <select className="h-10 w-full rounded-xl border border-input bg-card/75 px-3 text-sm shadow-sm" value={form.surfaceProcessCode} onChange={(e) => setForm({ ...form, surfaceProcessCode: e.target.value })}>
