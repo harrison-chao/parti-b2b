@@ -72,7 +72,7 @@ export function WorkshopsManager({ initial }: { initial: Workshop[] }) {
                     <td className="p-3 text-xs max-w-xs truncate">{w.address ?? "-"}</td>
                     <td className="p-3">{w.userCount}</td>
                     <td className="p-3">{w.workOrderCount}</td>
-                    <td className="p-3"><Badge className={w.isActive ? "bg-green-100 text-green-700" : "bg-secondary text-muted-foreground"}>{w.isActive ? "启用" : "停用"}</Badge></td>
+                    <td className="p-3"><Badge className={w.isActive ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-inset ring-emerald-400/20" : "bg-secondary text-muted-foreground"}>{w.isActive ? "启用" : "停用"}</Badge></td>
                     <td className="p-3 flex gap-1">
                       <Button variant="outline" size="sm" onClick={() => setExpandedId(expandedId === w.id ? null : w.id)}>
                         {expandedId === w.id ? "收起" : "账号"}

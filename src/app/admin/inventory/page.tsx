@@ -52,7 +52,7 @@ export default async function AdminInventoryPage() {
                   <td className={`p-3 text-right font-semibold ${item.quantity < 0 ? "text-rose-700" : "text-amber-300"}`}>{item.quantity}</td>
                   <td className="p-3 text-right">{item.lowStockThreshold || "-"}</td>
                   <td className="p-3">
-                    {item.quantity < 0 ? <Badge className="bg-rose-100 text-rose-700">负库存</Badge> : <Badge className="bg-amber-100 text-amber-800">低库存</Badge>}
+                    {item.quantity < 0 ? <Badge className="bg-rose-500/15 text-rose-300 ring-1 ring-inset ring-rose-400/20">负库存</Badge> : <Badge className="bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-400/20">低库存</Badge>}
                   </td>
                   <td className="p-3 text-xs text-muted-foreground">{formatDateTime(item.updatedAt)}</td>
                 </tr>

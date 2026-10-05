@@ -183,7 +183,7 @@ export function DealersManager({ initial, initialTab = "DEALER" }: { initial: De
                     <td className="p-3 text-xs">{d.creditDays ? `${d.creditDays} 天` : "-"}{d.allowOverCredit && <div className="text-amber-600">允许超额</div>}</td>
                     <td className="p-3">{d.orderCount}</td>
                     <td className="p-3">
-                      <Badge className={d.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-secondary text-muted-foreground"}>
+                      <Badge className={d.status === "ACTIVE" ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-inset ring-emerald-400/20" : "bg-secondary text-muted-foreground"}>
                         {d.status === "ACTIVE" ? "启用" : "停用"}
                       </Badge>
                       <div className="mt-1 text-[11px] text-muted-foreground">{formatDate(d.createdAt)}</div>

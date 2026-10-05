@@ -70,11 +70,11 @@ export const PURCHASE_ORDER_STATUS_LABEL: Record<string, string> = {
 
 export const PURCHASE_ORDER_STATUS_COLOR: Record<string, string> = {
   DRAFT: "bg-secondary text-foreground/80",
-  SENT: "bg-blue-100 text-blue-800",
-  PARTIALLY_RECEIVED: "bg-amber-100 text-amber-800",
-  RECEIVED: "bg-emerald-100 text-emerald-800",
-  CLOSED: "bg-slate-200 text-muted-foreground",
-  CANCELLED: "bg-rose-100 text-rose-800",
+  SENT: "bg-sky-500/15 text-sky-300 ring-1 ring-inset ring-sky-400/20",
+  PARTIALLY_RECEIVED: "bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-400/20",
+  RECEIVED: "bg-emerald-500/15 text-emerald-300 ring-1 ring-inset ring-emerald-400/20",
+  CLOSED: "bg-slate-500/15 text-slate-400 ring-1 ring-inset ring-slate-400/20",
+  CANCELLED: "bg-rose-500/15 text-rose-300 ring-1 ring-inset ring-rose-400/20",
 };
 
 export const STOCK_MOVEMENT_TYPE_LABEL: Record<string, string> = {
@@ -105,7 +105,7 @@ export const ORDER_LINE_TYPE_LABEL: Record<string, string> = {
 export const ORDER_LINE_TYPE_COLOR: Record<string, string> = {
   PROFILE: "bg-sky-100 text-sky-700",
   HARDWARE: "bg-violet-100 text-violet-700",
-  OUTSOURCED: "bg-amber-100 text-amber-300",
+  OUTSOURCED: "bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-400/20",
 };
 
 export const WORK_ORDER_STATUS_LABEL: Record<string, string> = {

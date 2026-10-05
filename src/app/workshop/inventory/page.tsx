@@ -30,8 +30,8 @@ export default async function WorkshopInventoryPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">车间库存</h1>
         <div className="flex gap-2 text-sm">
-          {negative.length > 0 && <Badge className="bg-red-100 text-red-400">⚠ 负库存 {negative.length}</Badge>}
-          {lowStock.length > 0 && <Badge className="bg-amber-100 text-amber-800">⚠ 低库存 {lowStock.length}</Badge>}
+          {negative.length > 0 && <Badge className="bg-red-500/15 text-red-400 ring-1 ring-inset ring-red-400/20">⚠ 负库存 {negative.length}</Badge>}
+          {lowStock.length > 0 && <Badge className="bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-400/20">⚠ 低库存 {lowStock.length}</Badge>}
         </div>
       </div>
 
@@ -57,9 +57,9 @@ export default async function WorkshopInventoryPage() {
                     <td className={`p-3 text-right font-medium ${isNeg ? "text-red-400" : isLow ? "text-amber-300" : ""}`}>{i.quantity}</td>
                     <td className="p-3 text-right"><ThresholdEditor id={i.id} initial={i.lowStockThreshold} /></td>
                     <td className="p-3">
-                      {isNeg ? <Badge className="bg-red-100 text-red-400">负库存</Badge>
-                        : isLow ? <Badge className="bg-amber-100 text-amber-800">低库存</Badge>
-                        : <Badge className="bg-emerald-100 text-emerald-300">正常</Badge>}
+                      {isNeg ? <Badge className="bg-red-500/15 text-red-400 ring-1 ring-inset ring-red-400/20">负库存</Badge>
+                        : isLow ? <Badge className="bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-400/20">低库存</Badge>
+                        : <Badge className="bg-emerald-500/15 text-emerald-300 ring-1 ring-inset ring-emerald-400/20">正常</Badge>}
                     </td>
                     <td className="p-3 text-xs text-muted-foreground">{formatDateTime(i.updatedAt)}</td>
                   </tr>

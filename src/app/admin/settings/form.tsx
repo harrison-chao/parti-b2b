@@ -134,7 +134,7 @@ export function SettingsForm({ initial }: { initial: AllSettings }) {
                 {backups.slice(0, 8).map((backup) => (
                   <tr key={backup.id} className="border-b">
                     <td className="p-2">
-                      <span className={`rounded-full px-2 py-0.5 text-xs ${backup.status === "SUCCESS" ? "bg-emerald-100 text-emerald-300" : "bg-rose-100 text-rose-700"}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${backup.status === "SUCCESS" ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-inset ring-emerald-400/20" : "bg-rose-500/15 text-rose-300 ring-1 ring-inset ring-rose-400/20"}`}>
                         {backup.status === "SUCCESS" ? "成功" : "失败"}
                       </span>
                     </td>

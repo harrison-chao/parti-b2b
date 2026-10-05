@@ -154,7 +154,11 @@ export function QuoteWorkbench({
   async function recalcProfile(id: string, lengthMm: number) {
     patchRow<ProfileRow>(id, { loading: true, error: undefined });
     try {
-      const r = await fetch(`/api/pricing/calculate?lengthMm=${lengthMm}`);
+      // 带原料 SKU 级口径计价（米重/良率/每米价三级回退），与下单服务端同引擎
+      const matched = rows.find((row) => row.id === id);
+      const raw = matched && "rawProductId" in matched ? matched : undefined;
+      const qs = raw?.rawProductId ? `&rawProductId=${raw.rawProductId}` : "";
+      const r = await fetch(`/api/pricing/calculate?lengthMm=${lengthMm}${qs}`);
       const j = await r.json();
       if (j.code !== 0) {
         patchRow<ProfileRow>(id, { loading: false, error: j.message, unitPrice: null, retailPrice: null });

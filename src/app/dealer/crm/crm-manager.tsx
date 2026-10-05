@@ -214,7 +214,7 @@ export function CrmManager({
               <Link key={customer.id} href={`/dealer/crm/${customer.id}`} className="rounded-2xl border bg-card/80 p-3 text-sm hover:border-sky-400">
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-semibold">{customer.name}</span>
-                  <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700">{score}</span>
+                  <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-xs text-sky-300 ring-1 ring-inset ring-sky-400/20">{score}</span>
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">{customer.phone} · {reasons.slice(0, 3).join(" / ")}</div>
               </Link>

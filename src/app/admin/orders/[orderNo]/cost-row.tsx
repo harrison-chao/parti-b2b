@@ -11,6 +11,19 @@ type Cost = {
   connectorCost: number;
   retailPrice: number;
   actualWeight: number;
+  // 口径切换：下单冻结快照（true）优先于实时估算；下述字段仅快照口径有值
+  snapshot?: boolean;
+  costSource?: string;
+  perMeterPrice?: number | null;
+  meterWeight?: number | null;
+  yieldRate?: number | null;
+  cutLengthMm?: number | null;
+};
+
+const COST_SOURCE_LABEL: Record<string, string> = {
+  AVG: "移动加权均价",
+  PURCHASE: "采购价折算",
+  SETTINGS: "全局常数",
 };
 
 export function OrderLineCostRow({
@@ -69,7 +82,7 @@ export function OrderLineCostRow({
           <div className="flex items-center gap-2">
             <span>{line.productName}</span>
             {line.lineType === "OUTSOURCED" && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">外购件</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-400/20">外购件</span>
             )}
           </div>
           {line.preprocessing && <div className="text-xs text-muted-foreground">{line.preprocessing}</div>}
@@ -109,15 +122,30 @@ export function OrderLineCostRow({
       {open && costBreakdown && (
         <tr className="bg-amber-500/10 border-b">
           <td colSpan={9} className="p-3">
-            <div className="text-xs font-semibold text-amber-800 mb-2">成本构成（单位成本 {formatMoney(costBreakdown.totalCost)}/根）</div>
-            <div className="grid grid-cols-6 gap-3 text-xs">
-              <div><div className="text-muted-foreground">实际耗料重</div><div className="font-mono">{costBreakdown.actualWeight} kg</div></div>
-              <div><div className="text-muted-foreground">材料成本</div><div className="font-mono">{formatMoney(costBreakdown.materialCost)}</div></div>
-              <div><div className="text-muted-foreground">表面处理</div><div className="font-mono">{formatMoney(costBreakdown.surfaceCost)}</div></div>
-              <div><div className="text-muted-foreground">加工费</div><div className="font-mono">{formatMoney(costBreakdown.processingCost)}</div></div>
-              <div><div className="text-muted-foreground">连接件</div><div className="font-mono">{formatMoney(costBreakdown.connectorCost)}</div></div>
-              <div><div className="text-muted-foreground">零售价参考</div><div className="font-mono">{formatMoney(costBreakdown.retailPrice)}</div></div>
+            <div className="text-xs font-semibold text-amber-300 mb-2 flex items-center gap-2">
+              成本构成（单位成本 {formatMoney(costBreakdown.totalCost)}/根）
+              <span className={`px-1.5 py-0.5 rounded text-[10px] ring-1 ring-inset ${costBreakdown.snapshot ? "bg-emerald-500/15 text-emerald-300 ring-emerald-400/20" : "bg-slate-500/15 text-slate-400 ring-slate-400/20"}`}>
+                {costBreakdown.snapshot ? "下单锁定" : "实时估算"}
+              </span>
             </div>
+            {costBreakdown.snapshot ? (
+              <div className="grid grid-cols-5 gap-3 text-xs">
+                <div><div className="text-muted-foreground">每米价来源</div><div className="font-mono">{COST_SOURCE_LABEL[costBreakdown.costSource ?? "SETTINGS"] ?? costBreakdown.costSource}</div></div>
+                <div><div className="text-muted-foreground">每米价</div><div className="font-mono">{costBreakdown.perMeterPrice != null ? `${formatMoney(costBreakdown.perMeterPrice)}/m` : "全局常数"}</div></div>
+                <div><div className="text-muted-foreground">截面米重</div><div className="font-mono">{costBreakdown.meterWeight ?? "-"} kg/m</div></div>
+                <div><div className="text-muted-foreground">良率</div><div className="font-mono">{costBreakdown.yieldRate ?? "-"}</div></div>
+                <div><div className="text-muted-foreground">切长</div><div className="font-mono">{costBreakdown.cutLengthMm ?? "-"} mm</div></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-6 gap-3 text-xs">
+                <div><div className="text-muted-foreground">实际耗料重</div><div className="font-mono">{costBreakdown.actualWeight} kg</div></div>
+                <div><div className="text-muted-foreground">材料成本</div><div className="font-mono">{formatMoney(costBreakdown.materialCost)}</div></div>
+                <div><div className="text-muted-foreground">表面处理</div><div className="font-mono">{formatMoney(costBreakdown.surfaceCost)}</div></div>
+                <div><div className="text-muted-foreground">加工费</div><div className="font-mono">{formatMoney(costBreakdown.processingCost)}</div></div>
+                <div><div className="text-muted-foreground">连接件</div><div className="font-mono">{formatMoney(costBreakdown.connectorCost)}</div></div>
+                <div><div className="text-muted-foreground">零售价参考</div><div className="font-mono">{formatMoney(costBreakdown.retailPrice)}</div></div>
+              </div>
+            )}
           </td>
         </tr>
       )}

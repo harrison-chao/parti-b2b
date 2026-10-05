@@ -108,7 +108,7 @@ export function ShipmentForm() {
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="font-mono font-bold">{o.displayOrderNo ?? o.orderNo}</span>
                 <span className="text-muted-foreground">{o.customer} → {o.receiverName}</span>
-                <Badge className={o.woStatus === "READY_TO_SHIP" ? "bg-cyan-100 text-cyan-700" : "bg-amber-100 text-amber-300"}>
+                <Badge className={o.woStatus === "READY_TO_SHIP" ? "bg-cyan-500/15 text-cyan-300 ring-1 ring-inset ring-cyan-400/20" : "bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-400/20"}>
                   {o.woStatus === "READY_TO_SHIP" ? "待发货" : o.woStatus === "PACKING" ? "打包中" : "外协/加工中(仅外协直发)"}
                 </Badge>
                 {o.committedDeliveryDate && <span className="text-xs text-muted-foreground">交期 {new Date(o.committedDeliveryDate).toLocaleDateString()}</span>}

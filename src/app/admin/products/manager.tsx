@@ -582,7 +582,7 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
                   <td className="p-3 text-right text-xs text-muted-foreground">{p.purchasePrice != null ? formatMoney(p.purchasePrice) : "-"}</td>
                   <td className="p-3 text-xs">{p.drawingRequired ? "必传" : "-"}</td>
                   <td className="p-3">
-                    <Badge className={p.isActive ? "bg-emerald-100 text-emerald-300" : "bg-slate-200 text-muted-foreground"}>
+                    <Badge className={p.isActive ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-inset ring-emerald-400/20" : "bg-slate-500/15 text-slate-400 ring-1 ring-inset ring-slate-400/20"}>
                       {p.isActive ? "启用" : "停用"}
                     </Badge>
                   </td>

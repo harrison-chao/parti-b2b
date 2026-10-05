@@ -302,7 +302,9 @@ export default function NewInternalOrderPage() {
 
   async function fetchPrice(r: OrderLineRow) {
     if (r.lineType !== "PROFILE" || !r.cutMm) return;
-    const res = await fetch(`/api/pricing/calculate?lengthMm=${r.cutMm}`);
+    // 带原料 SKU 级口径计价（米重/良率/每米价三级回退）
+    const qs = r.rawProductId ? `&rawProductId=${r.rawProductId}` : "";
+    const res = await fetch(`/api/pricing/calculate?lengthMm=${r.cutMm}${qs}`);
     const d = await j(await res);
     if (d?.dealerPrice != null) patchRow(r.key, { unitPrice: d.dealerPrice });
   }

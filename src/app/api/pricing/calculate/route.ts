@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { calcPricing } from "@/lib/pricing";
+import { resolveRawBasis } from "@/lib/pricing-source";
 import { loadSettings, pricingFieldsToConfig } from "@/lib/settings";
 import { ok, fail } from "@/lib/api";
 
@@ -29,7 +30,18 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const full = calcPricing(lengthMm, level, pricingFieldsToConfig(settings.pricingFields), settings.discountRates);
+  // 指定原料型材时按 SKU 级口径计价（米重/良率/每米价三级回退），未指定走全局常数
+  let basis;
+  const rawProductId = url.searchParams.get("rawProductId");
+  if (rawProductId) {
+    const raw = await prisma.product.findUnique({
+      where: { id: rawProductId },
+      select: { sku: true, weightPerMeter: true, yieldRate: true, purchasePrice: true, lengthMm: true, isRawMaterial: true },
+    });
+    if (raw && raw.isRawMaterial) basis = await resolveRawBasis(raw);
+  }
+
+  const full = calcPricing(lengthMm, level, pricingFieldsToConfig(settings.pricingFields), settings.discountRates, basis);
   const discountPercent = Math.round(settings.discountRates[level] * 100);
 
   if (role === "DEALER") {

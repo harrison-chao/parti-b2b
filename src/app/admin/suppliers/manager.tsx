@@ -149,7 +149,7 @@ export function SupplierManager({ suppliers }: { suppliers: Supplier[] }) {
                       <div className="text-muted-foreground">{s.taxNo ? `税号 ${s.taxNo}` : "-"}</div>
                     </td>
                     <td className="p-3">
-                      <Badge className={s.isActive ? "bg-emerald-100 text-emerald-300" : "bg-slate-200 text-muted-foreground"}>
+                      <Badge className={s.isActive ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-inset ring-emerald-400/20" : "bg-slate-500/15 text-slate-400 ring-1 ring-inset ring-slate-400/20"}>
                         {s.isActive ? "启用" : "停用"}
                       </Badge>
                     </td>

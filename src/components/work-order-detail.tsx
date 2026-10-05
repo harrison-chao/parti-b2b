@@ -148,7 +148,7 @@ export function WorkOrderDetail({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {overdue && <Badge className="bg-red-100 text-red-400">⚠ 已延期</Badge>}
+          {overdue && <Badge className="bg-red-500/15 text-red-400 ring-1 ring-inset ring-red-400/20">⚠ 已延期</Badge>}
           <Badge className={WORK_ORDER_STATUS_COLOR[data.status] + " text-base px-3 py-1"}>{WORK_ORDER_STATUS_LABEL[data.status]}</Badge>
           <a href={printHref} target="_blank" rel="noopener">
             <Button variant="outline">🖨 打印加工单</Button>
@@ -169,7 +169,7 @@ export function WorkOrderDetail({
                     <div key={s} className="flex items-center gap-1">
                       <div className={`px-2 py-1 rounded text-xs ${
                         current ? "bg-indigo-600 text-white font-semibold" :
-                        done ? "bg-emerald-100 text-emerald-300" :
+                        done ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-inset ring-emerald-400/20" :
                         "bg-secondary text-slate-400"
                       }`}>
                         {WORK_ORDER_STATUS_LABEL[s]}
