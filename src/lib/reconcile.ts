@@ -111,7 +111,7 @@ export async function listSupplierStatements(): Promise<SupplierStatement[]> {
     include: {
       purchaseOrders: {
         where: { status: { not: "CANCELLED" } },
-        include: { lines: { select: { receivedQty: true, unitPrice: true } } },
+        include: { lines: { select: { receivedQty: true, unitPrice: true, pricingUnit: true, settleUnitPrice: true, receivedWeightKg: true } } },
       },
       payments: { select: { amount: true } },
     },
@@ -120,7 +120,12 @@ export async function listSupplierStatements(): Promise<SupplierStatement[]> {
     let payable = new Prisma.Decimal(0);
     for (const po of s.purchaseOrders) {
       for (const l of po.lines) {
-        payable = payable.add(D(l.unitPrice).mul(l.receivedQty));
+        // 按重量结算行：应付 = 结算单价 × 实收磅重（批次计价第 2 步）
+        payable = payable.add(
+          l.pricingUnit === "KG" && l.settleUnitPrice != null && l.receivedWeightKg != null
+            ? D(l.settleUnitPrice).mul(l.receivedWeightKg)
+            : D(l.unitPrice).mul(l.receivedQty),
+        );
       }
     }
     const paid = s.payments.reduce((acc, p) => acc.add(D(p.amount)), new Prisma.Decimal(0));
@@ -151,11 +156,16 @@ export async function getSupplierStatementDetail(supplierId: string) {
 
   const poRows = pos.map((po) => {
     const received = po.lines.reduce(
-      (s, l) => s.add(D(l.unitPrice).mul(l.receivedQty)),
+      (s, l) => s.add(
+        l.pricingUnit === "KG" && l.settleUnitPrice != null && l.receivedWeightKg != null
+          ? D(l.settleUnitPrice).mul(l.receivedWeightKg)
+          : D(l.unitPrice).mul(l.receivedQty),
+      ),
       new Prisma.Decimal(0),
     );
+    // KG 行下单额即 lineAmount（约重×结算单价）
     const ordered = po.lines.reduce(
-      (s, l) => s.add(D(l.unitPrice).mul(l.quantity)),
+      (s, l) => s.add(l.pricingUnit === "KG" ? D(l.lineAmount) : D(l.unitPrice).mul(l.quantity)),
       new Prisma.Decimal(0),
     );
     return {
