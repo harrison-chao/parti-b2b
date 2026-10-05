@@ -36,7 +36,7 @@ type CrmCustomerOption = {
 type ProfileRow = {
   id: string; lineType: "PROFILE";
   rawProductId: string; rawSku: string; rawSeries: string;
-  lengthMm: string; processCode: string; colorCode: string; operationCode: string;
+  lengthMm: string; lengthInch: string; processCode: string; colorCode: string; operationCode: string;
   drawingUrl: string; drawingFileName: string; drawingUploading: boolean; drawingError?: string;
   quantity: number; targetPct: string; targetPriceOverride?: string;
   unitPrice: number | null; retailPrice: number | null; loading: boolean; error?: string;
@@ -60,7 +60,7 @@ type Row = ProfileRow | HardwareRow | OutsourcedRow;
 function newProfile(raw?: RawProfileItem): ProfileRow {
   return { id: crypto.randomUUID(), lineType: "PROFILE",
     rawProductId: raw?.id ?? "", rawSku: raw?.sku ?? "", rawSeries: raw?.series ?? "",
-    lengthMm: "", processCode: raw?.surfaceProcessCode ?? "", colorCode: raw?.surfaceColorCode ?? "",
+    lengthMm: "", lengthInch: "", processCode: raw?.surfaceProcessCode ?? "", colorCode: raw?.surfaceColorCode ?? "",
     operationCode: "", drawingUrl: "", drawingFileName: "", drawingUploading: false,
     quantity: 1, targetPct: "", unitPrice: null, retailPrice: null, loading: false };
 }
@@ -536,7 +536,7 @@ function ProfileTable({
       <table className="w-full text-sm min-w-[1200px]">
         <thead className="bg-muted/50 border-b"><tr className="text-left">
           <th className="p-2">型材</th>
-          <th className="p-2">长度(mm)</th><th className="p-2">表面处理</th><th className="p-2">颜色</th>
+          <th className="p-2">切长（寸/mm）</th><th className="p-2">表面处理</th><th className="p-2">颜色</th>
           <th className="p-2">加工操作</th><th className="p-2">图纸</th>
           <th className="p-2 w-20">数量</th><th className="p-2 w-24">目标%</th>
           <th className="p-2 text-right">采购单价</th><th className="p-2 text-right">零售价</th>
@@ -584,8 +584,22 @@ function ProfileTable({
                     </select>
                   )}
                 </td>
-                <td className="p-2"><Input type="number" min={1} className="h-8 w-24" value={r.lengthMm}
-                  onChange={(e) => patchRow(r.id, { lengthMm: e.target.value })} onBlur={() => onLengthBlur(r)} /></td>
+                <td className="p-2">
+                  <div className="flex gap-1">
+                    <div className="relative">
+                      <Input type="number" min={1} step="0.1" className="h-8 w-[4.5rem] pr-6" value={r.lengthInch}
+                        onChange={(e) => { const v = e.target.value; patchRow(r.id, { lengthInch: v, lengthMm: v ? String(Math.round(parseFloat(v) * 25.4)) : "" }); }}
+                        onBlur={() => onLengthBlur(r)} />
+                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">寸</span>
+                    </div>
+                    <div className="relative">
+                      <Input type="number" min={1} className="h-8 w-[4.5rem] pr-7" value={r.lengthMm}
+                        onChange={(e) => { const v = e.target.value; patchRow(r.id, { lengthMm: v, lengthInch: v ? (parseFloat(v) / 25.4).toFixed(1) : "" }); }}
+                        onBlur={() => onLengthBlur(r)} />
+                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">mm</span>
+                    </div>
+                  </div>
+                </td>
                 <td className="p-2"><Sel value={r.processCode} onChange={(v: string) => pick(r, undefined, v)} hideCode
                   options={processCodesOf(rawProfileCatalog, r.rawSeries).map((c: string) => ({ code: c, label: procLabel(c) }))} /></td>
                 <td className="p-2"><Sel value={r.colorCode} onChange={(v: string) => pick(r, undefined, undefined, v)} hideCode
