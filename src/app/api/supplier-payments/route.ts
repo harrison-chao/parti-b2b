@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
 import { z } from "zod";
 import { logAudit } from "@/lib/audit";
+import { linePayableOf } from "@/lib/reconcile";
+import { Prisma } from "@prisma/client";
 
 const createSchema = z.object({
   supplierId: z.string().min(1),
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
     });
     for (const po of pos) {
       if (remaining <= 0) break;
-      const payable = po.lines.reduce((sum, line) => sum + Number(line.unitPrice) * line.receivedQty, 0);
+      const payable = Number(po.lines.reduce((sum, line) => sum.add(linePayableOf(line)), new Prisma.Decimal(0)));
       const paid = Number(po.paidAmount);
       const due = Math.max(0, payable - paid);
       if (due <= 0) continue;

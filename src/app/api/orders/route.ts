@@ -119,8 +119,17 @@ export async function POST(req: NextRequest) {
   // Validate PROFILE lines reference a real raw-material product.
   const rawIds = data.lines.filter((l) => l.lineType === "PROFILE" && l.rawProductId).map((l) => l.rawProductId!);
   const rawProducts = rawIds.length
-    ? await prisma.product.findMany({ where: { id: { in: rawIds }, category: "PROFILE", isRawMaterial: true } })
+    ? await prisma.product.findMany({ where: { id: { in: rawIds }, category: "PROFILE", isRawMaterial: true, isActive: true } })
     : [];
+  // 停用原料给出可操作的报错（表面化迁移后旧裸料已停用，防新单死绑 0 库存 SKU）；rawIds 先去重防同料多行误报
+  const uniqueRawIds = [...new Set(rawIds)];
+  if (uniqueRawIds.length > rawProducts.length) {
+    const banned = await prisma.product.findMany({
+      where: { id: { in: uniqueRawIds }, OR: [{ isActive: false }, { isRawMaterial: false }, { category: { not: "PROFILE" } }] },
+      select: { sku: true },
+    });
+    return fail(`原料已停用或不可用：${banned.map((b) => b.sku).join("、") || uniqueRawIds.join("、")}，请改选对应表面/长度的新原料 SKU`);
+  }
   const rawMap = new Map(rawProducts.map((p) => [p.id, p]));
 
   // SKU 级计价基数（米重/良率/每米价三级回退），同原料只解析一次
@@ -131,7 +140,7 @@ export async function POST(req: NextRequest) {
 
   let resolvedLines: any[] = [];
   try {
-    const resolvedLines = data.lines.map((l) => {
+    resolvedLines = data.lines.map((l) => {
     if (l.lineType === "PROFILE") {
       if (!l.rawProductId) throw new Error(`PROFILE 行缺原料型材`);
       if (!rawMap.has(l.rawProductId)) throw new Error(`原料型材不存在或非原料: ${l.rawProductId}`);

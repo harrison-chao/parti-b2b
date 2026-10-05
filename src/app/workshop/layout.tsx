@@ -1,11 +1,12 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/nav";
+import { roleHome } from "@/lib/utils";
 
 export default async function WorkshopLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session) redirect("/login");
-  if (session.user.role !== "WORKSHOP") redirect("/");
+  if (session.user.role !== "WORKSHOP") redirect(roleHome(session.user.role));
   const items = [
     { href: "/workshop", label: "作业队列", icon: "dashboard" },
     { href: "/workshop/ship", label: "发货登记", icon: "ship" },

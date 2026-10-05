@@ -1,11 +1,12 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/nav";
+import { roleHome } from "@/lib/utils";
 
 export default async function DealerLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session) redirect("/login");
-  if (session.user.role !== "DEALER") redirect("/admin");
+  if (session.user.role !== "DEALER") redirect(roleHome(session.user.role));
   return (
     <div className="min-h-screen">
       <Nav

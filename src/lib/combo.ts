@@ -45,6 +45,10 @@ function mode<T>(arr: T[]): T | undefined {
  */
 export async function generateCombosFromHistory(prisma: PrismaClient, opts?: { maxTotal?: number }): Promise<{ created: number; skipped: number }> {
   const maxTotal = opts?.maxTotal ?? 30;
+  // 停用原料不进组合（表面化迁移后旧裸料已停用；防归集重新吸入死引用）
+  const inactiveRaws = new Set(
+    (await prisma.product.findMany({ where: { isActive: false }, select: { id: true } })).map((p) => p.id),
+  );
   const orders = await prisma.salesOrder.findMany({
     where: { orderStatus: { notIn: ["REJECTED", "CANCELLED"] } },
     include: { lines: { where: { lineType: { not: "OUTSOURCED" } }, orderBy: { lineNo: "asc" } } },
@@ -66,6 +70,7 @@ export async function generateCombosFromHistory(prisma: PrismaClient, opts?: { m
   for (const o of orders) {
     const cls = o.lines.map(toComboLine);
     if (!cls.length) continue;
+    if (cls.some((l) => l.rawProductId && inactiveRaws.has(l.rawProductId))) continue; // 含停用原料的单不归集
     const sig = comboSignature(cls);
     if (!orderSig.has(sig)) orderSig.set(sig, { orders: [], lines: [] });
     orderSig.get(sig)!.orders.push(o);

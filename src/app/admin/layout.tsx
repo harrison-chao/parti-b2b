@@ -1,11 +1,12 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/nav";
+import { roleHome } from "@/lib/utils";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session) redirect("/login");
-  if (session.user.role !== "ADMIN") redirect("/dealer");
+  if (session.user.role !== "ADMIN") redirect(roleHome(session.user.role));
   const items = [
     { href: "/admin", label: "驾驶舱", icon: "dashboard" },
     { href: "/admin/orders/new", label: "代下单", icon: "neworder" },

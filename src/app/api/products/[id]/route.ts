@@ -39,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
   const product = await prisma.product.update({ where: { id: params.id }, data: next });
   // 成本/价格相关字段变动留痕 old→new（评审 C9：改价无审计，毛利漂移无法追溯）
-  const watched = ["retailPrice", "purchasePrice", "weightPerMeter", "yieldRate"] as const;
+  const watched = ["retailPrice", "purchasePrice", "weightPerMeter", "yieldRate", "lengthMm", "surfaceProcessCode", "surfaceColorCode"] as const;
   const changes = watched
     .filter((k) => parsed.data[k] !== undefined && String(parsed.data[k]) !== String((existing as any)[k]))
     .map((k) => ({ field: k, from: (existing as any)[k], to: (parsed.data as any)[k] }));

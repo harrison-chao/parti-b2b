@@ -4,7 +4,7 @@
  */
 
 // Base 盘点/加工单里的中文颜色原文 → [工艺码, 颜色码]（与设置码表对齐）
-const LEGACY_SURFACE_MAP: Record<string, [string, string | null]> = {
+const RAW_LEGACY_SURFACE_MAP: Record<string, [string, string | null]> = {
   "grey太空灰色-氧化": ["A", "GY"],
   "silver太空银-氧化": ["A", "SV"],
   "black曜石黑-氧化": ["A", "OB"],
@@ -17,8 +17,13 @@ const LEGACY_SURFACE_MAP: Record<string, [string, string | null]> = {
   "热转印白橡木纹": ["T", "WO"],
   "镀铬亮银": ["CR", "SV"],
   "定制黄金色-氧化": ["A", "MG"],
+  "darkgrey深灰-氧化": ["A", "GY"],
   "胚料本色": ["NP", null],
 };
+
+const LEGACY_SURFACE_MAP: Record<string, [string, string | null]> = Object.fromEntries(
+  Object.entries(RAW_LEGACY_SURFACE_MAP).map(([k, v]) => [k.replace(/\s+/g, ""), v]),
+);
 
 export type SurfaceCodes = { processCode: string | null; colorCode: string | null };
 
@@ -33,9 +38,10 @@ export function surfaceCodesOf(line: {
   }
   const raw = (line.surfaceTreatment ?? "").trim();
   if (!raw) return { processCode: null, colorCode: null };
-  const m = raw.match(/^([A-Z]{1,8})-([A-Z0-9]{1,8})$/);
-  if (m) return { processCode: m[1], colorCode: m[2] };
-  const dict = LEGACY_SURFACE_MAP[raw.toLowerCase()];
+  const m = raw.match(/^([A-Za-z]{1,8})-([A-Za-z0-9]{1,8})$/);
+  if (m) return { processCode: m[1].toUpperCase(), colorCode: m[2].toUpperCase() };
+  // 词典键与输入都做去空白归一（全角/双空格变体可命中）
+  const dict = LEGACY_SURFACE_MAP[raw.toLowerCase().replace(/\s+/g, "")];
   if (dict) return { processCode: dict[0], colorCode: dict[1] };
   return { processCode: null, colorCode: null };
 }

@@ -4,13 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { loadSettings } from "@/lib/settings";
 import { formatMoney, formatDate } from "@/lib/utils";
 import { numToChinese, PRINT_CSS, PRINT_SCRIPT } from "@/lib/print-utils";
+import { roleHome } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function POPrintPage({ params }: { params: { poNo: string } }) {
   const session = await auth();
   if (!session) redirect("/login");
-  if (session.user.role !== "ADMIN") redirect("/dealer");
+  if (session.user.role !== "ADMIN") redirect(roleHome(session.user.role));
 
   const po = await prisma.purchaseOrder.findUnique({
     where: { poNo: params.poNo },

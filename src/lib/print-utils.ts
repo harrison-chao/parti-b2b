@@ -3,6 +3,8 @@ const UNITS = ["", "拾", "佰", "仟", "万", "拾", "佰", "仟", "亿"];
 
 /** Minimal RMB capitalization, good enough for up to 千万. */
 export function numToChinese(n: number): string {
+  if (n < 0) return "负" + numToChinese(-n);
+  if (n < 0.005) return "零元整";
   const fixed = n.toFixed(2);
   const [intPart, decPart] = fixed.split(".");
   let result = "";

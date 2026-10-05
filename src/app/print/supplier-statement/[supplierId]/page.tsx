@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { getSupplierStatementDetail } from "@/lib/reconcile";
 import { formatMoney, formatDate, PURCHASE_ORDER_STATUS_LABEL } from "@/lib/utils";
 import { numToChinese, PRINT_CSS, PRINT_SCRIPT } from "@/lib/print-utils";
+import { roleHome } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function SupplierStatementPrintPage({ params }: { params: { supplierId: string } }) {
   const session = await auth();
   if (!session) redirect("/login");
-  if (session.user.role !== "ADMIN") redirect("/");
+  if (session.user.role !== "ADMIN") redirect(roleHome(session.user.role));
 
   const data = await getSupplierStatementDetail(params.supplierId);
   if (!data) notFound();

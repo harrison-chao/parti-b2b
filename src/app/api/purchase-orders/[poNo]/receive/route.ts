@@ -14,7 +14,7 @@ const schema = z.object({
     weightKg: z.number().positive().optional().nullable(),
   })).min(1),
   note: z.string().optional().nullable(),
-  // 磅差超过容忍带时需显式确认（前端弹窗后重发）
+  // 磅差超过容忍带时需显式确认（前端弹窗后重发）；确认动作单独留痕
   confirm: z.boolean().optional(),
 });
 
@@ -27,52 +27,61 @@ export async function POST(req: NextRequest, { params }: { params: { poNo: strin
   if (!parsed.success) return fail("参数错误: " + parsed.error.message);
   const { lines, note, confirm } = parsed.data;
 
-  const po = await prisma.purchaseOrder.findUnique({
-    where: { poNo: params.poNo },
-    include: { lines: true },
-  });
-  if (!po) return fail("采购单不存在", 404, 404);
-  if (po.status === "CANCELLED" || po.status === "CLOSED") return fail(`当前状态 ${po.status} 不可收货`);
+  // 原料档案（棒长/米重）与磅差校验可在事务外做（只读）；写路径全部在事务内重读
+  const po0 = await prisma.purchaseOrder.findUnique({ where: { poNo: params.poNo }, select: { status: true } });
+  if (!po0) return fail("采购单不存在", 404, 404);
+  if (po0.status === "CANCELLED" || po0.status === "CLOSED") return fail(`当前状态 ${po0.status} 不可收货`);
 
-  const byId = new Map(po.lines.map((l) => [l.id, l]));
   const activeLines = lines.filter((r) => r.receiveQty > 0);
-  for (const r of activeLines) {
-    const l = byId.get(r.lineId);
-    if (!l) return fail(`行 ${r.lineId} 不存在`);
-    const remaining = l.quantity - l.receivedQty;
-    if (r.receiveQty > remaining) return fail(`行 ${l.sku} 超收（剩 ${remaining}）`);
-    if (l.pricingUnit === "KG" && !r.weightKg) return fail(`行 ${l.sku} 按重量结算，必须填写本批磅重（kg）`);
-  }
   if (activeLines.length === 0) return fail("请填写收货数量");
+  const preLines = await prisma.purchaseOrderLine.findMany({ where: { id: { in: activeLines.map((r) => r.lineId) } } });
+  const preById = new Map(preLines.map((l) => [l.id, l]));
+  const skus = [...new Set(preLines.map((l) => l.sku))];
+  const preProducts = await prisma.product.findMany({ where: { sku: { in: skus } } });
+  const productBySku = new Map(preProducts.map((p) => [p.sku, p]));
 
-  // 原料档案（棒长/米重）：批次价折算与磅差校验都要用
-  const skus = [...new Set(activeLines.map((r) => byId.get(r.lineId)!.sku))];
-  const products = await prisma.product.findMany({ where: { sku: { in: skus } } });
-  const productBySku = new Map(products.map((p) => [p.sku, p]));
-
-  // 磅差容忍带：实磅 vs 理论（根×定尺×米重）超差需确认后重发
-  if (!confirm) {
-    for (const r of activeLines) {
-      const l = byId.get(r.lineId)!;
+  // 磅差容忍带 + 磅重数量级上限（防误输入污染均价：实磅 > 理论×3 一律拒绝，确认也不放行）
+  const deviations: string[] = [];
+  for (const r of activeLines) {
+    const l = preById.get(r.lineId);
+    if (!l || l.poNo !== params.poNo) return fail(`行 ${r.lineId} 不存在`);
+    if (r.receiveQty > l.quantity - l.receivedQty) return fail(`行 ${l.sku} 超收（剩 ${l.quantity - l.receivedQty}）`);
+    if (l.pricingUnit === "KG" && !r.weightKg) return fail(`行 ${l.sku} 按重量结算，必须填写本批磅重（kg）`);
+    if (r.weightKg) {
       const p = productBySku.get(l.sku);
-      if (!r.weightKg || !p) continue;
-      const theoretical = theoreticalWeightKg(r.receiveQty, p.lengthMm != null ? Number(p.lengthMm) : null, p.weightPerMeter != null ? Number(p.weightPerMeter) : null);
+      const theoretical = theoreticalWeightKg(r.receiveQty, p?.lengthMm != null ? Number(p.lengthMm) : null, p?.weightPerMeter != null ? Number(p.weightPerMeter) : null);
       const dev = weightDeviation(r.weightKg, theoretical);
+      if (theoretical != null && r.weightKg > theoretical * 3) {
+        return fail(`磅重异常：${l.sku} 实磅 ${r.weightKg}kg 是理论 ${theoretical}kg 的 3 倍以上，请核对磅单/米重档案`);
+      }
       if (dev != null && dev > WEIGHT_TOLERANCE) {
-        return fail(`磅差超容忍带（±${Math.round(WEIGHT_TOLERANCE * 100)}%）：${l.sku} 实磅 ${r.weightKg}kg vs 理论 ${theoretical}kg，偏差 ${(dev * 100).toFixed(1)}%。核对磅单后勾选「确认按实磅收货」重试`, 409);
+        if (!confirm) {
+          return fail(`磅差超容忍带（±${Math.round(WEIGHT_TOLERANCE * 100)}%）：${l.sku} 实磅 ${r.weightKg}kg vs 理论 ${theoretical}kg，偏差 ${(dev * 100).toFixed(1)}%。核对磅单后勾选「确认按实磅收货」重试`, 409);
+        }
+        deviations.push(`${l.sku} ${r.weightKg}kg（偏差 ${(dev * 100).toFixed(1)}%）`);
       }
     }
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    const po = await tx.purchaseOrder.findUnique({ where: { poNo: params.poNo }, include: { lines: true } });
+    if (!po) throw new Error("采购单不存在");
+    if (po.status === "CANCELLED" || po.status === "CLOSED") throw new Error(`当前状态 ${po.status} 不可收货`);
+    const byId = new Map(po.lines.map((l) => [l.id, l]));
+
     const avgUpdates: Array<{ sku: string; from: number | null; to: number; batchPerMeter: number; meters: number }> = [];
+    const zeroPrice: string[] = [];
     for (const r of activeLines) {
-      const l = byId.get(r.lineId)!;
+      const l = byId.get(r.lineId);
+      if (!l) throw new Error(`行 ${r.lineId} 不存在`);
+      const remaining = l.quantity - l.receivedQty;
+      if (r.receiveQty > remaining) throw new Error(`行 ${l.sku} 超收（剩 ${remaining}）`);
+      // 增量写回防并发丢更新
       await tx.purchaseOrderLine.update({
         where: { id: l.id },
         data: {
-          receivedQty: l.receivedQty + r.receiveQty,
-          ...(r.weightKg ? { receivedWeightKg: (l.receivedWeightKg != null ? Number(l.receivedWeightKg) : 0) + r.weightKg } : {}),
+          receivedQty: { increment: r.receiveQty },
+          ...(r.weightKg ? { receivedWeightKg: { increment: r.weightKg } } : {}),
         },
       });
 
@@ -89,6 +98,10 @@ export async function POST(req: NextRequest, { params }: { params: { poNo: strin
         } else if (l.pricingUnit !== "KG") {
           batchPerMeter = Number(l.unitPrice) / (barMm! / 1000);
         }
+      }
+      if (batchPerMeter != null && batchPerMeter <= 0) {
+        zeroPrice.push(l.sku);
+        batchPerMeter = null; // 0 价批次不滚均价（防把车间均价稀释向 0）
       }
 
       const noteParts = [note ?? null];
@@ -128,7 +141,6 @@ export async function POST(req: NextRequest, { params }: { params: { poNo: strin
       }
     }
 
-    // 均价重算留痕 old→new（评审 C9：成本变动可追溯）
     for (const u of avgUpdates) {
       await logAudit({
         action: "PO_AVG_COST_UPDATE",
@@ -139,8 +151,28 @@ export async function POST(req: NextRequest, { params }: { params: { poNo: strin
         actor: session.user,
       }, tx);
     }
+    if (deviations.length > 0) {
+      await logAudit({
+        action: "PO_WEIGHT_DEVIATION_CONFIRM",
+        entityType: "PurchaseOrder",
+        entityId: po.poNo,
+        summary: `人工确认按实磅收货（超 ±${Math.round(WEIGHT_TOLERANCE * 100)}% 容忍带）：${deviations.join("；")}`,
+        detail: { poNo: po.poNo, deviations },
+        actor: session.user,
+      }, tx);
+    }
+    if (zeroPrice.length > 0) {
+      await logAudit({
+        action: "PO_ZERO_PRICE_RECEIPT",
+        entityType: "PurchaseOrder",
+        entityId: po.poNo,
+        summary: `0 价批次未滚均价：${zeroPrice.join("、")}（请补采购单价后重新收货或手工维护均价）`,
+        detail: { poNo: po.poNo, skus: zeroPrice },
+        actor: session.user,
+      }, tx);
+    }
 
-    // Recompute PO status
+    // Recompute PO status（按行重读，天然免并发漂移）
     const refreshed = await tx.purchaseOrderLine.findMany({ where: { poNo: po.poNo } });
     const allDone = refreshed.every((l) => l.receivedQty >= l.quantity);
     const anyRecv = refreshed.some((l) => l.receivedQty > 0);
@@ -148,7 +180,7 @@ export async function POST(req: NextRequest, { params }: { params: { poNo: strin
     if (newStatus !== po.status) {
       await tx.purchaseOrder.update({ where: { poNo: po.poNo }, data: { status: newStatus } });
     }
-    return { ok: true, avgUpdates };
+    return { ok: true, avgUpdates, zeroPrice };
   });
 
   return ok(result);
