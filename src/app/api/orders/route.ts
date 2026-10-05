@@ -367,20 +367,24 @@ export async function POST(req: NextRequest) {
         ...(created.lines.length > 8 ? [`…共 ${created.lines.length} 行`] : []),
       ]);
     }
-    // 下单即示缺料（全网可用量 = 现存 − 未结工单占用；非阻断，提醒先备料/先采购）
+    // 下单即示缺料（全网可用量 = 现存 − 未结工单占用；非阻断，提醒先备料/先采购）。
+    // 全网库存/占用是厂内经营数据：仅内部单下发数字明细，经销商门户单不给（防枚举探测）
     let materialWarning: string | null = null;
-    try {
-      const required = await aggregateOrderRequirements(prisma, created.orderNo);
-      const { totalBySku } = await getAvailability(prisma);
-      const lacking: string[] = [];
-      for (const [sku, item] of required.entries()) {
-        const avail = totalBySku.get(sku);
-        if (!avail || avail.available < item.quantity) {
-          lacking.push(`${sku} 需 ${item.quantity}，全网可用 ${avail?.available ?? 0}（现存 ${avail?.onHand ?? 0} − 占用 ${avail?.allocated ?? 0}）`);
+    if (isInternal) {
+      try {
+        const required = await aggregateOrderRequirements(prisma, created.orderNo);
+        // 本单的工单已建（PENDING_START）会被算进占用——排除本单，否则 available 已扣掉本单需求导致漏报
+        const { totalBySku } = await getAvailability(prisma, { excludeOrderNos: [created.orderNo] });
+        const lacking: string[] = [];
+        for (const [sku, item] of required.entries()) {
+          const avail = totalBySku.get(sku);
+          if (!avail || avail.available < item.quantity) {
+            lacking.push(`${sku} 需 ${item.quantity}，全网可用 ${avail?.available ?? 0}（现存 ${avail?.onHand ?? 0} − 占用 ${avail?.allocated ?? 0}）`);
+          }
         }
-      }
-      if (lacking.length > 0) materialWarning = `原料可用量不足：${lacking.join("；")}`;
-    } catch { /* 提醒失败不影响下单 */ }
+        if (lacking.length > 0) materialWarning = `原料可用量不足：${lacking.join("；")}`;
+      } catch { /* 提醒失败不影响下单 */ }
+    }
 
     return ok({ ...created, autoDispatchedWorkOrderNo: workOrderNo ?? null, dispatchWarning, materialWarning });
   } catch (e: any) {

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ok, fail } from "@/lib/api";
 import { z } from "zod";
 import { logAudit } from "@/lib/audit";
-import { applyStockMovement } from "@/lib/inventory";
+import { applyStockMovement, movingAveragePerMeter } from "@/lib/inventory";
 import { generateProductSku } from "@/lib/sku";
 import { barsFor } from "@/lib/stock-consume";
 
@@ -31,17 +31,23 @@ export async function GET(_req: NextRequest, { params }: { params: { workOrderNo
   if (!session) return fail("未登录", 401, 401);
   const wo = await loadCtx(params.workOrderNo);
   if (!wo) return fail("工单不存在", 404, 404);
+  // 余段回库是厂内作业：经销商既不可写库存也不可读成本流水（对照 /api/work-orders/[no] 的角色白名单）
+  if (session.user.role !== "ADMIN" && session.user.role !== "WORKSHOP") {
+    return fail("无权访问", 403, 403);
+  }
   if (session.user.role === "WORKSHOP" && session.user.workshopId !== wo.workshopId) {
     return fail("无权查看该工单", 403, 403);
   }
 
   // 按 rawProductId 聚合切长（与扣料同口径：SEMI 按件折段不产生新余段）
-  const rawAgg = new Map<string, { sku: string; productName: string; totalMm: number; lengthMm: number | null }>();
+  const rawAgg = new Map<string, { sku: string; productName: string; totalMm: number; lengthMm: number | null; yieldRate: unknown }>();
+  const lineRawIds = [...new Set(wo.order.lines.filter((l) => l.lineType === "PROFILE" && l.rawProductId).map((l) => l.rawProductId!))];
+  const productById = new Map((await prisma.product.findMany({ where: { id: { in: lineRawIds } } })).map((p) => [p.id, p]));
   for (const l of wo.order.lines) {
     if (l.lineType !== "PROFILE" || !l.rawProductId || !l.cutLengthMm) continue;
-    const product = await prisma.product.findUnique({ where: { id: l.rawProductId } });
+    const product = productById.get(l.rawProductId);
     if (!product || product.materialStage === "SEMI") continue;
-    const e = rawAgg.get(product.id) ?? { sku: product.sku, productName: product.productName, totalMm: 0, lengthMm: product.lengthMm != null ? Number(product.lengthMm) : null };
+    const e = rawAgg.get(product.id) ?? { sku: product.sku, productName: product.productName, totalMm: 0, lengthMm: product.lengthMm != null ? Number(product.lengthMm) : null, yieldRate: product.yieldRate };
     e.totalMm += l.cutLengthMm * l.quantity;
     rawAgg.set(product.id, e);
   }
@@ -50,7 +56,7 @@ export async function GET(_req: NextRequest, { params }: { params: { workOrderNo
     select: { sku: true, quantity: true, note: true },
   });
   const suggestions = [...rawAgg.values()].map((e) => {
-    const bars = consumed.find((c) => c.sku === e.sku) ? Math.abs(consumed.find((c) => c.sku === e.sku)!.quantity) : barsFor(e.totalMm, { lengthMm: e.lengthMm, yieldRate: null }).bars;
+    const bars = consumed.find((c) => c.sku === e.sku) ? Math.abs(consumed.find((c) => c.sku === e.sku)!.quantity) : barsFor(e.totalMm, e).bars;
     const remainderMm = bars * (e.lengthMm ?? 3600) - e.totalMm;
     return {
       sourceSku: e.sku, productName: e.productName, barMm: e.lengthMm ?? 3600,
@@ -64,6 +70,7 @@ export async function GET(_req: NextRequest, { params }: { params: { workOrderNo
   const history = await prisma.stockMovement.findMany({
     where: { refType: "WO_RETURN", refNo: wo.workOrderNo, type: "PRODUCTION_RETURN" },
     orderBy: { createdAt: "desc" },
+    select: { id: true, sku: true, quantity: true, note: true, createdAt: true },
   });
   return ok({ suggestions, history });
 }
@@ -77,6 +84,9 @@ export async function POST(req: NextRequest, { params }: { params: { workOrderNo
   if (!session) return fail("未登录", 401, 401);
   const wo = await loadCtx(params.workOrderNo);
   if (!wo) return fail("工单不存在", 404, 404);
+  if (session.user.role !== "ADMIN" && session.user.role !== "WORKSHOP") {
+    return fail("无权访问", 403, 403);
+  }
   if (session.user.role === "WORKSHOP" && session.user.workshopId !== wo.workshopId) {
     return fail("无权操作该工单", 403, 403);
   }
@@ -99,15 +109,15 @@ export async function POST(req: NextRequest, { params }: { params: { workOrderNo
         if (item.segmentMm >= barMm) throw new Error(`余段长 ${item.segmentMm}mm 不小于棒长 ${barMm}mm，请核对`);
 
         // 上限校验：累计回库 ≤ 理论余量 + 5% 宽放
+        // prior 结构化反查：回库流水带 sourceSku 列，段长从 SEMI 产品档案 lengthMm 读——不再解析 note 文本
         const prior = await tx.stockMovement.findMany({
-          where: { refType: "WO_RETURN", refNo: wo.workOrderNo, type: "PRODUCTION_RETURN", sku: { startsWith: `SEMI-` }, note: { contains: item.sourceSku } },
-          select: { quantity: true, note: true },
+          where: { refType: "WO_RETURN", refNo: wo.workOrderNo, type: "PRODUCTION_RETURN", sourceSku: item.sourceSku },
+          select: { sku: true, quantity: true },
         });
-        // prior 记录的 note 形如 "余段回库 ← {sourceSku} · 段长 xxx"，从产品档案取段长算米数
         let priorMm = 0;
         for (const p of prior) {
-          const m = /段长 (\d+)/.exec(p.note ?? "");
-          priorMm += (m ? parseInt(m[1], 10) : 0) * p.quantity;
+          const seg = await tx.product.findUnique({ where: { sku: p.sku }, select: { lengthMm: true } });
+          priorMm += (seg?.lengthMm != null ? Number(seg.lengthMm) : 0) * p.quantity;
         }
         const { lines } = wo.order;
         let totalCutMm = 0;
@@ -127,7 +137,8 @@ export async function POST(req: NextRequest, { params }: { params: { workOrderNo
         // 自动建/找 SEMI 段长档案：同系列+同表面+同段长 复用
         let semi = await tx.product.findFirst({
           where: {
-            sku: { startsWith: "SEMI-" },
+            materialStage: "SEMI",
+            isRawMaterial: true,
             series: source.series,
             lengthMm: item.segmentMm,
             surfaceProcessCode: source.surfaceProcessCode,
@@ -175,12 +186,20 @@ export async function POST(req: NextRequest, { params }: { params: { workOrderNo
           where: { workshopId_sku: { workshopId: wo.workshopId, sku: item.sourceSku } },
         });
         const perMeter = srcInv?.avgCostPerMeter != null ? Number(srcInv.avgCostPerMeter) : null;
+        // SEMI 存量加权融合（与收货/调拨同口径），杜绝覆盖式重估存量成本
+        const semiInv = await tx.workshopInventory.findUnique({
+          where: { workshopId_sku: { workshopId: wo.workshopId, sku: semi.sku } },
+        });
+        const blendedAvg = semiInv && perMeter != null
+          ? movingAveragePerMeter(semiInv.quantity, item.segmentMm, Number(semiInv.avgCostPerMeter ?? 0) || null, item.quantity, perMeter)
+          : perMeter;
         await applyStockMovement(tx, {
           workshopId: wo.workshopId,
           sku: semi.sku, productName: semi.productName,
           delta: item.quantity, type: "PRODUCTION_RETURN",
           refType: "WO_RETURN", refNo: wo.workOrderNo,
-          unitCost: perMeter, avgCostPerMeter: perMeter,
+          sourceSku: item.sourceSku,
+          unitCost: perMeter, avgCostPerMeter: blendedAvg,
           note: `余段回库 ← ${item.sourceSku} · 段长 ${item.segmentMm}mm${d.note ? ` · ${d.note}` : ""}`,
           operatorName: session.user?.name ?? null,
         });

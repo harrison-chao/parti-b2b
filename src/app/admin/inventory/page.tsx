@@ -1,10 +1,17 @@
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime, formatMoney } from "@/lib/utils";
 import { getValuation, getPeriodSummary, getAging } from "@/lib/inventory-analytics";
 
 export const dynamic = "force-dynamic";
+
+async function requireAdmin() {
+  const session = await auth();
+  if (!session || session.user.role !== "ADMIN") redirect("/login");
+}
 
 function monthRange(month: string): { from: Date; to: Date; label: string } {
   const [y, m] = month.split("-").map(Number);
@@ -24,6 +31,7 @@ function recentMonths(n: number): string[] {
 }
 
 export default async function AdminInventoryPage({ searchParams }: { searchParams: { month?: string } }) {
+  await requireAdmin();
   const month = searchParams.month && /^\d{4}-\d{2}$/.test(searchParams.month) ? searchParams.month : recentMonths(1)[0];
   const { from, to, label } = monthRange(month);
 

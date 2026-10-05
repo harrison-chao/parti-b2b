@@ -25,36 +25,51 @@ export async function applyStockMovement(
     // 炉批号（收货录入）；调拨/余段回库入向可带随行每米均价直接落到库存档
     batchNo?: string | null;
     avgCostPerMeter?: number | null;
+    // 余段回库专用：来源整棒原料 SKU（prior 上限按它结构化反查，不再解析 note）
+    sourceSku?: string | null;
   },
 ) {
-  const { workshopId, sku, productName, delta, type, refType, refNo, note, operatorName, allowNegative, unitCost, batchNo, avgCostPerMeter } = args;
+  const { workshopId, sku, productName, delta, type, refType, refNo, note, operatorName, allowNegative, unitCost, batchNo, avgCostPerMeter, sourceSku } = args;
 
   const existing = await tx.workshopInventory.findUnique({
     where: { workshopId_sku: { workshopId, sku } },
   });
 
-  const newQty = (existing?.quantity ?? 0) + delta;
-  if (newQty < 0 && !allowNegative) {
-    throw new Error(`库存不足：${sku} 当前 ${existing?.quantity ?? 0}，本次变动 ${delta}，将变为 ${newQty}`);
-  }
-
+  // 原子增量写：负向变动把“库存足够”并进 WHERE（条件 UPDATE 行级原子），
+  // 防并发下两笔各读到旧值双扣穿透负库存 / 互相覆盖丢更新
   if (existing) {
-    await tx.workshopInventory.update({
-      where: { workshopId_sku: { workshopId, sku } },
+    const res = await tx.workshopInventory.updateMany({
+      // updateMany 的 WhereInput 不支持复合唯一键简写，用 AND 等值；负向变动把库存充足并进条件（原子防穿透）
+      where: delta < 0 && !allowNegative
+        ? { AND: [{ workshopId }, { sku }], quantity: { gte: -delta } }
+        : { AND: [{ workshopId }, { sku }] },
       data: {
-        quantity: newQty,
+        quantity: { increment: delta },
         productName,
         ...(avgCostPerMeter != null ? { avgCostPerMeter } : {}),
       },
     });
+    if (res.count === 0) {
+      const nowRow = await tx.workshopInventory.findUnique({ where: { workshopId_sku: { workshopId, sku } } });
+      throw new Error(`库存不足：${sku} 当前 ${nowRow?.quantity ?? 0}，本次变动 ${delta}（并发下已按最新值拦截）`);
+    }
   } else {
+    if (delta < 0 && !allowNegative) {
+      throw new Error(`库存不足：${sku} 当前 0，本次变动 ${delta}`);
+    }
     await tx.workshopInventory.create({
       data: {
-        workshopId, sku, productName, quantity: newQty,
+        workshopId, sku, productName, quantity: delta,
         ...(avgCostPerMeter != null ? { avgCostPerMeter } : {}),
       },
     });
   }
+  // increment 后回读真实余额做流水 balanceAfter
+  const afterRow = await tx.workshopInventory.findUnique({
+    where: { workshopId_sku: { workshopId, sku } },
+    select: { quantity: true },
+  });
+  const newQty = afterRow?.quantity ?? delta;
 
   await tx.stockMovement.create({
     data: {
@@ -70,6 +85,7 @@ export async function applyStockMovement(
       operatorName: operatorName ?? null,
       unitCost: unitCost != null ? unitCost : null,
       batchNo: batchNo ?? null,
+      sourceSku: sourceSku ?? null,
     },
   });
 
