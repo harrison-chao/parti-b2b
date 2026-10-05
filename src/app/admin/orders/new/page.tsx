@@ -10,6 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { toast } from "sonner";
+import {
+  distinctSeries, processCodesOf, colorCodesOf, variantsOf, resolveMaterial, materialHint, guessSeriesByCodes,
+} from "@/lib/material-select";
 
 /**
  * 内部代下单（W1/D6）：陈超/李奇莉把微信/电话接的单 60 秒录入系统。
@@ -28,10 +31,12 @@ type Product = {
   id: string; sku: string; productName: string; category: "PROFILE" | "HARDWARE";
   isRawMaterial?: boolean; series?: string | null; spec?: string | null; retailPrice: string;
   surfaceProcessCode?: string | null; surfaceColorCode?: string | null; materialStage?: string | null;
+  lengthMm?: number | null;
 };
 type Option = { code: string; label: string };
 type OrderLineRow = {
   key: string; lineType: "PROFILE" | "HARDWARE";
+  series: string;
   rawProductId?: string; productId?: string; productName: string; sku: string;
   cutInch: string; cutMm: string; unit: "inch" | "mm"; quantity: string;
   processCodes: string[]; surfaceProcessCode: string; surfaceColorCode: string;
@@ -119,16 +124,13 @@ export default function NewInternalOrderPage() {
     return cl.map((l) => ({
       key: Math.random().toString(36).slice(2),
       lineType: l.lineType,
-      rawProductId: l.rawProductId ?? undefined,
+      ...hydrateProfile(l),
       productId: l.productId ?? undefined,
-      productName: l.productName, sku: l.sku,
       cutMm: l.cutLengthMm ? String(l.cutLengthMm) : "",
       cutInch: l.cutLengthMm ? (l.cutLengthMm / 25.4).toFixed(1) : "",
       unit: "mm",
       quantity: String(l.quantity),
       processCodes: (l.processCodes ?? []).filter((c) => c !== "L"),
-      surfaceProcessCode: l.surfaceProcessCode ?? "A",
-      surfaceColorCode: l.surfaceColorCode ?? "SV",
       unitPrice: null,
     }));
   }
@@ -204,16 +206,18 @@ export default function NewInternalOrderPage() {
       setRows((o.lines ?? []).filter((l: any) => l.lineType !== "OUTSOURCED").map((l: any) => ({
         key: Math.random().toString(36).slice(2),
         lineType: l.lineType,
-        rawProductId: l.rawProductId ?? undefined,
+        ...hydrateProfile({
+          rawProductId: l.rawProductId ?? null,
+          sku: l.sku, productName: l.productName,
+          // 旧 surfaceTreatment 可能是 Base 原文（如"Pink粉色-水漆"），只有形如 码-码 才回拆
+          ...parseLegacySurface(l.surfaceTreatment, l.surfaceProcessCode, l.surfaceColorCode),
+        }),
         productId: l.productId ?? undefined,
-        productName: l.productName, sku: l.sku,
         cutMm: l.cutLengthMm ? String(l.cutLengthMm) : "",
         cutInch: l.cutLengthMm ? (l.cutLengthMm / 25.4).toFixed(1) : "",
         unit: "mm",
         quantity: String(l.quantity),
         processCodes: l.processCodes?.length ? l.processCodes : guessProcessCodes(l),
-        // 旧 surfaceTreatment 可能是 Base 原文（如"Pink粉色-水漆"），只有形如 码-码 才回拆，否则留默认
-        ...parseLegacySurface(l.surfaceTreatment, l.surfaceProcessCode, l.surfaceColorCode),
         unitPrice: Number(l.unitPrice),
       })));
       setMsg(`已载入订单 ${o.displayOrderNo ?? o.orderNo} 的 ${o.lines?.length ?? 0} 行，可直接改数量提交`);
@@ -262,10 +266,12 @@ export default function NewInternalOrderPage() {
     if (!raw) return setErr("型材库无原料型材，请先在产品目录维护");
     setRows((rs) => [...rs, {
       key: Math.random().toString(36).slice(2), lineType: "PROFILE",
+      series: raw.series ?? "",
       rawProductId: raw.id, productName: raw.productName, sku: raw.sku,
       cutInch: "13", cutMm: "330", unit: "inch", quantity: "10",
       processCodes: ["D", "EM"], // Base 实证默认：铣孔 82% / 预埋 77%
-      surfaceProcessCode: "A", surfaceColorCode: "SV",
+      surfaceProcessCode: raw.surfaceProcessCode ?? "A",
+      surfaceColorCode: raw.surfaceColorCode ?? "SV",
       unitPrice: null,
     }]);
   }
@@ -274,6 +280,7 @@ export default function NewInternalOrderPage() {
     if (!hw) return setErr("五金目录为空");
     setRows((rs) => [...rs, {
       key: Math.random().toString(36).slice(2), lineType: "HARDWARE",
+      series: "",
       productId: hw.id, productName: hw.productName, sku: hw.sku,
       cutInch: "", cutMm: "", unit: "mm", quantity: "10",
       processCodes: [], surfaceProcessCode: "", surfaceColorCode: "",
@@ -300,6 +307,43 @@ export default function NewInternalOrderPage() {
     });
   }
 
+  function labelOfOpt(opts: Option[], code: string) {
+    return code ? (opts.find((o) => o.code === code)?.label ?? code) : "无/本色";
+  }
+  function colorLabelOf(code: string) {
+    return code ? (surfaceColors.find((o) => o.code === code)?.label ?? code) : "不限";
+  }
+  // 三步级联：型材 → 表面处理 → 颜色，解析出内部原料 SKU（棒长/编码不暴露给下单人）
+  function rowPatch(series: string, processCode: string, colorCode: string): Partial<OrderLineRow> {
+    const m = resolveMaterial(rawProducts, series, processCode, colorCode);
+    return {
+      series, surfaceProcessCode: processCode, surfaceColorCode: colorCode,
+      rawProductId: m?.id,
+      ...(m ? { sku: m.sku, productName: m.productName ?? "" } : {}),
+    };
+  }
+  // 历史/组合行回填：优先按 rawProductId 定位；旧行无指针时凭双码唯一定位系列
+  function hydrateProfile(l: {
+    rawProductId?: string | null; sku?: string | null; productName?: string | null;
+    surfaceProcessCode?: string | null; surfaceColorCode?: string | null;
+  }): Pick<OrderLineRow, "series" | "rawProductId" | "sku" | "productName" | "surfaceProcessCode" | "surfaceColorCode"> {
+    const raw = l.rawProductId ? rawProducts.find((p) => p.id === l.rawProductId) : undefined;
+    if (raw) {
+      return {
+        series: raw.series ?? "", rawProductId: raw.id, sku: raw.sku, productName: raw.productName,
+        surfaceProcessCode: raw.surfaceProcessCode ?? "", surfaceColorCode: raw.surfaceColorCode ?? "",
+      };
+    }
+    const p = (l.surfaceProcessCode ?? "").trim(), c = (l.surfaceColorCode ?? "").trim();
+    const s = guessSeriesByCodes(rawProducts, p, c) ?? "";
+    const m = s ? resolveMaterial(rawProducts, s, p, c) : null;
+    return {
+      series: s, rawProductId: m?.id ?? (l.rawProductId ?? undefined),
+      sku: m?.sku ?? l.sku ?? "", productName: m?.productName ?? l.productName ?? "",
+      surfaceProcessCode: p, surfaceColorCode: c,
+    };
+  }
+
   async function fetchPrice(r: OrderLineRow) {
     if (r.lineType !== "PROFILE" || !r.cutMm) return;
     // 带原料 SKU 级口径计价（米重/良率/每米价三级回退）
@@ -316,12 +360,15 @@ export default function NewInternalOrderPage() {
     setRemark(o.remark ?? "");
     setRows((o.lines ?? []).filter((l: any) => l.lineType !== "OUTSOURCED").map((l: any) => ({
       key: Math.random().toString(36).slice(2), lineType: l.lineType,
-      rawProductId: l.rawProductId ?? undefined, productId: l.productId ?? undefined,
-      productName: l.productName, sku: l.sku,
+      ...hydrateProfile({
+        rawProductId: l.rawProductId ?? null,
+        sku: l.sku, productName: l.productName,
+        ...parseLegacySurface(l.surfaceTreatment, l.surfaceProcessCode, l.surfaceColorCode),
+      }),
+      productId: l.productId ?? undefined,
       cutMm: l.cutLengthMm ? String(l.cutLengthMm) : "", cutInch: l.cutLengthMm ? (l.cutLengthMm / 25.4).toFixed(1) : "",
       unit: "mm", quantity: String(l.quantity),
       processCodes: l.processCodes?.length ? l.processCodes : guessProcessCodes(l),
-      ...parseLegacySurface(l.surfaceTreatment, l.surfaceProcessCode, l.surfaceColorCode),
       unitPrice: Number(l.unitPrice),
     })));
     setMsg(`已复制 ${o.displayOrderNo ?? o.orderNo}（${(o.lines ?? []).length} 行），改数量即可提交`);
@@ -333,18 +380,21 @@ export default function NewInternalOrderPage() {
     if (!rows.length) return setErr("请至少添加一行明细");
     if (!receiverName || !receiverPhone || !receiverAddress) return setErr("收货信息不完整");
     for (const r of rows) {
-      if (!r.quantity || Number(r.quantity) <= 0) return setErr(`${r.productName} 数量无效`);
+      if (!r.quantity || Number(r.quantity) <= 0) return setErr(`${r.productName || r.series || "明细行"} 数量无效`);
       if (r.lineType === "PROFILE" && (!r.cutMm || Number(r.cutMm) <= 0)) return setErr(`${r.productName} 缺切长`);
+      if (r.lineType === "PROFILE" && !r.rawProductId) return setErr(`${r.series || "型材行"}：请选完型材、表面处理、颜色以匹配原料`);
     }
     const lines = rows.map((r) => {
       if (r.lineType === "PROFILE") {
-        const raw = rawProducts.find((p) => p.id === r.rawProductId)!;
         return {
           lineType: "PROFILE", sku: r.sku, productName: r.productName,
           rawProductId: r.rawProductId, cutLengthMm: Number(r.cutMm),
           processCodes: ["L", ...r.processCodes], // 截断为隐含工序
-          surfaceProcessCode: r.surfaceProcessCode, surfaceColorCode: r.surfaceColorCode,
-          surfaceTreatment: r.surfaceProcessCode && r.surfaceColorCode ? `${r.surfaceProcessCode}-${r.surfaceColorCode}` : null,
+          surfaceProcessCode: r.surfaceProcessCode || null,
+          surfaceColorCode: r.surfaceColorCode || null,
+          surfaceTreatment: r.surfaceProcessCode
+            ? [r.surfaceProcessCode, r.surfaceColorCode].filter(Boolean).join("-")
+            : null,
           quantity: Number(r.quantity), unitPrice: r.unitPrice ?? 0,
         };
       }
@@ -513,19 +563,32 @@ export default function NewInternalOrderPage() {
               {r.lineType === "PROFILE" ? (
                 <>
                   <div className="md:col-span-3">
-                    <Label className="text-xs">原料型材</Label>
-                    <select className="w-full border rounded p-2 text-sm" value={r.rawProductId}
+                    <Label className="text-xs">型材</Label>
+                    <select className="w-full border rounded p-2 text-sm" value={r.series}
                       onChange={(e) => {
-                        const p = rawProducts.find((x) => x.id === e.target.value)!;
-                        // 型材档案带默认表面处理/颜色时预填（未选过才覆盖）
-                        patchRow(r.key, {
-                          rawProductId: p.id, productName: p.productName, sku: p.sku,
-                          ...(p.surfaceProcessCode ? { surfaceProcessCode: p.surfaceProcessCode } : {}),
-                          ...(p.surfaceColorCode ? { surfaceColorCode: p.surfaceColorCode } : {}),
-                        });
+                        const s = e.target.value;
+                        const proc = processCodesOf(rawProducts, s)[0] ?? "";
+                        const col = colorCodesOf(rawProducts, s, proc)[0] ?? "";
+                        const patch = rowPatch(s, proc, col);
+                        patchRow(r.key, patch);
+                        const next = { ...r, ...patch } as OrderLineRow;
+                        if (next.rawProductId && next.cutMm) void fetchPrice(next);
                       }}>
-                      {rawProducts.map((p) => <option key={p.id} value={p.id}>{p.materialStage === "SEMI" ? `${p.sku}（半成品段）` : p.sku}</option>)}
+                      <option value="">选择型材</option>
+                      {distinctSeries(rawProducts).map((s) => <option key={s} value={s}>{s}</option>)}
                     </select>
+                    <div className="text-xs text-muted-foreground mt-0.5 min-h-[1em]">
+                      {(() => {
+                        const m = rawProducts.find((x) => x.id === r.rawProductId);
+                        if (!m) return r.series ? "选完表面/颜色后自动匹配原料" : "";
+                        return (
+                          <span>
+                            {m.materialStage === "SEMI" && <span className="text-amber-300 mr-1">[半成品段]</span>}
+                            已匹配 {materialHint(m)}
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </div>
                   <div className="md:col-span-2">
                     <Label className="text-xs">切长（寸 ⇄ mm）</Label>
@@ -550,23 +613,47 @@ export default function NewInternalOrderPage() {
                     </div>
                   </div>
                   <div className="md:col-span-2">
-                    <Label className="text-xs">表面{(() => { const rp = rawProducts.find((x) => x.id === r.rawProductId); return rp && (rp.surfaceProcessCode || rp.surfaceColorCode) ? "（随原料锁定）" : ""; })()}</Label>
+                    <Label className="text-xs">表面处理 / 颜色</Label>
                     <div className="flex gap-1">
-                      {(() => { const rp = rawProducts.find((x) => x.id === r.rawProductId); return (
-                        <>
-                          <select className="w-1/2 border rounded p-2 text-sm" value={r.surfaceProcessCode}
-                            disabled={!!rp?.surfaceProcessCode}
-                            onChange={(e) => patchRow(r.key, { surfaceProcessCode: e.target.value })}>
-                            {surfaceProcesses.map((o) => <option key={o.code} value={o.code}>{o.label}</option>)}
-                          </select>
-                          <select className="w-1/2 border rounded p-2 text-sm" value={r.surfaceColorCode}
-                            disabled={!!rp?.surfaceColorCode}
-                            onChange={(e) => patchRow(r.key, { surfaceColorCode: e.target.value })}>
-                            {surfaceColors.map((o) => <option key={o.code} value={o.code}>{o.label}</option>)}
-                          </select>
-                        </>
-                      ); })()}
+                      <select className="w-1/2 border rounded p-2 text-sm" value={r.surfaceProcessCode}
+                        onChange={(e) => {
+                          const proc = e.target.value;
+                          const col = colorCodesOf(rawProducts, r.series, proc)[0] ?? "";
+                          const patch = rowPatch(r.series, proc, col);
+                          patchRow(r.key, patch);
+                          const next = { ...r, ...patch } as OrderLineRow;
+                          if (next.rawProductId && next.cutMm) void fetchPrice(next);
+                        }}>
+                        {processCodesOf(rawProducts, r.series).map((c) => (
+                          <option key={c} value={c}>{labelOfOpt(surfaceProcesses, c)}</option>
+                        ))}
+                      </select>
+                      <select className="w-1/2 border rounded p-2 text-sm" value={r.surfaceColorCode}
+                        onChange={(e) => {
+                          const patch = rowPatch(r.series, r.surfaceProcessCode, e.target.value);
+                          patchRow(r.key, patch);
+                          const next = { ...r, ...patch } as OrderLineRow;
+                          if (next.rawProductId && next.cutMm) void fetchPrice(next);
+                        }}>
+                        {colorCodesOf(rawProducts, r.series, r.surfaceProcessCode).map((c) => (
+                          <option key={c} value={c}>{colorLabelOf(c)}</option>
+                        ))}
+                      </select>
                     </div>
+                    {variantsOf(rawProducts, r.series, r.surfaceProcessCode, r.surfaceColorCode).length > 1 && (
+                      <select className="w-full border rounded p-1 text-xs mt-1" value={r.rawProductId}
+                        onChange={(e) => {
+                          const m = rawProducts.find((x) => x.id === e.target.value)!;
+                          patchRow(r.key, { rawProductId: m.id, sku: m.sku, productName: m.productName });
+                          void fetchPrice({ ...r, rawProductId: m.id });
+                        }}>
+                        {variantsOf(rawProducts, r.series, r.surfaceProcessCode, r.surfaceColorCode).map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.materialStage === "SEMI" ? `${(m.lengthMm ?? 0) / 1000}m 半成品段` : `${(m.lengthMm ?? 0) / 1000}m 备料棒`}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </>
               ) : (
