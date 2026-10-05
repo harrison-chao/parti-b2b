@@ -188,7 +188,19 @@ export function DealersManager({ initial, initialTab = "DEALER" }: { initial: De
                       </Badge>
                       <div className="mt-1 text-[11px] text-muted-foreground">{formatDate(d.createdAt)}</div>
                     </td>
-                    <td className="p-3"><Button variant="outline" size="sm" onClick={() => { setEditing(d); setCreating(false); }}>编辑</Button></td>
+                    <td className="p-3">
+                      <div className="flex gap-1">
+                        <Button variant="outline" size="sm" onClick={() => { setEditing(d); setCreating(false); }}>编辑</Button>
+                        <Button variant="ghost" size="sm" className="text-red-500" onClick={async () => {
+                          if (!confirm(`确认删除客户「${d.companyName}」？有订单/账号/付款的客户会被拒绝，请改用停用`)) return;
+                          const r = await fetch(`/api/dealers/${d.id}`, { method: "DELETE" });
+                          const j = await r.json();
+                          if (j.code !== 0) return alert(j.message);
+                          setDealers(dealers.filter((x: any) => x.id !== d.id));
+                          router.refresh();
+                        }}>删除</Button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
