@@ -20,11 +20,14 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 const schema = z.object({
   receiverName: z.string().min(1),
   receiverPhone: z.string().min(1),
-  province: z.string().min(1),
-  city: z.string().min(1),
-  district: z.string().min(1),
+  province: z.string().default(""),
+  city: z.string().default(""),
+  district: z.string().default(""),
   detailAddress: z.string().min(1),
   isDefault: z.boolean().optional(),
+  // 代发场景：标签=终端客户名/门店名；类型 warehouse=客户自用 / dropship=代发直发
+  label: z.string().optional().nullable(),
+  addressType: z.enum(["warehouse", "dropship"]).optional(),
 });
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -36,6 +39,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) return fail("参数错误: " + parsed.error.message);
+  if (parsed.data.isDefault) {
+    await prisma.dealerAddress.updateMany({ where: { dealerId: params.id }, data: { isDefault: false } });
+  }
   const addr = await prisma.dealerAddress.create({
     data: { ...parsed.data, dealerId: params.id },
   });

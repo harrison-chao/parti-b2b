@@ -15,7 +15,7 @@ import {
 } from "@/lib/material-select";
 
 type Option = { code: string; label: string };
-type Address = { id: string; receiverName: string; receiverPhone: string; fullAddress: string; isDefault: boolean };
+type Address = { id: string; receiverName: string; receiverPhone: string; fullAddress: string; isDefault: boolean; label?: string | null; addressType?: string | null };
 type HardwareItem = {
   id: string; sku: string; productName: string; series: string; spec: string | null;
   retailPrice: number; dealerPrice: number; drawingRequired: boolean;
@@ -129,6 +129,9 @@ export function QuoteWorkbench({
 
   const [addrId, setAddrId] = useState(addresses[0]?.id ?? "");
   const [newAddr, setNewAddr] = useState({ receiverName: "", receiverPhone: "", receiverAddress: "" });
+  // 新填地址默认沉淀到自己的地址簿（代发客户逐单换终端地址，回存后下次可选）
+  const [saveAddr, setSaveAddr] = useState(true);
+  const [addrLabel, setAddrLabel] = useState("");
   const [useNewAddr, setUseNewAddr] = useState(addresses.length === 0);
   const [targetDate, setTargetDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() + 14); return d.toISOString().slice(0, 10);
@@ -203,6 +206,16 @@ export function QuoteWorkbench({
     if (useNewAddr) {
       if (!newAddr.receiverName || !newAddr.receiverPhone || !newAddr.receiverAddress) return setError("请填写完整收货信息");
       receiverName = newAddr.receiverName; receiverPhone = newAddr.receiverPhone; receiverAddress = newAddr.receiverAddress;
+      if (saveAddr && newAddr.receiverName && newAddr.receiverPhone && newAddr.receiverAddress) {
+        void fetch(`/api/dealers/${dealer.id}/addresses`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            receiverName: newAddr.receiverName, receiverPhone: newAddr.receiverPhone,
+            detailAddress: newAddr.receiverAddress,
+            label: addrLabel || null, addressType: "dropship",
+          }),
+        });
+      }
     } else {
       const a = addresses.find((x) => x.id === addrId);
       if (!a) return setError("请选择收货地址");
@@ -411,7 +424,11 @@ export function QuoteWorkbench({
                     <label key={a.id} className="flex items-start gap-2 border rounded p-3 cursor-pointer hover:bg-muted/50">
                       <input type="radio" checked={addrId === a.id} onChange={() => setAddrId(a.id)} className="mt-1" />
                       <div className="text-sm">
-                        <div className="font-medium">{a.receiverName} · {a.receiverPhone} {a.isDefault && <span className="text-xs text-sky-400">(默认)</span>}</div>
+                        <div className="font-medium">
+                          {a.addressType === "dropship" && <span className="text-cyan-400 text-xs mr-1">[代发]</span>}
+                          {a.label && <span className="text-xs text-muted-foreground mr-1">{a.label} · </span>}
+                          {a.receiverName} · {a.receiverPhone} {a.isDefault && <span className="text-xs text-sky-400">(默认)</span>}
+                        </div>
                         <div className="text-muted-foreground">{a.fullAddress}</div>
                       </div>
                     </label>
@@ -419,9 +436,14 @@ export function QuoteWorkbench({
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  <div><Label>收货人</Label><Input value={newAddr.receiverName} onChange={(e) => setNewAddr({ ...newAddr, receiverName: e.target.value })} /></div>
+                  <div><Label>收货人（终端客户）</Label><Input value={newAddr.receiverName} onChange={(e) => setNewAddr({ ...newAddr, receiverName: e.target.value })} /></div>
                   <div><Label>电话</Label><Input value={newAddr.receiverPhone} onChange={(e) => setNewAddr({ ...newAddr, receiverPhone: e.target.value })} /></div>
+                  <div className="col-span-2"><Label>地址标签（可选，便于下次选用）</Label><Input value={addrLabel} onChange={(e) => setAddrLabel(e.target.value)} placeholder="如 代发·杭州万象城店" /></div>
                   <div className="col-span-2"><Label>详细地址</Label><Input value={newAddr.receiverAddress} onChange={(e) => setNewAddr({ ...newAddr, receiverAddress: e.target.value })} /></div>
+                  <label className="col-span-2 flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={saveAddr} onChange={(e) => setSaveAddr(e.target.checked)} />
+                    保存到我的地址簿（代发地址，下次下单可直接选用）
+                  </label>
                 </div>
               )}
             </CardContent>

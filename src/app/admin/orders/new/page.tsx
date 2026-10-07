@@ -26,6 +26,7 @@ type Dealer = {
 type Address = {
   id: string; receiverName: string; receiverPhone: string;
   province: string; city: string; district: string; detailAddress: string; isDefault: boolean;
+  label?: string | null; addressType?: string | null;
 };
 type Product = {
   id: string; sku: string; productName: string; category: "PROFILE" | "HARDWARE";
@@ -68,6 +69,10 @@ export default function NewInternalOrderPage() {
   const [receiverName, setReceiverName] = useState("");
   const [receiverPhone, setReceiverPhone] = useState("");
   const [receiverAddress, setReceiverAddress] = useState("");
+  // 代发场景：新填地址可回存客户地址簿（标签=终端客户名，dropship=代发直发）
+  const [addrLabel, setAddrLabel] = useState("");
+  const [addrType, setAddrType] = useState<"warehouse" | "dropship">("dropship");
+  const [saveToBook, setSaveToBook] = useState(true);
 
   const [rawProducts, setRawProducts] = useState<Product[]>([]);
   const [hwProducts, setHwProducts] = useState<Product[]>([]);
@@ -418,6 +423,15 @@ export default function NewInternalOrderPage() {
       const rj = await res.json();
       if (!rj.ok) { toast.error(rj.message ?? "创建失败"); return setErr(rj.message ?? "创建失败"); }
       toast.success(`订单 ${rj.data.displayOrderNo ?? rj.data.orderNo} 已创建${rj.data.autoDispatchedWorkOrderNo ? "，已派车间" : ""}`);
+      if (saveToBook && dealerId && receiverName && receiverPhone && receiverAddress) {
+        void fetch(`/api/dealers/${dealerId}/addresses`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            receiverName, receiverPhone, detailAddress: receiverAddress,
+            label: addrLabel || null, addressType: addrType,
+          }),
+        });
+      }
       if (rj.data.dispatchWarning) toast.warning(rj.data.dispatchWarning, { duration: 8000 });
       if (rj.data.materialWarning) toast.warning(rj.data.materialWarning, { duration: 10000 });
       router.push(`/admin/orders/${rj.data.orderNo}`);
@@ -509,6 +523,8 @@ export default function NewInternalOrderPage() {
               {addresses.map((a) => (
                 <button key={a.id} onClick={() => applyAddress(a)}
                   className={`border rounded px-2 py-1 text-xs ${addressId === a.id ? "border-blue-500 bg-sky-500/10" : "hover:bg-secondary"}`}>
+                  {a.addressType === "dropship" && <span className="text-cyan-300 mr-1">[代发]</span>}
+                  {a.label && <span className="font-medium mr-1">{a.label} · </span>}
                   {a.province}{a.city}{a.district} · {a.receiverName}
                 </button>
               ))}
@@ -517,6 +533,20 @@ export default function NewInternalOrderPage() {
           <div><Label>收货人</Label><Input value={receiverName} onChange={(e) => setReceiverName(e.target.value)} /></div>
           <div><Label>电话</Label><Input value={receiverPhone} onChange={(e) => setReceiverPhone(e.target.value)} /></div>
           <div className="md:col-span-2"><Label>收货地址</Label><Input value={receiverAddress} onChange={(e) => setReceiverAddress(e.target.value)} /></div>
+          <div className="md:col-span-2 flex flex-wrap items-end gap-3 border-t pt-2">
+            <div className="w-44"><Label className="text-xs">地址标签（终端客户）</Label><Input value={addrLabel} onChange={(e) => setAddrLabel(e.target.value)} placeholder="如 代发·杭州万象城店" /></div>
+            <div>
+              <Label className="text-xs">地址类型</Label>
+              <select className="h-10 border rounded px-2 text-sm bg-card" value={addrType} onChange={(e) => setAddrType(e.target.value as "warehouse" | "dropship")}>
+                <option value="dropship">代发（直发他的客户）</option>
+                <option value="warehouse">自用（发客户本人）</option>
+              </select>
+            </div>
+            <label className="flex items-center gap-1.5 text-sm pb-2">
+              <input type="checkbox" checked={saveToBook} onChange={(e) => setSaveToBook(e.target.checked)} />
+              保存到该客户地址簿
+            </label>
+          </div>
           <div><Label>目标交期</Label><Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} /></div>
           <div><Label>价格备注（实价与报价差异，可选）</Label><Input value={priceNote} onChange={(e) => setPriceNote(e.target.value)} placeholder="如：微信已收 300" /></div>
           <div className="md:col-span-2"><Label>备注</Label><Input value={remark} onChange={(e) => setRemark(e.target.value)} /></div>

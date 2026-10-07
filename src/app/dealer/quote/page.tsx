@@ -41,6 +41,8 @@ export default async function QuotePage() {
         receiverPhone: a.receiverPhone,
         fullAddress: `${a.province}${a.city}${a.district}${a.detailAddress}`,
         isDefault: a.isDefault,
+        label: (a as any).label ?? null,
+        addressType: (a as any).addressType ?? null,
       }))}
       options={{
         surfaceProcesses: settings.surfaceProcesses,

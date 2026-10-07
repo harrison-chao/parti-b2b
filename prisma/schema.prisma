@@ -292,7 +292,10 @@ model DealerContact {
 model DealerAddress {
   id            String   @id @default(cuid())
   dealerId      String
+  // warehouse = 客户自用收货地址；dropship = 代发地址（客户下单、直发他的终端客户）
   addressType   String   @default("warehouse")
+  // 地址标签（代发场景 = 终端客户名/门店名，如"代发·杭州万象城店"）
+  label         String?
   receiverName  String
   receiverPhone String
   province      String
