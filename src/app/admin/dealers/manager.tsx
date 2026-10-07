@@ -62,6 +62,7 @@ export function DealersManager({ initial, initialTab = "DEALER" }: { initial: De
   const [editing, setEditing] = useState<Dealer | null>(null);
   const [creating, setCreating] = useState(false);
   const [query, setQuery] = useState("");
+  const [expandedAddrId, setExpandedAddrId] = useState<string | null>(null);
   const [typeTab, setTypeTab] = useState<"DEALER" | "WALK_IN" | "ALL">(initialTab);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [levelFilter, setLevelFilter] = useState("ALL");
@@ -154,6 +155,7 @@ export function DealersManager({ initial, initialTab = "DEALER" }: { initial: De
                 const isDirect = (d.customerType ?? "DEALER") === "WALK_IN";
                 const displayName = isDirect ? (d.nickname || d.companyName) : d.companyName;
                 return (
+                  <>
                   <tr key={d.id} className="border-b">
                     <td className="p-3">
                       <div className="font-mono text-xs text-muted-foreground">{d.dealerNo}</div>
@@ -190,6 +192,9 @@ export function DealersManager({ initial, initialTab = "DEALER" }: { initial: De
                     </td>
                     <td className="p-3">
                       <div className="flex gap-1">
+                        <Button variant="outline" size="sm" onClick={() => setExpandedAddrId(expandedAddrId === d.id ? null : d.id)}>
+                          {expandedAddrId === d.id ? "收起地址" : `地址${(d as any)._addressCount ?? ""}`}
+                        </Button>
                         <Button variant="outline" size="sm" onClick={() => { setEditing(d); setCreating(false); }}>编辑</Button>
                         <Button variant="ghost" size="sm" className="text-red-500" onClick={async () => {
                           if (!confirm(`确认删除客户「${d.companyName}」？有订单/账号/付款的客户会被拒绝，请改用停用`)) return;
@@ -202,6 +207,14 @@ export function DealersManager({ initial, initialTab = "DEALER" }: { initial: De
                       </div>
                     </td>
                   </tr>
+                  {expandedAddrId === d.id && (
+                    <tr className="bg-cyan-500/5 border-b">
+                      <td colSpan={12} className="p-4">
+                        <AddressBookPanel dealerId={d.id} dealerName={displayName} />
+                      </td>
+                    </tr>
+                  )}
+                  </>
                 );
               })}
             </tbody>
@@ -407,4 +420,125 @@ function DealerForm({ dealer, onCancel, onSaved }: {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="space-y-1.5"><Label>{label}</Label>{children}</div>;
+}
+
+
+// ── 客户地址簿面板：代发地址管理（增/删/设默认/打标签）──────────────
+function AddressBookPanel({ dealerId, dealerName }: { dealerId: string; dealerName: string }) {
+  type Addr = {
+    id: string; label?: string | null; addressType?: string | null;
+    receiverName: string; receiverPhone: string;
+    province: string; city: string; district: string; detailAddress: string; isDefault: boolean;
+  };
+  const [list, setList] = useState<Addr[] | null>(null);
+  const [err, setErr] = useState("");
+  const [form, setForm] = useState({
+    label: "", addressType: "dropship" as "warehouse" | "dropship",
+    receiverName: "", receiverPhone: "", address: "", isDefault: false,
+  });
+
+  async function load() {
+    const r = await fetch(`/api/dealers/${dealerId}/addresses`);
+    const j = await r.json();
+    if (j.code !== 0) { setErr(j.message); return; }
+    setList(j.data.addresses);
+  }
+  if (list === null && !err) void load();
+
+  async function add() {
+    if (!form.receiverName || !form.receiverPhone || !form.address) return setErr("收货人、电话、地址必填");
+    setErr("");
+    const r = await fetch(`/api/dealers/${dealerId}/addresses`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        receiverName: form.receiverName, receiverPhone: form.receiverPhone,
+        detailAddress: form.address, label: form.label || null,
+        addressType: form.addressType, isDefault: form.isDefault,
+      }),
+    });
+    const j = await r.json();
+    if (j.code !== 0) return setErr(j.message);
+    setForm({ label: "", addressType: "dropship", receiverName: "", receiverPhone: "", address: "", isDefault: false });
+    setList(null); // 触发重载
+  }
+
+  async function patch(id: string, data: Record<string, unknown>) {
+    const r = await fetch(`/api/dealers/${dealerId}/addresses/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
+    });
+    const j = await r.json();
+    if (j.code !== 0) return setErr(j.message);
+    setList(null);
+  }
+
+  async function del(a: Addr) {
+    if (!confirm(`删除地址「${a.label ?? a.receiverName}」？不影响已创建的订单`)) return;
+    const r = await fetch(`/api/dealers/${dealerId}/addresses/${a.id}`, { method: "DELETE" });
+    const j = await r.json();
+    if (j.code !== 0) return setErr(j.message);
+    setList(null);
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="text-sm font-semibold">{dealerName} 的地址簿（代发=直发他的终端客户）</div>
+      {err && <div className="text-xs text-red-400">{err}</div>}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[860px] text-xs">
+          <thead className="border-b bg-card/40"><tr className="text-left">
+            <th className="p-2">标签</th><th className="p-2">类型</th><th className="p-2">收货人</th>
+            <th className="p-2">电话</th><th className="p-2">地址</th><th className="p-2">默认</th><th className="p-2"></th>
+          </tr></thead>
+          <tbody>
+            {(list ?? []).map((a) => (
+              <tr key={a.id} className="border-b">
+                <td className="p-2">
+                  <input className="border rounded px-1 py-0.5 w-36 bg-card" defaultValue={a.label ?? ""}
+                    placeholder="终端客户/门店名"
+                    onBlur={(e) => { if ((e.target.value || null) !== (a.label ?? null)) void patch(a.id, { label: e.target.value || null }); }} />
+                </td>
+                <td className="p-2">
+                  <select className="border rounded px-1 py-0.5 bg-card" value={a.addressType ?? "warehouse"}
+                    onChange={(e) => void patch(a.id, { addressType: e.target.value })}>
+                    <option value="dropship">代发</option>
+                    <option value="warehouse">自用</option>
+                  </select>
+                </td>
+                <td className="p-2">{a.receiverName}</td>
+                <td className="p-2">{a.receiverPhone}</td>
+                <td className="p-2 max-w-[320px] truncate" title={`${a.province}${a.city}${a.district}${a.detailAddress}`}>
+                  {a.province}{a.city}{a.district}{a.detailAddress}
+                </td>
+                <td className="p-2">
+                  {a.isDefault ? <span className="text-sky-300">默认</span> : (
+                    <button className="text-sky-400 hover:underline" onClick={() => void patch(a.id, { isDefault: true })}>设为默认</button>
+                  )}
+                </td>
+                <td className="p-2"><button className="text-red-400 hover:underline" onClick={() => void del(a)}>删除</button></td>
+              </tr>
+            ))}
+            {list !== null && list.length === 0 && <tr><td colSpan={7} className="p-3 text-center text-muted-foreground">暂无地址——在下方添加，或下单时勾选“保存到该客户地址簿”自动沉淀</td></tr>}
+            {list === null && <tr><td colSpan={7} className="p-3 text-center text-muted-foreground">加载中…</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex flex-wrap items-end gap-2 border-t pt-2">
+        <div><Label className="text-xs">标签</Label><Input className="h-8 w-40" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="如 代发·杭州店" /></div>
+        <div>
+          <Label className="text-xs">类型</Label>
+          <select className="h-8 border rounded px-2 text-sm bg-card" value={form.addressType} onChange={(e) => setForm({ ...form, addressType: e.target.value as "warehouse" | "dropship" })}>
+            <option value="dropship">代发</option>
+            <option value="warehouse">自用</option>
+          </select>
+        </div>
+        <div><Label className="text-xs">收货人</Label><Input className="h-8 w-32" value={form.receiverName} onChange={(e) => setForm({ ...form, receiverName: e.target.value })} /></div>
+        <div><Label className="text-xs">电话</Label><Input className="h-8 w-32" value={form.receiverPhone} onChange={(e) => setForm({ ...form, receiverPhone: e.target.value })} /></div>
+        <div className="flex-1 min-w-[280px]"><Label className="text-xs">地址</Label><Input className="h-8" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
+        <label className="flex items-center gap-1.5 text-xs pb-1.5">
+          <input type="checkbox" checked={form.isDefault} onChange={(e) => setForm({ ...form, isDefault: e.target.checked })} />默认
+        </label>
+        <Button size="sm" onClick={add}>+ 添加地址</Button>
+      </div>
+    </div>
+  );
 }
