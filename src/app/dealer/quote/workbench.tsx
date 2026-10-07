@@ -1,6 +1,7 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,11 +114,56 @@ function rowReady(r: Row): boolean {
   return !!(r.productName && rowUnitPrice(r) != null && r.quantity > 0);
 }
 
+/** 载入来源单（再来一单/继续编辑草稿）映射回工作台行；已下架的原料/五金行跳过并计数 */
+function rowsFromInitial(initial: any, rawProfileCatalog: RawProfileItem[], hardwareCatalog: HardwareItem[]): { rows: Row[]; skipped: number } {
+  const out: Row[] = [];
+  let skipped = 0;
+  for (const l of initial.lines ?? []) {
+    if (l.lineType === "PROFILE") {
+      const raw = rawProfileCatalog.find((p) => p.id === l.rawProductId);
+      if (!raw) { skipped++; continue; }
+      out.push({
+        id: crypto.randomUUID(), lineType: "PROFILE",
+        rawProductId: raw.id, rawSku: raw.sku, rawSeries: raw.series ?? "",
+        lengthMm: l.cutLengthMm != null ? String(l.cutLengthMm) : "",
+        lengthInch: l.cutLengthMm != null ? (l.cutLengthMm / 25.4).toFixed(1) : "",
+        processCode: l.surfaceProcessCode ?? raw.surfaceProcessCode ?? "",
+        colorCode: l.surfaceColorCode ?? raw.surfaceColorCode ?? "",
+        processCodes: Array.isArray(l.processCodes) ? l.processCodes.filter((c: string) => c !== "L") : [],
+        drawingUrl: l.drawingUrl ?? "", drawingFileName: l.drawingFileName ?? "", drawingUploading: false,
+        quantity: l.quantity ?? 1, targetPct: "",
+        targetPriceOverride: l.targetPrice != null ? String(l.targetPrice) : undefined,
+        unitPrice: null, retailPrice: null, loading: false,
+      });
+    } else if (l.lineType === "HARDWARE") {
+      const hw = hardwareCatalog.find((p) => p.id === l.productId);
+      if (!hw) { skipped++; continue; }
+      out.push({
+        ...newHardware(hw),
+        quantity: l.quantity ?? 1,
+        targetPriceOverride: l.targetPrice != null ? String(l.targetPrice) : undefined,
+        drawingUrl: l.drawingUrl ?? "", drawingFileName: l.drawingFileName ?? "",
+      });
+    } else {
+      out.push({
+        id: crypto.randomUUID(), lineType: "OUTSOURCED",
+        productName: l.productName ?? "", spec: l.spec ?? "",
+        drawingUrl: l.drawingUrl ?? "", drawingFileName: l.drawingFileName ?? "", drawingUploading: false,
+        quantity: l.quantity ?? 1,
+        purchasePrice: l.purchasePrice != null ? String(l.purchasePrice) : "",
+        targetPrice: l.targetPriceText ?? "",
+      });
+    }
+  }
+  return { rows: out.length ? out : [newProfile(rawProfileCatalog[0])], skipped };
+}
+
 export function QuoteWorkbench({
-  dealer, addresses, options, hardwareCatalog, rawProfileCatalog, crmCustomers,
+  dealer, addresses, initial, options, hardwareCatalog, rawProfileCatalog, crmCustomers,
 }: {
   dealer: { id: string; companyName: string; priceLevel: string; paymentMethod: string; creditBalance: number };
   addresses: Address[];
+  initial: any | null;
   options: { surfaceProcesses: Option[]; surfaceColors: Option[]; processingOperations: Option[] };
   hardwareCatalog: HardwareItem[];
   rawProfileCatalog: RawProfileItem[];
@@ -126,22 +172,79 @@ export function QuoteWorkbench({
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"PROFILE" | "HARDWARE" | "OUTSOURCED">("PROFILE");
   const defaultRaw = rawProfileCatalog[0];
-  const [rows, setRows] = useState<Row[]>([newProfile(defaultRaw)]);
+  const initialParsed = initial ? rowsFromInitial(initial, rawProfileCatalog, hardwareCatalog) : null;
+  const [rows, setRows] = useState<Row[]>(initialParsed ? initialParsed.rows : [newProfile(defaultRaw)]);
+  // 编辑模式：更新原单（DRAFT/MODIFYING 草稿）；再来一单：initial 有但 editMode=false，提交生成新单
+  const editOrderNo = initial?.editMode ? initial.orderNo as string : null;
 
-  const [addrId, setAddrId] = useState(addresses[0]?.id ?? "");
-  const [newAddr, setNewAddr] = useState({ receiverName: "", receiverPhone: "", receiverAddress: "" });
+  // 地址：来源单收货人优先匹配地址簿，匹配不上转为"新填地址"预填
+  const initAddr = initial
+    ? (addresses.find((a) => a.fullAddress === initial.receiverAddress && a.receiverName === initial.receiverName) ?? null)
+    : null;
+  const [addrId, setAddrId] = useState(initial ? (initAddr?.id ?? "") : (addresses[0]?.id ?? ""));
+  const [newAddr, setNewAddr] = useState(() => initial && !initAddr
+    ? { receiverName: initial.receiverName ?? "", receiverPhone: initial.receiverPhone ?? "", receiverAddress: initial.receiverAddress ?? "" }
+    : { receiverName: "", receiverPhone: "", receiverAddress: "" });
   // 新填地址默认沉淀到自己的地址簿（代发客户逐单换终端地址，回存后下次可选）
   const [saveAddr, setSaveAddr] = useState(true);
   const [addrLabel, setAddrLabel] = useState("");
-  const [useNewAddr, setUseNewAddr] = useState(addresses.length === 0);
-  const [targetDate, setTargetDate] = useState(() => {
+  const [useNewAddr, setUseNewAddr] = useState(addresses.length === 0 || (!!initial && !initAddr));
+  const [targetDate, setTargetDate] = useState(() => initial?.targetDeliveryDate ?? (() => {
     const d = new Date(); d.setDate(d.getDate() + 14); return d.toISOString().slice(0, 10);
-  });
-  const [remark, setRemark] = useState("");
+  })() as string);
+  const [remark, setRemark] = useState(initial?.remark ?? "");
   const [crmCustomerId, setCrmCustomerId] = useState("");
   const [crmOpportunityId, setCrmOpportunityId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  // 上次未完成报价的本地暂存（按经销商隔离）；有载入单时优先载入单
+  const draftKey = `parti-quote-draft-${dealer.id}`;
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    if (initial || restored) return;
+    setRestored(true);
+    try {
+      const saved = JSON.parse(localStorage.getItem(draftKey) ?? "null");
+      if (saved && Array.isArray(saved.rows) && saved.rows.some((r: Row) => rowReady(r))) {
+        if (window.confirm("检测到上次未完成的报价，是否恢复？")) {
+          setRows(saved.rows);
+          if (saved.targetDate) setTargetDate(saved.targetDate);
+          if (saved.remark) setRemark(saved.remark);
+          if (saved.useNewAddr) { setUseNewAddr(true); setNewAddr(saved.newAddr ?? { receiverName: "", receiverPhone: "", receiverAddress: "" }); }
+          else if (saved.addrId) setAddrId(saved.addrId);
+        } else {
+          localStorage.removeItem(draftKey);
+        }
+      }
+    } catch { /* 存储损坏则忽略 */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // 行有实质内容时暂存；提交成功后清除
+  useEffect(() => {
+    if (editOrderNo) return; // 编辑模式以服务端草稿为准，不双写本地
+    if (!rows.some(rowReady) && !remark) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({ rows, targetDate, remark, addrId, useNewAddr, newAddr, savedAt: Date.now() }));
+    } catch { /* 配额满则放弃暂存 */ }
+  }, [rows, targetDate, remark, addrId, useNewAddr, newAddr, editOrderNo, draftKey]);
+  // 有未保存内容时拦截误关页面
+  useEffect(() => {
+    const h = (e: BeforeUnloadEvent) => {
+      if (rows.some(rowReady) && !editOrderNo) { e.preventDefault(); e.returnValue = ""; }
+    };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [rows, editOrderNo]);
+  // 载入/恢复的 PROFILE 行价格是空的 → 自动重算（loading 状态防循环）
+  useEffect(() => {
+    for (const r of rows) {
+      if (r.lineType === "PROFILE" && r.rawProductId && r.lengthMm && r.unitPrice == null && !r.loading && !r.error) {
+        void recalcProfile(r.id, parseFloat(r.lengthMm), r.rawProductId);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows]);
 
   function patchRow<T extends Row>(id: string, patch: Partial<T>) {
     setRows((rs) => rs.map((r) => (r.id === id ? ({ ...r, ...patch } as Row) : r)));
@@ -275,23 +378,43 @@ export function QuoteWorkbench({
 
     setSubmitting(true);
     try {
-      const r = await fetch("/api/orders", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          targetDeliveryDate: targetDate,
-          receiverName,
-          receiverPhone,
-          receiverAddress,
-          remark,
-          crmCustomerId: crmCustomerId || null,
-          crmOpportunityId: crmOpportunityId || null,
-          lines,
-        }),
-      });
-      const j = await r.json();
-      if (j.code !== 0) { setError(j.message); return; }
-      const orderNo = j.data.orderNo;
-      if (submitAfter) await fetch(`/api/orders/${orderNo}/submit`, { method: "POST" });
+      let orderNo: string;
+      if (editOrderNo) {
+        // 继续编辑草稿：更新原单（行计价服务端权威），可选直接提交审核
+        const r = await fetch(`/api/orders/${editOrderNo}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetDeliveryDate: targetDate,
+            receiverName, receiverPhone, receiverAddress,
+            remark, lines,
+          }),
+        });
+        const j = await r.json();
+        if (j.code !== 0) { setError(j.message); return; }
+        orderNo = j.data.orderNo;
+        if (submitAfter) await fetch(`/api/orders/${orderNo}/submit`, { method: "POST" });
+        toast.success(submitAfter ? "草稿已更新并提交审核，通常 1 个工作日内完成审核" : "草稿已更新");
+      } else {
+        const r = await fetch("/api/orders", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetDeliveryDate: targetDate,
+            receiverName,
+            receiverPhone,
+            receiverAddress,
+            remark,
+            crmCustomerId: crmCustomerId || null,
+            crmOpportunityId: crmOpportunityId || null,
+            lines,
+          }),
+        });
+        const j = await r.json();
+        if (j.code !== 0) { setError(j.message); return; }
+        orderNo = j.data.orderNo;
+        if (submitAfter) await fetch(`/api/orders/${orderNo}/submit`, { method: "POST" });
+        toast.success(submitAfter ? "订单已提交，通常 1 个工作日内完成审核" : "草稿已保存，可随时在“我的订单”继续编辑");
+      }
+      try { localStorage.removeItem(draftKey); } catch { /* 忽略 */ }
       router.push(`/dealer/orders/${orderNo}`);
     } finally { setSubmitting(false); }
   }
@@ -299,9 +422,16 @@ export function QuoteWorkbench({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">报价下单 · {dealer.companyName}</h1>
+        <h1 className="text-2xl font-bold">
+          报价下单 · {dealer.companyName}
+          {editOrderNo && <span className="ml-3 align-middle"><Badge className="bg-amber-500/15 text-amber-300">编辑草稿 {editOrderNo}</Badge></span>}
+          {initial && !editOrderNo && <span className="ml-3 align-middle"><Badge className="bg-sky-500/15 text-sky-300">按 {initial.orderNo} 复制</Badge></span>}
+        </h1>
         <div className="text-sm text-muted-foreground">{PRICE_TIER_LABEL[dealer.priceLevel as "A"|"B"|"C"] ?? dealer.priceLevel}</div>
       </div>
+      {(initialParsed?.skipped ?? 0) > 0 && (
+        <p className="text-sm text-amber-500">来源单有 {initialParsed?.skipped} 行原料/五金已下架，已跳过，请核对明细</p>
+      )}
 
       <Card>
         <CardHeader>
@@ -511,7 +641,7 @@ export function QuoteWorkbench({
                 </div>
               )}
               {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button className="w-full" onClick={() => submit(false)} disabled={submitting || creditInsufficient} variant="outline">保存草稿</Button>
+              <Button className="w-full" onClick={() => submit(false)} disabled={submitting || creditInsufficient} variant="outline">{editOrderNo ? "保存修改" : "保存草稿"}</Button>
               <Button className="w-full" onClick={() => submit(true)} disabled={submitting || creditInsufficient}>
                 {submitting ? "提交中..." : "提交审核"}
               </Button>

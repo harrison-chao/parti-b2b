@@ -4,7 +4,7 @@ import { loadSettings } from "@/lib/settings";
 import { LEVEL_DISCOUNT } from "@/lib/pricing";
 import { QuoteWorkbench } from "./workbench";
 
-export default async function QuotePage() {
+export default async function QuotePage({ searchParams }: { searchParams: { from?: string; mode?: string } }) {
   const session = await auth();
   const dealer = await prisma.dealer.findUnique({
     where: { id: session!.user.dealerId! },
@@ -26,6 +26,44 @@ export default async function QuotePage() {
   });
   const discount = LEVEL_DISCOUNT[dealer!.priceLevel];
 
+  // 载入历史单：from=单号；mode=edit 时为"继续编辑草稿"（更新原单），否则为"再来一单"（提交生成新单）
+  let initial: any = null;
+  if (searchParams.from) {
+    const src = await prisma.salesOrder.findFirst({
+      where: { orderNo: searchParams.from, dealerId: dealer!.id },
+      include: { lines: { orderBy: { lineNo: "asc" } } },
+    });
+    if (src) {
+      const editable = src.orderStatus === "DRAFT" || src.orderStatus === "MODIFYING";
+      initial = {
+        orderNo: src.orderNo,
+        editMode: searchParams.mode === "edit" && editable,
+        targetDeliveryDate: src.targetDeliveryDate.toISOString().slice(0, 10),
+        receiverName: src.receiverName,
+        receiverPhone: src.receiverPhone,
+        receiverAddress: src.receiverAddress,
+        remark: src.remark ?? "",
+        lines: src.lines.map((l) => ({
+          lineType: l.lineType,
+          rawProductId: l.rawProductId ?? undefined,
+          productId: l.productId ?? undefined,
+          productName: l.productName ?? "",
+          spec: l.spec ?? "",
+          quantity: l.quantity,
+          cutLengthMm: l.cutLengthMm ?? l.lengthMm ?? undefined,
+          surfaceProcessCode: l.surfaceProcessCode ?? undefined,
+          surfaceColorCode: l.surfaceColorCode ?? undefined,
+          processCodes: (l.processCodes ?? []).filter((c: string) => c !== "L"),
+          targetPrice: l.targetPrice != null ? Number(l.targetPrice) : undefined,
+          purchasePrice: l.lineType === "OUTSOURCED" ? Number(l.unitPrice) : undefined,
+          targetPriceText: l.lineType === "OUTSOURCED" && l.targetPrice != null ? String(Number(l.targetPrice)) : "",
+          drawingUrl: l.drawingUrl ?? "",
+          drawingFileName: l.drawingFileName ?? "",
+        })),
+      };
+    }
+  }
+
   return (
     <QuoteWorkbench
       dealer={{
@@ -44,6 +82,7 @@ export default async function QuotePage() {
         label: (a as any).label ?? null,
         addressType: (a as any).addressType ?? null,
       }))}
+      initial={initial}
       options={{
         surfaceProcesses: settings.surfaceProcesses,
         surfaceColors: settings.surfaceColors,

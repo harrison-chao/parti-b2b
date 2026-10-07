@@ -138,6 +138,13 @@ export const ORDER_STATUS_LABEL: Record<string, string> = {
   REJECTED: "已驳回",
 };
 
+export const PAYMENT_STATUS_LABEL: Record<string, string> = {
+  UNPAID: "未付款",
+  PARTIAL: "部分付款",
+  PAID: "已付款",
+  CREDIT: "信用结算",
+};
+
 export const ORDER_STATUS_COLOR: Record<string, string> = {
   DRAFT: "bg-slate-500/15 text-slate-300 ring-1 ring-inset ring-slate-400/20",
   PENDING: "bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-400/20",

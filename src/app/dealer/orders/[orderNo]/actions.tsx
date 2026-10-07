@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 export function SubmitBtn({ orderNo }: { orderNo: string }) {
@@ -11,7 +12,8 @@ export function SubmitBtn({ orderNo }: { orderNo: string }) {
     const r = await fetch(`/api/orders/${orderNo}/submit`, { method: "POST" });
     const j = await r.json();
     setLoading(false);
-    if (j.code !== 0) { alert(j.message); return; }
+    if (j.code !== 0) { toast.error(j.message); return; }
+    toast.success("已提交审核，通常 1 个工作日内完成");
     router.refresh();
   }
   return <Button onClick={submit} disabled={loading}>{loading ? "提交中..." : "提交审核"}</Button>;

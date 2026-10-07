@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatMoney, formatDate, formatDateTime, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, WORK_ORDER_STATUS_LABEL, WORK_ORDER_STATUS_COLOR, WORK_ORDER_STATUS_FLOW, ORDER_LINE_TYPE_LABEL, ORDER_LINE_TYPE_COLOR } from "@/lib/utils";
+import { formatMoney, formatDate, formatDateTime, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, PAYMENT_STATUS_LABEL, WORK_ORDER_STATUS_LABEL, WORK_ORDER_STATUS_COLOR, WORK_ORDER_STATUS_FLOW, ORDER_LINE_TYPE_LABEL, ORDER_LINE_TYPE_COLOR } from "@/lib/utils";
 import { SubmitBtn } from "./actions";
 
 export default async function OrderDetailPage({ params }: { params: { orderNo: string } }) {
@@ -20,6 +20,14 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
       events: { orderBy: { createdAt: "desc" } },
     },
   });
+  // 已出运/已终结的单不再计逾期
+  const NON_OVERDUE = ["PARTIALLY_SHIPPED", "SHIPPED", "COMPLETED", "CANCELLED", "REJECTED"];
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const overdueDays = !NON_OVERDUE.includes(order.orderStatus) && order.targetDeliveryDate < today
+    ? Math.floor((today.getTime() - new Date(order.targetDeliveryDate).getTime()) / 86400000)
+    : 0;
+  const editable = order.orderStatus === "DRAFT" || order.orderStatus === "MODIFYING";
+  const reorderable = !editable && !["CANCELLED", "REJECTED"].includes(order.orderStatus);
 
   return (
     <div className="space-y-6">
@@ -46,7 +54,10 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
             订单确认书 ↗
           </a>
           <Badge className={ORDER_STATUS_COLOR[order.orderStatus] + " text-base px-3 py-1"}>{ORDER_STATUS_LABEL[order.orderStatus]}</Badge>
-          {(order.orderStatus === "DRAFT" || order.orderStatus === "MODIFYING") && <SubmitBtn orderNo={order.orderNo} />}
+          {overdueDays > 0 && <Badge className="bg-red-500/15 text-red-300 ring-1 ring-inset ring-red-400/30 text-base px-3 py-1">逾期 {overdueDays} 天</Badge>}
+          {editable && <a href={`/dealer/quote?from=${order.orderNo}&mode=edit`} className="text-sm text-amber-300 hover:underline">继续编辑</a>}
+          {reorderable && <a href={`/dealer/quote?from=${order.orderNo}`} className="text-sm text-emerald-300 hover:underline">再来一单</a>}
+          {editable && <SubmitBtn orderNo={order.orderNo} />}
         </div>
       </div>
 
@@ -57,7 +68,7 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
             <Row k="下单日期" v={formatDate(order.orderDate)} />
             <Row k="期望交期" v={formatDate(order.targetDeliveryDate)} />
             {order.suggestedDeliveryDate && <Row k="建议交期" v={formatDate(order.suggestedDeliveryDate)} />}
-            <Row k="付款方式" v={order.paymentStatus} />
+            <Row k="付款状态" v={PAYMENT_STATUS_LABEL[order.paymentStatus] ?? order.paymentStatus} />
             {order.reviewer && <Row k="审核人" v={order.reviewer} />}
             {order.reviewTime && <Row k="审核时间" v={formatDateTime(order.reviewTime)} />}
             {order.reviewRemark && <Row k="审核备注" v={order.reviewRemark} />}
