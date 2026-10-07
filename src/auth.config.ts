@@ -1,7 +1,10 @@
 import type { NextAuthConfig } from "next-auth";
 
+// 会话时效：JWT 默认 30 天；配合下方逐请求回查，停用/重置密码即时生效（吊销语义）
+const SESSION_MAX_AGE = 30 * 24 * 60 * 60;
+
 export const authConfig: NextAuthConfig = {
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: SESSION_MAX_AGE },
   trustHost: true,
   pages: { signIn: "/login" },
   providers: [],

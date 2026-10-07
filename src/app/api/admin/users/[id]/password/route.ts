@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { fail, ok } from "@/lib/api";
+import { fail, ok, requireRole } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
 import { activationExpiresAt, buildActivationLink, createActivationToken } from "@/lib/account-activation";
 
@@ -12,9 +12,9 @@ const resetSchema = z.object({
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await auth();
-  if (!session) return fail("未登录", 401, 401);
-  if (session.user.role !== "ADMIN") return fail("仅管理员可重置账号密码", 403, 403);
+  const guard = await requireRole("ADMIN");
+  if (guard.response) return guard.response;
+  const session = guard.session;
   if (params.id === session.user.id) return fail("不能在这里重置自己的密码，请使用账号设置");
 
   const parsed = resetSchema.safeParse(await req.json());

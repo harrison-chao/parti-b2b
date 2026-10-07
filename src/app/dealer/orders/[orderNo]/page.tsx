@@ -120,7 +120,7 @@ export default async function OrderDetailPage({ params }: { params: { orderNo: s
                       {ev.fromStatus ? `${WORK_ORDER_STATUS_LABEL[ev.fromStatus]} → ` : ""}
                       <b>{WORK_ORDER_STATUS_LABEL[ev.toStatus]}</b>
                     </span>
-                    {ev.note && <span className="text-muted-foreground">· {ev.note}</span>}
+                    {ev.note && <span className="text-muted-foreground">· {ev.note.replace(/【缺料提示】[^；]*；?/g, "").replace(/库存不足：[^（]*（[^）]*）/g, "库存紧张")}</span>}
                   </li>
                 ))}
                 {workOrder.events.length === 0 && <li className="text-xs text-muted-foreground">暂无</li>}

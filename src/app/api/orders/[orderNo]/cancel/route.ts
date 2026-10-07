@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { ok, fail } from "@/lib/api";
+import { ok, fail, requireRole } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
 
 const cancelSchema = z.object({
@@ -20,9 +20,9 @@ const CANCELLABLE = ["DRAFT", "PENDING", "MODIFYING", "CONFIRMED", "PARTIALLY_PA
  *  - SHIPPED/COMPLETED/CANCELLED/REJECTED：拒绝（SHIPPED 走结案）
  *  已收款不阻塞，返回 warning（核销保留、余额转预收，退款线下处理）；CREDIT 单释放信用占用。 */
 export async function POST(req: NextRequest, { params }: { params: { orderNo: string } }) {
-  const session = await auth();
-  if (!session) return fail("未登录", 401, 401);
-  if (session.user.role !== "ADMIN") return fail("仅管理员可取消订单", 403, 403);
+  const guard = await requireRole("ADMIN");
+  if (guard.response) return guard.response;
+  const session = guard.session;
 
   const parsed = cancelSchema.safeParse(await req.json());
   if (!parsed.success) return fail("参数错误: " + parsed.error.message);

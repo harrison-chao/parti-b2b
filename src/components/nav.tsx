@@ -19,7 +19,6 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   account: UserCircle, cart: ShoppingCart, products: Package, factory: Factory,
   users: Users, suppliers: Users, purchase: PackageSearch, reconcile: Banknote,
   pricing: Calculator, audit: FileClock, settings: Settings2,
-  combo: Sparkles, crm: Contact, quote: FileText, neworder: ShoppingCart, file: FileText,
 };
 
 /**

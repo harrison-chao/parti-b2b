@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { ok, fail } from "@/lib/api";
+import { ok, fail, requireRole } from "@/lib/api";
 import { z } from "zod";
 import { logAudit } from "@/lib/audit";
 import { applyStockMovement, movingAveragePerMeter } from "@/lib/inventory";
@@ -17,9 +17,9 @@ const createSchema = z.object({
 });
 
 export async function GET() {
-  const session = await auth();
-  if (!session) return fail("未登录", 401, 401);
-  if (session.user.role !== "ADMIN") return fail("仅管理员可查看调拨单", 403, 403);
+  const guard = await requireRole("ADMIN");
+  if (guard.response) return guard.response;
+  const session = guard.session;
   const transfers = await prisma.transferOrder.findMany({
     orderBy: { createdAt: "desc" },
     take: 100,
@@ -38,9 +38,9 @@ export async function GET() {
  * 目标仓已有量的按米数加权融合均价，空仓直接带入源仓均价。
  */
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session) return fail("未登录", 401, 401);
-  if (session.user.role !== "ADMIN") return fail("仅管理员可调拨", 403, 403);
+  const guard = await requireRole("ADMIN");
+  if (guard.response) return guard.response;
+  const session = guard.session;
   const parsed = createSchema.safeParse(await req.json());
   if (!parsed.success) return fail("参数错误: " + parsed.error.message);
   const d = parsed.data;

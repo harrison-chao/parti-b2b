@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 import { ok, fail } from "@/lib/api";
 
 export async function POST(_req: NextRequest, { params }: { params: { orderNo: string } }) {
@@ -16,6 +17,11 @@ export async function POST(_req: NextRequest, { params }: { params: { orderNo: s
   const updated = await prisma.salesOrder.update({
     where: { orderNo: params.orderNo },
     data: { orderStatus: "PENDING" },
+  });
+  await logAudit({
+    action: "ORDER_SUBMIT", entityType: "SalesOrder", entityId: params.orderNo,
+    summary: `订单 ${updated.displayOrderNo ?? params.orderNo} 提交审核`,
+    actor: session?.user,
   });
   return ok(updated);
 }

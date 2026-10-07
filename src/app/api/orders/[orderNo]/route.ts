@@ -16,7 +16,13 @@ export async function GET(_req: NextRequest, { params }: { params: { orderNo: st
 
   if (role === "DEALER") {
     if (order.dealerId !== session.user.dealerId) return fail("无权访问", 403, 403);
-    return ok(order);
+    // 出站白名单：剥除成本快照/内部备注/价格备注/完整客户档案（列级防泄露）
+    const { internalRemark, priceNote, dealer, lines, ...rest } = order;
+    return ok({
+      ...rest,
+      dealer: dealer ? { id: dealer.id, dealerNo: dealer.dealerNo, companyName: dealer.companyName, nickname: dealer.nickname } : null,
+      lines: lines.map(({ costSnapshot, ...l }) => l),
+    });
   }
 
   if (role === "WORKSHOP") {
