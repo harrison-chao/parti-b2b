@@ -33,8 +33,9 @@ const contactSchema = z.object({
 });
 
 const createSchema = z.object({
-  dealerNo: z.string().min(1),
-  companyName: z.string().min(1),
+  dealerNo: z.string().optional().nullable(),
+  // 直销客户的表单"名称"绑定 nickname，companyName（地址/备注名）可留空 —— 服务端兜底合并
+  companyName: z.string().optional().default(""),
   contactName: z.string().min(1),
   contactPhone: z.string().min(1),
   // W1: 散客/直发客户（D1）——WALK_IN 不参与信用与等级
@@ -69,12 +70,22 @@ export async function POST(req: NextRequest) {
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return fail("参数错误: " + parsed.error.message);
   const d = parsed.data;
-  const existing = await prisma.dealer.findUnique({ where: { dealerNo: d.dealerNo } });
-  if (existing) return fail("经销商编号已存在");
+  // 客户编号留空自动顺延（与供应商 SUP-xxx 同口径）：经销商 PARTI-D-xxxx / 直销 WI-xxxx
+  const prefix = (d.customerType ?? "DEALER") === "WALK_IN" ? "WI-" : "PARTI-D-";
+  const allNos = await prisma.dealer.findMany({ select: { dealerNo: true } });
+  const maxNo = Math.max(0, ...allNos.map((x) => {
+    const m = new RegExp(`^${prefix}(\\d+)$`).exec(x.dealerNo.trim().toUpperCase());
+    return m ? parseInt(m[1], 10) : 0;
+  }));
+  const dealerNo = ((d.dealerNo ?? "").trim() || `${prefix}${String(maxNo + 1).padStart(4, "0")}`).toUpperCase();
+  const existing = await prisma.dealer.findUnique({ where: { dealerNo } });
+  if (existing) return fail(`客户编号 ${dealerNo} 已存在`);
+  const companyName = (d.companyName ?? "").trim() || (d.nickname ?? "").trim();
+  if (!companyName) return fail("请填写客户名称（直销客户填收货人/称呼）");
   const dealer = await prisma.dealer.create({
     data: {
-      dealerNo: d.dealerNo,
-      companyName: d.companyName,
+      dealerNo,
+      companyName,
       contactName: d.contactName,
       contactPhone: d.contactPhone,
       customerType: d.customerType ?? "DEALER",

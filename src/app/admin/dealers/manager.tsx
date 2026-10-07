@@ -129,6 +129,7 @@ export function DealersManager({ initial, initialTab = "DEALER" }: { initial: De
       {(creating || editing) && (
         <DealerForm
           dealer={editing}
+          suggestNo={(type) => suggestDealerNo(dealers, type)}
           onCancel={() => { setCreating(false); setEditing(null); }}
           onSaved={(d, isNew) => {
             if (isNew) setDealers([{ ...d, orderCount: 0, createdAt: new Date().toISOString() }, ...dealers]);
@@ -225,8 +226,20 @@ export function DealersManager({ initial, initialTab = "DEALER" }: { initial: De
   );
 }
 
-function DealerForm({ dealer, onCancel, onSaved }: {
+/** 按类型顺延建议下一个客户编号：经销商 PARTI-D-xxxx / 直销 WI-xxxx（仅占位提示，实际以后端生成为准） */
+function suggestDealerNo(list: Dealer[], type: "DEALER" | "WALK_IN") {
+  const prefix = type === "WALK_IN" ? "WI-" : "PARTI-D-";
+  const re = new RegExp(`^${prefix}(\\d+)$`);
+  const max = Math.max(0, ...list.map((d) => {
+    const m = re.exec((d.dealerNo ?? "").trim().toUpperCase());
+    return m ? parseInt(m[1], 10) : 0;
+  }));
+  return `${prefix}${String(max + 1).padStart(4, "0")}`;
+}
+
+function DealerForm({ dealer, suggestNo, onCancel, onSaved }: {
   dealer: Dealer | null;
+  suggestNo: (type: "DEALER" | "WALK_IN") => string;
   onCancel: () => void;
   onSaved: (d: any, isNew: boolean) => void;
 }) {
@@ -313,6 +326,8 @@ function DealerForm({ dealer, onCancel, onSaved }: {
         ...dealer,
         ...payload,
         id: j.data.id,
+        // 留空自动生成时回填服务端真实编号，避免列表乐观更新显示空号
+        dealerNo: j.data.dealerNo ?? payload.dealerNo,
         creditBalance: Number(j.data.creditBalance ?? form.creditLimit),
       }, !dealer);
     } finally {
@@ -334,7 +349,7 @@ function DealerForm({ dealer, onCancel, onSaved }: {
               </select>
             </Field>
             <Field label={form.customerType === "WALK_IN" ? "名称（收货人/称呼）" : "公司名称"}><Input value={form.customerType === "WALK_IN" ? form.nickname : form.companyName} onChange={(e) => patch(form.customerType === "WALK_IN" ? "nickname" : "companyName", e.target.value)} placeholder={form.customerType === "WALK_IN" ? "如：张先生 / xx设计工作室" : ""} /></Field>
-            <Field label="客户编号"><Input value={form.dealerNo} disabled={!!dealer} onChange={(e) => patch("dealerNo", e.target.value)} placeholder={form.customerType === "WALK_IN" ? "WI-0055" : "PARTI-D-0002"} /></Field>
+            <Field label="客户编号"><Input value={form.dealerNo} disabled={!!dealer} onChange={(e) => patch("dealerNo", e.target.value)} placeholder={`留空自动生成（${suggestNo(form.customerType)} 顺延）`} /></Field>
             {form.customerType === "WALK_IN"
               ? <Field label="收货地址/备注名（可选）"><Input value={form.companyName} onChange={(e) => patch("companyName", e.target.value)} placeholder="如：杭州市余杭区xx路xx号" /></Field>
               : <Field label="法定/开票名称"><Input value={form.legalName} onChange={(e) => patch("legalName", e.target.value)} /></Field>}
