@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { fail, ok } from "@/lib/api";
+import { fail, ok, requireRole } from "@/lib/api";
 import { activationExpiresAt, buildActivationLink, createActivationToken } from "@/lib/account-activation";
 import { logAudit } from "@/lib/audit";
 
@@ -17,9 +17,9 @@ const createSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session) return fail("未登录", 401, 401);
-  if (session.user.role !== "ADMIN") return fail("仅管理员可创建账号", 403, 403);
+  const guard = await requireRole("ADMIN");
+  if (guard.response) return guard.response;
+  const session = guard.session;
 
   const parsed = createSchema.safeParse(await req.json());
   if (!parsed.success) return fail("参数错误: " + parsed.error.message);

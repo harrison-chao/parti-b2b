@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { fail, ok } from "@/lib/api";
+import { fail, ok, requireRole } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
 import { activationExpiresAt, buildActivationLink, createActivationToken } from "@/lib/account-activation";
 
@@ -23,9 +23,9 @@ async function assertNotLastActiveAdmin(userId: string) {
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await auth();
-  if (!session) return fail("未登录", 401, 401);
-  if (session.user.role !== "ADMIN") return fail("仅管理员可操作", 403, 403);
+  const authGuard = await requireRole("ADMIN");
+  if (authGuard.response) return authGuard.response;
+  const session = authGuard.session;
   if (params.id === session.user.id) return fail("不能停用自己的账号");
 
   const parsed = patchSchema.safeParse(await req.json());
@@ -81,9 +81,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await auth();
-  if (!session) return fail("未登录", 401, 401);
-  if (session.user.role !== "ADMIN") return fail("仅管理员可删除账号", 403, 403);
+  const authGuard = await requireRole("ADMIN");
+  if (authGuard.response) return authGuard.response;
+  const session = authGuard.session;
   if (params.id === session.user.id) return fail("不能删除自己的账号");
 
   const guard = await assertNotLastActiveAdmin(params.id);

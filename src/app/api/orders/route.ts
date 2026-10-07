@@ -1,18 +1,14 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getAvailability } from "@/lib/inventory-analytics";
-import { aggregateOrderRequirements } from "@/lib/stock-consume";
 import { ok, fail } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
+import {
+  OrderCreateError, resolveOrderLines, autoDispatchInternalOrder,
+  materialShortageWarning, crmTraceAfterCreate, notifyInternalOrderCreated,
+} from "@/lib/order-create";
 import { genOrderNo, genDisplayOrderNo } from "@/lib/order-no";
-import { getMaterialShortages, formatShortages } from "@/lib/stock-consume";
-import { queueLoad, skuCycleStats, globalCycleStats, suggestDeliveryDays } from "@/lib/delivery-insight";
-import { genWorkOrderNo } from "@/lib/utils";
-import { LEVEL_DISCOUNT, calcPricing } from "@/lib/pricing";
-import { resolveRawBasis } from "@/lib/pricing-source";
-import { surfaceMismatch } from "@/lib/surface";
 import { loadSettings, pricingFieldsToConfig } from "@/lib/settings";
-import { notifyFeishu } from "@/lib/feishu";
 import { z } from "zod";
 
 const lineSchema = z.object({
@@ -86,7 +82,14 @@ export async function GET(req: NextRequest) {
       include: { dealer: { select: { companyName: true, dealerNo: true } }, lines: true },
     }),
   ]);
-  return ok({ total, page, pageSize, orders });
+  // 经销商只看自己的单：行成本快照与内部备注不出网（列级防泄露，与详情接口同口径）
+  const safeOrders = session.user.role === "DEALER"
+    ? orders.map((o) => {
+        const { internalRemark, priceNote, lines, ...rest } = o;
+        return { ...rest, lines: lines.map(({ costSnapshot, ...l }) => l) };
+      })
+    : orders;
+  return ok({ total, page, pageSize, orders: safeOrders });
 }
 
 export async function POST(req: NextRequest) {
@@ -109,84 +112,16 @@ export async function POST(req: NextRequest) {
   // Pricing uses the admin-configured discount rates (falls back to built-in defaults).
   const settings = await loadSettings();
   const pricingConfig = pricingFieldsToConfig(settings.pricingFields);
-  const discount = settings.discountRates[dealer.priceLevel] ?? LEVEL_DISCOUNT[dealer.priceLevel];
 
-  // Server-side authoritative pricing for HARDWARE (client-provided price is advisory).
-  const hardwareIds = data.lines.filter((l) => l.lineType === "HARDWARE" && l.productId).map((l) => l.productId!);
-  const hardwareProducts = hardwareIds.length
-    ? await prisma.product.findMany({ where: { id: { in: hardwareIds }, category: "HARDWARE" } })
-    : [];
-  const hwMap = new Map(hardwareProducts.map((p) => [p.id, p]));
-
-  // Validate PROFILE lines reference a real raw-material product.
-  const rawIds = data.lines.filter((l) => l.lineType === "PROFILE" && l.rawProductId).map((l) => l.rawProductId!);
-  const rawProducts = rawIds.length
-    ? await prisma.product.findMany({ where: { id: { in: rawIds }, category: "PROFILE", isRawMaterial: true, isActive: true } })
-    : [];
-  // 停用原料给出可操作的报错（表面化迁移后旧裸料已停用，防新单死绑 0 库存 SKU）；rawIds 先去重防同料多行误报
-  const uniqueRawIds = [...new Set(rawIds)];
-  if (uniqueRawIds.length > rawProducts.length) {
-    const banned = await prisma.product.findMany({
-      where: { id: { in: uniqueRawIds }, OR: [{ isActive: false }, { isRawMaterial: false }, { category: { not: "PROFILE" } }] },
-      select: { sku: true },
-    });
-    return fail(`原料已停用或不可用：${banned.map((b) => b.sku).join("、") || uniqueRawIds.join("、")}，请改选对应表面/长度的新原料 SKU`);
-  }
-  const rawMap = new Map(rawProducts.map((p) => [p.id, p]));
-
-  // SKU 级计价基数（米重/良率/每米价三级回退），同原料只解析一次
-  const basisMap = new Map<string, Awaited<ReturnType<typeof resolveRawBasis>>>();
-  for (const raw of rawProducts) {
-    if (!basisMap.has(raw.id)) basisMap.set(raw.id, await resolveRawBasis(raw));
-  }
-
+  // 行级服务端权威解析（计价/原料校验/成本快照冻结），业务错误按 4xx 返回
   let resolvedLines: any[] = [];
   try {
-    resolvedLines = data.lines.map((l) => {
-    if (l.lineType === "PROFILE") {
-      if (!l.rawProductId) throw new Error(`PROFILE 行缺原料型材`);
-      if (!rawMap.has(l.rawProductId)) throw new Error(`原料型材不存在或非原料: ${l.rawProductId}`);
-      // 第 3 步绑定校验：原料 SKU 已按表面拆分，行表面必须与原料一致，否则扣错桶/假性缺料
-      const rawProd = rawMap.get(l.rawProductId)!;
-      const mismatch = surfaceMismatch(l, rawProd);
-      if (mismatch) throw new Error(`行 ${l.sku}：${mismatch}`);
-      // Server-side authoritative pricing for PROFILE (client-provided price is advisory),
-      // using the same engine as GET /api/pricing/calculate.
-      const length = l.cutLengthMm ?? l.lengthMm;
-      if (!length || length <= 0) throw new Error(`PROFILE 行缺有效切长`);
-      const basis = basisMap.get(l.rawProductId);
-      const pricing = calcPricing(length, dealer.priceLevel, pricingConfig, settings.discountRates, basis);
-      // 口径切换：下单冻结成本构成，利润页不再随参数/批次价漂移
-      const costSnapshot = JSON.stringify({
-        source: pricing.costSource,
-        perMeterPrice: pricing.perMeterPrice,
-        meterWeight: pricing.meterWeight,
-        yieldRate: pricing.yieldRate,
-        unitCost: pricing.totalCost,
-        cutLengthMm: length,
-        pricedAt: new Date().toISOString(),
-      });
-      return { ...l, unitPrice: pricing.dealerPrice, costSnapshot };
-    }
-    if (l.lineType === "HARDWARE") {
-      if (!l.productId) throw new Error(`HARDWARE 行缺 productId`);
-      const prod = hwMap.get(l.productId);
-      if (!prod) throw new Error(`HARDWARE 产品不存在: ${l.productId}`);
-      if (prod.drawingRequired && !l.drawingUrl) throw new Error(`${prod.sku} 需上传图纸`);
-      const unitPrice = Math.round(Number(prod.retailPrice) * discount * 100) / 100;
-      return {
-        ...l,
-        sku: prod.sku,
-        productName: prod.productName,
-        spec: prod.spec ?? null,
-        unitPrice,
-      };
-    }
-    return l;
-  });
+    resolvedLines = await resolveOrderLines(prisma, {
+      lines: data.lines, dealer, pricingConfig, discountRates: settings.discountRates as Record<string, number>,
+    });
   } catch (e: any) {
-    // 行校验（缺原料/不存在/表面与原料不符）按业务错误返回，而非 500
-    return fail(String(e?.message ?? e));
+    if (e instanceof OrderCreateError) return fail(e.message);
+    return fail("行解析失败: " + (e?.message ?? e));
   }
 
   const totalAmount = resolvedLines.reduce((s, l) => s + l.quantity * l.unitPrice, 0);
@@ -277,114 +212,46 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // W1: 内部单自动派单到唯一活跃车间（单车间现实），无审核动作
-    // P1: 自动派单同样执行交期校准与缺料提示（直销客户主流程不能绕过守卫）
+    // W1: 内部单自动派单到唯一活跃车间（单车间现实），无审核动作；派单同样执行交期校准与缺料提示
     let workOrderNo: string | null = null;
     let dispatchWarning: string | null = null;
     if (isInternal) {
-      const producible = created.lines.some((l) => l.lineType !== "OUTSOURCED");
-      if (producible) {
-        const workshop = await prisma.workshop.findFirst({ where: { isActive: true }, orderBy: { createdAt: "asc" } });
-        if (!workshop) return fail("没有活跃车间，无法自动派单（订单已创建，请手动派单）", 200, 200);
-
-        // 交期校准：客户要求早于产能建议 → 承诺自动上调到建议值（内部单即车间自己承诺，系统兜住现实）
-        const rawIds = [...new Set(created.lines.filter((l) => l.rawProductId).map((l) => l.rawProductId!))];
-        const [load, skuStats, globalStats] = await Promise.all([
-          queueLoad(),
-          rawIds.length ? skuCycleStats(rawIds) : Promise.resolve(new Map()),
-          globalCycleStats(),
-        ]);
-        const skuStat = rawIds.length === 1 ? (skuStats.get(rawIds[0]) ?? null) : (skuStats.size ? [...skuStats.values()][0] : null);
-        const suggestion = suggestDeliveryDays(skuStat ?? globalStats, load, new Date(data.targetDeliveryDate));
-        const suggestedDate = new Date(Date.now() + suggestion.days * 86400000);
-        const customerDate = new Date(data.targetDeliveryDate);
-        const committed = customerDate < suggestedDate ? suggestedDate : customerDate;
-        if (committed > customerDate) {
-          dispatchWarning = `承诺交期已按产能校准：${customerDate.toLocaleDateString("zh-CN")} → ${committed.toLocaleDateString("zh-CN")}（${suggestion.basis}）`;
-        }
-
-        // 缺料提示（不阻塞快速建单；开工处有硬校验）
-        const shortages = await getMaterialShortages(prisma, orderNo, workshop.id);
-        const noteParts = ["内部代下单自动派单"];
-        if (shortages.length) {
-          noteParts.push(`【缺料提示】${formatShortages(shortages)}`);
-          dispatchWarning = `${dispatchWarning ? dispatchWarning + "；" : ""}库存不足：${formatShortages(shortages)}（开工时将再校验）`;
-        }
-
-        workOrderNo = genWorkOrderNo();
-        await prisma.$transaction(async (tx) => {
-          await tx.workOrder.create({
-            data: {
-              workOrderNo: workOrderNo!,
-              orderNo,
-              workshopId: workshop.id,
-              status: "PENDING_START",
-              committedDeliveryDate: committed,
-              committedOverrideReason: null,
-              qcRequired: false,
-              currentNote: noteParts.join(" · "),
-              assignedBy: session.user.name,
-            },
-          });
-          await tx.workOrderEvent.create({
-            data: {
-              workOrderId: (await tx.workOrder.findUniqueOrThrow({ where: { workOrderNo: workOrderNo! } })).id,
-              fromStatus: null,
-              toStatus: "PENDING_START",
-              note: `内部代下单自动派发至 ${workshop.name}${dispatchWarning ? "；" + dispatchWarning : ""}`,
-              operatorUserId: session.user.id,
-              operatorName: session.user.name,
-            },
-          });
-          await tx.salesOrder.update({ where: { orderNo }, data: { orderStatus: "PRODUCING" } });
-        });
+      const dispatched = await autoDispatchInternalOrder(prisma, {
+        orderNo, lines: created.lines, targetDeliveryDate: new Date(data.targetDeliveryDate),
+        operator: { id: session.user.id, name: session.user.name },
+      });
+      if (dispatched) {
+        workOrderNo = dispatched.workOrderNo;
+        dispatchWarning = dispatched.dispatchWarning;
       }
     }
     if (!isInternal && data.crmCustomerId) {
-      await prisma.crmCustomer.update({
-        where: { id: data.crmCustomerId },
-        data: { stage: "QUOTED", lastContactAt: new Date() },
-      });
-      await prisma.crmContactLog.create({
-        data: {
-          dealerId,
-          customerId: data.crmCustomerId,
-          opportunityId: data.crmOpportunityId ?? null,
-          method: "OTHER",
-          content: `已创建报价/订单草稿 ${created.orderNo}，金额 ${totalAmount.toFixed(2)}`,
-          outcome: "已生成报价",
-          createdBy: session.user.name,
-        },
-      });
+      await crmTraceAfterCreate(dealerId, data.crmCustomerId, data.crmOpportunityId, created.orderNo, totalAmount, session.user.name);
     }
     if (isInternal) {
       const dealer2 = await prisma.dealer.findUnique({ where: { id: dealerId }, select: { nickname: true, companyName: true } });
-      void notifyFeishu("新加工单", [
-        `单号 ${displayOrderNo}`,
-        `客户 ${(dealer2?.nickname || dealer2?.companyName || "").slice(0, 16)}`,
-        `交期 ${new Date(data.targetDeliveryDate).toLocaleDateString("zh-CN")}`,
-        ...created.lines.slice(0, 8).map((l) => `${l.sku}${l.cutLengthMm ? " " + l.cutLengthMm + "mm" : ""} ×${l.quantity}`),
-        ...(created.lines.length > 8 ? [`…共 ${created.lines.length} 行`] : []),
-      ]);
+      notifyInternalOrderCreated(
+        displayOrderNo,
+        dealer2?.nickname || dealer2?.companyName || "",
+        new Date(data.targetDeliveryDate),
+        created.lines,
+      );
     }
     // 下单即示缺料（全网可用量 = 现存 − 未结工单占用；非阻断，提醒先备料/先采购）。
     // 全网库存/占用是厂内经营数据：仅内部单下发数字明细，经销商门户单不给（防枚举探测）
     let materialWarning: string | null = null;
     if (isInternal) {
       try {
-        const required = await aggregateOrderRequirements(prisma, created.orderNo);
-        // 本单的工单已建（PENDING_START）会被算进占用——排除本单，否则 available 已扣掉本单需求导致漏报
-        const { totalBySku } = await getAvailability(prisma, { excludeOrderNos: [created.orderNo] });
-        const lacking: string[] = [];
-        for (const [sku, item] of required.entries()) {
-          const avail = totalBySku.get(sku);
-          if (!avail || avail.available < item.quantity) {
-            lacking.push(`${sku} 需 ${item.quantity}，全网可用 ${avail?.available ?? 0}（现存 ${avail?.onHand ?? 0} − 占用 ${avail?.allocated ?? 0}）`);
-          }
-        }
-        if (lacking.length > 0) materialWarning = `原料可用量不足：${lacking.join("；")}`;
+        materialWarning = await materialShortageWarning(created.orderNo);
       } catch { /* 提醒失败不影响下单 */ }
     }
+
+    await logAudit({
+      action: "ORDER_CREATE", entityType: "SalesOrder", entityId: created.orderNo,
+      summary: `${isInternal ? "内部代下单" : "门户下单"} ${created.displayOrderNo ?? created.orderNo} · ${created.lines.length} 行 · ¥${totalAmount.toFixed(2)}`,
+      detail: { orderNo: created.orderNo, via: isInternal ? "INTERNAL" : "PORTAL", lines: created.lines.length, totalAmount },
+      actor: session.user,
+    });
 
     return ok({ ...created, autoDispatchedWorkOrderNo: workOrderNo ?? null, dispatchWarning, materialWarning });
   } catch (e: any) {

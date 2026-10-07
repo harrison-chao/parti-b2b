@@ -23,40 +23,30 @@ export function formatDateTime(d: Date | string | null | undefined): string {
   return date.toLocaleString("zh-CN");
 }
 
-export function genOrderNo(): string {
+/** 同构单号生成：{前缀}-YYMMDD-4位随机（SO/WO/PO/SC/SHP 共用） */
+function genDailyNo(prefix: string): string {
   const d = new Date();
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   const r = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-  return `SO-${y}${m}${day}-${r}`;
+  return `${prefix}-${y}${m}${day}-${r}`;
+}
+
+export function genOrderNo(): string {
+  return genDailyNo("SO");
 }
 
 export function genWorkOrderNo(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const r = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-  return `WO-${y}${m}${day}-${r}`;
+  return genDailyNo("WO");
 }
 
 export function genPoNo(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const r = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-  return `PO-${y}${m}${day}-${r}`;
+  return genDailyNo("PO");
 }
 
 export function genStockCountNo(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const r = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-  return `SC-${y}${m}${day}-${r}`;
+  return genDailyNo("SC");
 }
 
 export const PURCHASE_ORDER_STATUS_LABEL: Record<string, string> = {
@@ -216,12 +206,7 @@ export const CRM_TASK_STATUS_LABEL: Record<string, string> = {
 };
 
 export function genShipmentNo(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const r = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-  return `SH-${y}${m}${day}-${r}`;
+  return genDailyNo("SHP");
 }
 
 /** 角色首页：WORKSHOP → /workshop（防 /admin⇄/dealer 重定向死循环） */

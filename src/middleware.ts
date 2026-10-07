@@ -14,6 +14,10 @@ export default auth((req) => {
   if (publicPaths.some((p) => pathname.startsWith(p))) return NextResponse.next();
 
   if (!isAuthed) return NextResponse.redirect(new URL("/login", req.url));
+  // API 前缀粗筛（handler 内仍有细粒度检查，双层防御）：/api/admin 仅管理员
+  if (pathname.startsWith("/api/admin") && role !== "ADMIN") {
+    return NextResponse.json({ code: 403, message: "仅管理员可操作", data: null }, { status: 403 });
+  }
   if (mustChangePassword && pathname !== "/account/force-password" && !pathname.startsWith("/api/account/force-password")) {
     return NextResponse.redirect(new URL("/account/force-password", req.url));
   }

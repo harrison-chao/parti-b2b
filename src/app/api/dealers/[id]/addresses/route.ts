@@ -7,7 +7,8 @@ import { z } from "zod";
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session) return fail("未登录", 401, 401);
-  if (session.user.role === "DEALER" && session.user.dealerId !== params.id) {
+  // 地址簿含收货人 PII：仅管理员或本人（同 [addressId] 守卫口径，WORKSHOP 不放行）
+  if (session.user.role !== "ADMIN" && !(session.user.role === "DEALER" && session.user.dealerId === params.id)) {
     return fail("无权访问", 403, 403);
   }
   const addresses = await prisma.dealerAddress.findMany({
@@ -33,7 +34,7 @@ const schema = z.object({
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session) return fail("未登录", 401, 401);
-  if (session.user.role === "DEALER" && session.user.dealerId !== params.id) {
+  if (session.user.role !== "ADMIN" && !(session.user.role === "DEALER" && session.user.dealerId === params.id)) {
     return fail("无权操作", 403, 403);
   }
   const body = await req.json();

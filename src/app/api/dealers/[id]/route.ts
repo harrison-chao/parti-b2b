@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { ok, fail } from "@/lib/api";
+import { ok, fail, requireRole } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
@@ -46,9 +46,9 @@ const patchSchema = z.object({
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await auth();
-  if (!session) return fail("未登录", 401, 401);
-  if (session.user.role !== "ADMIN") return fail("仅管理员可修改", 403, 403);
+  const guard = await requireRole("ADMIN");
+  if (guard.response) return guard.response;
+  const session = guard.session;
   const body = await req.json();
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return fail("参数错误: " + parsed.error.message);
@@ -87,9 +87,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
 // 管理员删除客户（经销商/直销）：有订单/账号/付款/CRM 线索则拒绝（保历史），无引用才物理删除（地址/联系人级联）
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await auth();
-  if (!session) return fail("未登录", 401, 401);
-  if (session.user.role !== "ADMIN") return fail("仅管理员可删除客户", 403, 403);
+  const guard = await requireRole("ADMIN");
+  if (guard.response) return guard.response;
+  const session = guard.session;
   const d = await prisma.dealer.findUnique({
     where: { id: params.id },
     include: { _count: { select: { salesOrders: true, users: true, payments: true, crmCustomers: true } } },
