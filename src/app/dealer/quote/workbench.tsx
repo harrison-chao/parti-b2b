@@ -36,7 +36,7 @@ type CrmCustomerOption = {
 type ProfileRow = {
   id: string; lineType: "PROFILE";
   rawProductId: string; rawSku: string; rawSeries: string;
-  lengthMm: string; lengthInch: string; processCode: string; colorCode: string; operationCode: string;
+  lengthMm: string; lengthInch: string; processCode: string; colorCode: string; processCodes: string[];
   drawingUrl: string; drawingFileName: string; drawingUploading: boolean; drawingError?: string;
   quantity: number; targetPct: string; targetPriceOverride?: string;
   unitPrice: number | null; retailPrice: number | null; loading: boolean; error?: string;
@@ -61,7 +61,8 @@ function newProfile(raw?: RawProfileItem): ProfileRow {
   return { id: crypto.randomUUID(), lineType: "PROFILE",
     rawProductId: raw?.id ?? "", rawSku: raw?.sku ?? "", rawSeries: raw?.series ?? "",
     lengthMm: "", lengthInch: "", processCode: raw?.surfaceProcessCode ?? "", colorCode: raw?.surfaceColorCode ?? "",
-    operationCode: "", drawingUrl: "", drawingFileName: "", drawingUploading: false,
+    // 与管理员端同口径：截断(L)是切长的隐含工序不进勾选；默认铣孔+预埋（Base 实证 铣孔82%/预埋77%）
+    processCodes: ["D", "EM"], drawingUrl: "", drawingFileName: "", drawingUploading: false,
     quantity: 1, targetPct: "", unitPrice: null, retailPrice: null, loading: false };
 }
 function newHardware(item: HardwareItem): HardwareRow {
@@ -102,7 +103,7 @@ function rowUnitPrice(r: Row): number | null {
 function rowReady(r: Row): boolean {
   if (r.lineType === "PROFILE") {
     // 原料已解析即代表表面/颜色与档案一致（级联选择不可能产生不一致组合）
-    return !!(r.rawProductId && r.lengthMm && r.operationCode && r.unitPrice);
+    return !!(r.rawProductId && r.lengthMm && r.unitPrice);
   }
   if (r.lineType === "HARDWARE") {
     if (r.drawingRequired && !r.drawingUrl) return false;
@@ -230,7 +231,9 @@ export function QuoteWorkbench({
         const surfaceLabelText = labelOf(options.surfaceProcesses, r.processCode)
           + (r.colorCode ? "/" + labelOf(options.surfaceColors, r.colorCode) : "");
         const baseSeries = r.rawSeries || "MR2525";
-        const sku = genCustomSku(baseSeries, mm, surfaceCode, r.operationCode);
+        // 截断为隐含工序（有切长即有 L），与管理员端一致
+        const opCodes = ["L", ...r.processCodes];
+        const sku = genCustomSku(baseSeries, mm, surfaceCode, opCodes.join(""));
         const productName = genCustomProductName(baseSeries, mm, surfaceLabelText);
         const tp = rowTargetPrice(r);
         return {
@@ -240,7 +243,8 @@ export function QuoteWorkbench({
           surfaceTreatment: surfaceCode,
           surfaceProcessCode: r.processCode || null,
           surfaceColorCode: r.colorCode || null,
-          preprocessing: labelOf(options.processingOperations, r.operationCode),
+          processCodes: opCodes,
+          preprocessing: opCodes.map((c) => labelOf(options.processingOperations, c)).join("、"),
           quantity: r.quantity, unitPrice: r.unitPrice!,
           targetPrice: tp ?? null,
           drawingUrl: r.drawingUrl || null, drawingFileName: r.drawingFileName || null,
@@ -363,7 +367,7 @@ export function QuoteWorkbench({
                 const ready = rowReady(r);
                 const name = r.lineType === "PROFILE"
                   ? (r.lengthMm
-                    ? `${r.lengthMm}mm · ${labelOf(options.surfaceProcesses, r.processCode)}${r.colorCode ? "/" + labelOf(options.surfaceColors, r.colorCode) : ""} · ${labelOf(options.processingOperations, r.operationCode)}`
+                    ? `${r.lengthMm}mm · ${labelOf(options.surfaceProcesses, r.processCode)}${r.colorCode ? "/" + labelOf(options.surfaceColors, r.colorCode) : ""} · ${["L", ...r.processCodes].map((c) => labelOf(options.processingOperations, c)).join("、")}`
                     : "（未完成）")
                   : r.lineType === "HARDWARE" ? `${r.sku} · ${r.productName}`
                   : (r.productName || "（未填写）");
@@ -626,7 +630,21 @@ function ProfileTable({
                   options={processCodesOf(rawProfileCatalog, r.rawSeries).map((c: string) => ({ code: c, label: procLabel(c) }))} /></td>
                 <td className="p-2"><Sel value={r.colorCode} onChange={(v: string) => pick(r, undefined, undefined, v)} hideCode
                   options={colorCodesOf(rawProfileCatalog, r.rawSeries, r.processCode).map((c: string) => ({ code: c, label: colorLabel(c) }))} /></td>
-                <td className="p-2"><Sel value={r.operationCode} onChange={(v: string) => patchRow(r.id, { operationCode: v })} options={options.processingOperations} /></td>
+                <td className="p-2">
+                  <div className="flex flex-col gap-1">
+                    {options.processingOperations.filter((o: Option) => o.code !== "L").map((o: Option) => (
+                      <label key={o.code} className="flex items-center gap-1 text-xs whitespace-nowrap">
+                        <input type="checkbox" checked={r.processCodes.includes(o.code)}
+                          onChange={() => patchRow(r.id, {
+                            processCodes: r.processCodes.includes(o.code)
+                              ? r.processCodes.filter((c: string) => c !== o.code)
+                              : [...r.processCodes, o.code],
+                          })} />
+                        {o.label}
+                      </label>
+                    ))}
+                  </div>
+                </td>
                 <td className="p-2"><DrawingCell row={r} uploadDrawing={uploadDrawing} clearDrawing={clearDrawing} /></td>
                 <td className="p-2"><Input type="number" min={1} className="h-8 w-16" value={r.quantity}
                   onChange={(e) => patchRow(r.id, { quantity: Math.max(1, parseInt(e.target.value) || 1) })} /></td>
