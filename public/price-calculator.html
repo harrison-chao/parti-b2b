@@ -115,6 +115,13 @@
     <div class="ver" id="verLine">含 Core-lox · 五金同步 ERP 目录 · 参数版本 2026-10-08</div>
   </header>
 
+  <!-- 客户编码 -->
+  <div class="card">
+    <h2>客户编码（选填）</h2>
+    <input type="text" id="custCode" placeholder="有专属编码请输入，自动按折扣计价" autocomplete="off">
+    <div class="hint" id="codeHint" style="margin-top:8px">无可留空，默认按零售价计</div>
+  </div>
+
   <!-- 型材算价 -->
   <div class="card" id="calcCard">
     <h2>型材算价（英寸 / 毫米自动换算）</h2>
@@ -129,7 +136,6 @@
     </div>
     <div class="row">
       <label class="field"><span>数量（支）</span><input type="number" id="qty" value="1" min="1" step="1"></label>
-      <label class="field"><span>折扣率（%）</span><input type="number" id="disc" value="100" min="1" max="100" step="1"></label>
     </div>
     <div class="rows" id="rows" style="margin-top:6px"></div>
     <div class="hero">
@@ -284,13 +290,40 @@
   var hwLines = function(){ return HW.filter(function(h){ return h.qty > 0; }); };
   var hwSub = function(){ return hwLines().reduce(function(a, h){ return a + h.price * h.qty; }, 0); };
 
+  /* ---------- 客户编码 → 专属折扣 ---------- */
+  var appliedDisc = 1, codeTimer = null;
+  function applyCode(code){
+    var hint = $("codeHint");
+    if(!code){ appliedDisc = 1; hint.textContent = "无可留空，默认按零售价计"; hint.style.color = ""; calc(); return; }
+    fetch("/api/public/price-code?code=" + encodeURIComponent(code))
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        if(j && j.code === 0 && j.data && j.data.valid){
+          appliedDisc = j.data.discount;
+          hint.textContent = "✓ 专属折扣 " + j.data.discountPercent + "% 已应用";
+          hint.style.color = "var(--ok, #0e9f6e)";
+        } else {
+          appliedDisc = 1;
+          hint.textContent = "编码无效，按零售价计（如有疑问请联系客服）";
+          hint.style.color = "#dc2626";
+        }
+        calc();
+      })
+      .catch(function(){ appliedDisc = 1; calc(); });
+  }
+  $("custCode").addEventListener("input", function(){
+    clearTimeout(codeTimer);
+    var code = this.value.trim();
+    codeTimer = setTimeout(function(){ applyCode(code); }, 500);
+  });
+
   /* ---------- 算价 ---------- */
   function inputs(){
     return {
       mm: parseFloat($("mm").value) || 0,
       inch: parseFloat($("inch").value) || 0,
       qty: Math.max(0, Math.round(parseFloat($("qty").value) || 0)),
-      disc: Math.min(100, Math.max(0, parseFloat($("disc").value) || 100)) / 100
+      disc: appliedDisc
     };
   }
   function calc(){
@@ -323,7 +356,7 @@
     $("rows").innerHTML = rows;
     renderSheet();
   }
-  ["qty","disc"].forEach(function(id){ $(id).addEventListener("input", calc); });
+  ["qty"].forEach(function(id){ $(id).addEventListener("input", calc); });
 
   /* ---------- 询价单行项 ---------- */
   $("addBtn").addEventListener("click", function(){
