@@ -225,6 +225,7 @@
 
   /* ---------- 常见尺寸表 ---------- */
   function buildPriceTable(){
+    $("priceTable").innerHTML = "";
   STD.forEach(function(s){
     var mm = s[1] * 25.4;
     var tr = document.createElement("tr");
