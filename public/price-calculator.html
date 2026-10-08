@@ -112,15 +112,6 @@
     <div class="ver" id="verLine">含 Core-lox · 五金同步 ERP 目录 · 参数版本 2026-10-08</div>
   </header>
 
-  <!-- 常见尺寸 -->
-  <div class="card">
-    <h2>常见尺寸零售价（已含 Core-lox，点选填入）</h2>
-    <table class="pricelist">
-      <thead><tr><th>规格</th><th>切长</th><th class="p">零售价/支</th></tr></thead>
-      <tbody id="priceTable"></tbody>
-    </table>
-  </div>
-
   <!-- 型材算价 -->
   <div class="card" id="calcCard">
     <h2>型材算价（英寸 / 毫米自动换算）</h2>
@@ -208,11 +199,6 @@
     { sku:"HW-2610-003",name:"连接件",            spec:"—",           unit:"件", price:null },
     { sku:"HW-2610-004",name:"蝶形螺母",          spec:"—",           unit:"件", price:null }
   ];
-  var STD = [
-    ["8寸",8],["10寸",10],["11寸",11],["13寸",13],["16寸",16],
-    ["20寸",20],["24寸",24],["28寸",28],["30寸",30]
-  ];
-
   var $ = function(id){ return document.getElementById(id); };
   var fmt = function(n){ return n.toFixed(2); };
   var unitPrice = function(mm){ return (mm / 1000) * P.perMeter + P.fixedPerPc; };
@@ -222,26 +208,6 @@
     return "" + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "-" +
       Math.random().toString(36).slice(2, 6).toUpperCase();
   })();
-
-  /* ---------- 常见尺寸表 ---------- */
-  function buildPriceTable(){
-    $("priceTable").innerHTML = "";
-  STD.forEach(function(s){
-    var mm = s[1] * 25.4;
-    var tr = document.createElement("tr");
-    tr.innerHTML = '<td><b>' + s[0] + '</b></td><td>' + mm.toFixed(1) + ' mm</td>'
-      + '<td class="p">' + fmt(unitPrice(mm)) + '</td>';
-    tr.onclick = function(){
-      $("inch").value = s[1]; $("mm").value = +(mm.toFixed(1));
-      document.querySelectorAll("table.pricelist tbody tr").forEach(function(x){ x.style.background = ""; });
-      tr.style.background = "var(--accent-soft)";
-      calc();
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    };
-    $("priceTable").appendChild(tr);
-  });
-  }
-  buildPriceTable();
 
   /* ---------- 英寸/mm 双向换算 ---------- */
   var syncing = false;
@@ -516,7 +482,7 @@
       PROCESSES.length = 0; (d.surfaceProcesses || []).forEach(function(o){ PROCESSES.push([o.code, o.label]); });
       COLORS.length = 0; (d.surfaceColors || []).forEach(function(o){ COLORS.push([o.code, o.label]); });
       $("verLine").textContent = "含 Core-lox · 目录实时同步 " + d.version;
-      buildPriceTable(); buildSurfaceSelects(); buildHwList(); calc();
+      buildSurfaceSelects(); buildHwList(); calc();
     })
     .catch(function(){});
 })();
