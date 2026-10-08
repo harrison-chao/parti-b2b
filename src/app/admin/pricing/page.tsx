@@ -19,9 +19,6 @@ type Full = {
   totalCost: number;
   retailPrice: number;
   retailPriceTax: number;
-  dealerPrice: number;
-  priceLevel: string;
-  discountPercent: number;
   costSource: string;
   perMeterPrice: number | null;
 };
@@ -29,13 +26,17 @@ type Full = {
 type Op = { code: string; label: string; unitPrice?: number };
 type RawProduct = { id: string; sku: string; productName: string; weightPerMeter?: string | number | null; yieldRate?: string | number | null };
 
-const LEVELS = ["A", "B", "C"] as const;
+// 渠道阶梯四档（SESSION-01 渠道阶梯重定）：零售 ×1.0 显示在零售价行，其余三档在此列示
+const TIERS = [
+  { label: "共创先锋", rate: 0.85 },
+  { label: "区域代理", rate: 0.65 },
+  { label: "战略合伙人", rate: 0.5 },
+] as const;
 const STD_INCH = [8, 10, 11, 13, 16, 20, 24, 28, 30];
 
 export default function OpsPricingPage() {
   const [inch, setInch] = useState(8);
   const [lengthMm, setLengthMm] = useState(203.2);
-  const [level, setLevel] = useState<"A" | "B" | "C">("C");
   const [rawId, setRawId] = useState<string>("");
   const [ops, setOps] = useState<string[]>(["L", "D", "EM"]);
   const [data, setData] = useState<Full | null>(null);
@@ -76,11 +77,11 @@ export default function OpsPricingPage() {
       ? Math.round(((p("ingotPrice")! + (p("extrusionFee") ?? 0)) / 1000) * (1 + (p("inputTaxRate") ?? 0)) * 10000) / 10000
       : p("materialPrice");
 
-  async function calc(mm: number, lv: string, rid: string, opCodes: string[]) {
+  async function calc(mm: number, rid: string, opCodes: string[]) {
     if (!mm || mm <= 0) return;
     setLoading(true);
     try {
-      const qs = new URLSearchParams({ lengthMm: String(mm), level: lv, processCodes: opCodes.join(",") });
+      const qs = new URLSearchParams({ lengthMm: String(mm), processCodes: opCodes.join(",") });
       if (rid) qs.set("rawProductId", rid);
       const r = await fetch(`/api/pricing/calculate?${qs.toString()}`);
       const j = await r.json();
@@ -91,7 +92,7 @@ export default function OpsPricingPage() {
   }
 
   // 任一输入变化即重算
-  useEffect(() => { void calc(lengthMm, level, rawId, ops); /* eslint-disable-next-line */ }, [lengthMm, level, rawId, ops]);
+  useEffect(() => { void calc(lengthMm, rawId, ops); /* eslint-disable-next-line */ }, [lengthMm, rawId, ops]);
 
   const setLenFromInch = (v: number) => {
     setInch(v);
@@ -166,15 +167,6 @@ export default function OpsPricingPage() {
                 ))}
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>经销商等级</Label>
-              <div className="grid grid-cols-3 gap-1">
-                {LEVELS.map((lv) => (
-                  <Button key={lv} variant={level === lv ? "default" : "outline"} size="sm"
-                    onClick={() => setLevel(lv)}>{lv}</Button>
-                ))}
-              </div>
-            </div>
           </CardContent>
         </Card>
 
@@ -203,13 +195,12 @@ export default function OpsPricingPage() {
             <Card>
               <CardHeader><CardTitle>各级定价</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <Price label="零售价（不含税）" value={data.retailPrice} />
+                <Price label="零售价（不含税 ×100%）" value={data.retailPrice} />
                 <Price label={`零售价（含税 ${p("taxRate") != null ? Math.round((p("taxRate")! - 1) * 100) : 10}%）`} value={data.retailPriceTax} tone="muted" />
                 <div className="border-t my-2"></div>
-                <Price label={`等级 ${data.priceLevel}（零售 ×${data.discountPercent}%）`} value={data.dealerPrice} tone="green" big />
-                <p className="text-xs text-muted-foreground pt-1">
-                  新四档参考：共创先锋 ×85% {formatMoney(data.retailPrice * 0.85)} · 区域代理 ×65% {formatMoney(data.retailPrice * 0.65)} · 战略合伙人 ×50% {formatMoney(data.retailPrice * 0.5)}
-                </p>
+                {TIERS.map((t) => (
+                  <Price key={t.label} label={`${t.label}（零售 ×${Math.round(t.rate * 100)}%）`} value={data.retailPrice * t.rate} tone="green" />
+                ))}
               </CardContent>
             </Card>
           </>
