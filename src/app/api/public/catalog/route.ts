@@ -2,6 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { loadSettings, pricingFieldsToConfig } from "@/lib/settings";
 import { ok } from "@/lib/api";
 
+// 目录随 settings/产品库实时变化（调价即生效），禁用 Next 对无请求参数 GET 的静态缓存
+export const dynamic = "force-dynamic";
+
 /**
  * 对外报价计算器的目录下发接口（免登录）：
  *  - hardware：ERP 五金目录（仅活跃且有零售价的项）
