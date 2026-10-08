@@ -8,7 +8,7 @@
   :root{
     --bg:#f4f6f9; --card:#ffffff; --ink:#1a2333; --sub:#6b7686;
     --accent:#2b5cff; --accent-soft:#eef2ff; --line:#e6eaf1;
-    --chip:#f1f4f9; --radius:14px;
+    --chip:#f1f4f9; --radius:14px; --ease:cubic-bezier(.22,1,.36,1);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; padding:0;}
@@ -24,8 +24,8 @@
   header .ver{font-size:11px; color:var(--sub); margin-top:2px;}
   .card{
     background:var(--card); border-radius:var(--radius);
-    box-shadow:0 1px 3px rgba(20,30,60,.06);
-    padding:16px; margin-bottom:14px;
+    border:1px solid var(--line); box-shadow:0 1px 3px rgba(20,30,60,.05);
+    padding:18px 16px; margin-bottom:12px;
   }
   .card h2{font-size:13px; color:var(--sub); font-weight:600; margin:0 0 10px; letter-spacing:1px;}
   label.field{display:block; margin-bottom:10px;}
@@ -72,11 +72,12 @@
     font-size:10px; color:#b45309; background:#fffbeb; border:1px solid #fde68a;
     border-radius:999px; padding:1px 6px; margin-left:6px; vertical-align:1px;
   }
-  .rows .r{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--line); font-size:14px;}
+  .rows .r{display:flex; gap:4px 14px; align-items:baseline; padding:9px 0; border-bottom:1px dashed var(--line); font-size:14px;}
   .rows .r:last-child{border-bottom:none;}
-  .rows .r .k{color:var(--sub);}
+  .rows .r .k{flex:1; min-width:0; color:var(--sub); line-height:1.45;}
+  .rows .r .v{white-space:nowrap; text-align:right; font-weight:500; color:var(--ink); font-variant-numeric:tabular-nums;}
   .hero{text-align:center; padding:10px 0 6px;}
-  .hero .big{font-size:40px; font-weight:700; letter-spacing:-.5px; color:var(--accent);}
+  .hero .big{font-size:40px; font-weight:700; letter-spacing:-.5px; color:var(--accent); font-variant-numeric:tabular-nums;}
   .hero .big small{font-size:14px; color:var(--sub); font-weight:400;}
   .hero .cap{font-size:12px; color:var(--sub); margin-top:2px;}
   .hero .sub{font-size:13px; color:var(--sub); margin-top:6px;}
@@ -84,18 +85,20 @@
     display:block; width:100%; padding:12px; margin-top:12px;
     border:none; border-radius:10px; background:var(--accent); color:#fff;
     font-size:15px; font-weight:600; cursor:pointer;
+    transition:transform .12s var(--ease), opacity .15s var(--ease), box-shadow .15s var(--ease);
   }
-  .btn:active{opacity:.85;}
+  .btn:active{transform:scale(.985); opacity:.9;}
+  .btn.ghost{transition:transform .12s var(--ease), background .15s var(--ease);}
   .btn.ghost{background:var(--accent-soft); color:var(--accent);}
   .btn:disabled{opacity:.45;}
   .cart .line{
-    display:flex; align-items:center; gap:8px; padding:9px 0;
+    display:flex; align-items:center; gap:8px; padding:10px 0;
     border-bottom:1px dashed var(--line); font-size:13px;
   }
   .cart .line .nm{flex:1; min-width:0;}
   .cart .line .nm b{font-size:14px;}
   .cart .line .nm span{color:var(--sub); display:block; font-size:11px;}
-  .cart .line .amt{text-align:right; font-weight:600; white-space:nowrap;}
+  .cart .line .amt{text-align:right; font-weight:600; white-space:nowrap; font-variant-numeric:tabular-nums; line-height:1.5;}
   .cart .line .del{border:none; background:none; color:var(--sub); font-size:16px; cursor:pointer; padding:4px;}
   .empty{font-size:13px; color:var(--sub); text-align:center; padding:14px 0;}
   #sheetWrap{margin-top:12px; border:1px solid var(--line); border-radius:10px; overflow:hidden;}
@@ -300,17 +303,17 @@
     if(ok){
       var unit = unitPrice(v.mm), sub = unit * v.qty;
       list = sub + hw; final = list * v.disc;
-      rows += '<div class="r"><span class="k">型材（含 Core-lox · ' + surfaceText() + '）</span><span>'
+      rows += '<div class="r"><span class="k">型材（含 Core-lox · ' + surfaceText() + '）</span><span class="v">'
         + fmt(unit) + ' 元/支 × ' + v.qty + ' 支 ＝ ' + fmt(sub) + ' 元</span></div>';
     }
     if(hw > 0){
       rows += hwLines().map(function(h){
-        return '<div class="r"><span class="k">' + h.name + '</span><span>' + fmt(h.price)
+        return '<div class="r"><span class="k">' + h.name + '</span><span class="v">' + fmt(h.price)
           + ' 元/' + h.unit + ' × ' + h.qty + ' ＝ ' + fmt(h.price * h.qty) + ' 元</span></div>';
       }).join("");
     }
     if(ok || hw > 0){
-      rows += '<div class="r"><span class="k">零售合计</span><span>' + fmt(list) + ' 元</span></div>';
+      rows += '<div class="r"><span class="k">零售合计</span><span class="v">' + fmt(list) + ' 元</span></div>';
       $("final").textContent = fmt(final);
       $("subline").textContent = "含税合计 " + fmt(final * P.taxOut) + " 元（×" + P.taxOut + "）"
         + (ok ? " · 型材折后 " + fmt(unitPrice(v.mm) * v.disc) + " 元/支" : "");
