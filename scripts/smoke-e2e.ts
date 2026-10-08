@@ -872,12 +872,23 @@ async function main() {
 
   // ---------- Phase H: 批次计价第 1 步（SKU 级口径 + 三级回退 + 成本快照） ----------
   {
-    // H1 SKU 级口径：材料=切长÷良率×每米价，表面不单列（原料已含表面）
+    // H1 SKU 级口径：材料=切长÷良率×每米价；2026-10-08 口径更新：素材价为裸管口径，表面独立按重量计价
     const p1 = calcPricing(1000, "C", undefined, undefined, { perMeterPrice: 20, yieldRate: 0.95, meterWeight: 0.72, costSource: "AVG" });
     check("H1 per-meter material = (1m/0.95)×20 = 21.05", Math.abs(p1.materialCost - 21.05) < 0.01, `material=${p1.materialCost}`);
-    check("H1 surface excluded when per-meter price present", p1.surfaceCost === 0);
+    check("H1 surface billed by weight (裸管口径, 5.5元/kg)", Math.abs(p1.surfaceCost - (0.72 / 0.95) * 5.5) < 0.01, `surface=${p1.surfaceCost}`);
     check("H1 costSource propagates", p1.costSource === "AVG");
     check("H1 yield sourced from Product (0.95 not global 0.92)", Math.abs(p1.theoreticalWeight - 0.72) < 0.001 && Math.abs(p1.actualWeight - 0.72 / 0.95) < 0.001, `actual=${p1.actualWeight}`);
+
+    // D2/D3 工序计价（2026-10-08）：加工费=Σ勾选工序价；连接件+组装仅勾 EM 才收；无工序码回退固定费
+    {
+      const p3 = calcPricing(1000, "C", undefined, undefined, undefined, { codes: ["L", "EM"], prices: { L: 1.5, EM: 3 } });
+      check("D2 processing = Σ工序价 (1.5+3)", Math.abs(p3.processingCost - 4.5) < 0.001, `processing=${p3.processingCost}`);
+      check("D3 connector+assembly 仅 EM (10+0.35)", Math.abs(p3.connectorCost - 10.35) < 0.001, `connector=${p3.connectorCost}`);
+      const p4 = calcPricing(1000, "C", undefined, undefined, undefined, { codes: ["L"], prices: { L: 1.5 } });
+      check("D3 纯切长免连接件", p4.connectorCost === 0 && Math.abs(p4.processingCost - 1.5) < 0.001, `connector=${p4.connectorCost}, processing=${p4.processingCost}`);
+      const p5 = calcPricing(1000, "C");
+      check("D2/D3 无工序码回退旧行为 (固定3+每行10)", Math.abs(p5.processingCost - 3) < 0.001 && Math.abs(p5.connectorCost - 10) < 0.001);
+    }
 
     // H2 全局常数回退（无基数）：旧公式不变
     const p2 = calcPricing(1000, "C");

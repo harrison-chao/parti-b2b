@@ -272,8 +272,9 @@ export default function NewInternalOrderPage() {
 
   async function fetchPrice(r: OrderLineRow) {
     if (r.lineType !== "PROFILE" || !r.cutMm) return;
-    // 带原料 SKU 级口径计价（米重/良率/每米价三级回退）
-    const qs = r.rawProductId ? `&rawProductId=${r.rawProductId}` : "";
+    // 带原料 SKU 级口径计价（米重/良率/每米价三级回退）；工序码带 D2/D3 计价
+    const opCodes = Array.isArray(r.processCodes) && r.processCodes.length ? ["L", ...r.processCodes] : ["L"];
+    const qs = `${r.rawProductId ? `&rawProductId=${r.rawProductId}` : ""}&processCodes=${encodeURIComponent(opCodes.join(","))}`;
     const res = await fetch(`/api/pricing/calculate?lengthMm=${r.cutMm}${qs}`);
     const d = await j(await res);
     if (d?.dealerPrice != null) patchRow(r.key, { unitPrice: d.dealerPrice });

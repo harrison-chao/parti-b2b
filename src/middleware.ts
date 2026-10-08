@@ -10,7 +10,7 @@ export default auth((req) => {
   const role = (req.auth?.user as any)?.role;
   const mustChangePassword = Boolean((req.auth?.user as any)?.mustChangePassword);
 
-  const publicPaths = ["/login", "/activate", "/api/auth", "/api/activate", "/api/cron"];
+  const publicPaths = ["/login", "/activate", "/api/auth", "/api/activate", "/api/cron", "/api/public"];
   if (publicPaths.some((p) => pathname.startsWith(p))) return NextResponse.next();
 
   if (!isAuthed) return NextResponse.redirect(new URL("/login", req.url));

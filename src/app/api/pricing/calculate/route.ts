@@ -41,7 +41,18 @@ export async function GET(req: NextRequest) {
     if (raw && raw.isRawMaterial) basis = await resolveRawBasis(raw);
   }
 
-  const full = calcPricing(lengthMm, level, pricingFieldsToConfig(settings.pricingFields), settings.discountRates, basis);
+  // D2/D3 工序计价：processCodes=L,EM 传入时按工序单价表计加工费，连接件仅勾 EM 才收
+  const opsParam = url.searchParams.get("processCodes");
+  const opCodes = opsParam ? opsParam.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
+  const opPrices: Record<string, number> = {};
+  for (const o of settings.processingOperations ?? []) {
+    if (o.unitPrice != null) opPrices[o.code] = o.unitPrice;
+  }
+
+  const full = calcPricing(
+    lengthMm, level, pricingFieldsToConfig(settings.pricingFields), settings.discountRates, basis,
+    opCodes ? { codes: opCodes, prices: opPrices } : undefined,
+  );
   const discountPercent = Math.round(settings.discountRates[level] * 100);
 
   if (role === "DEALER") {

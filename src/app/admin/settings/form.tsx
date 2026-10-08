@@ -239,7 +239,7 @@ export function SettingsForm({ initial, rawSeries }: { initial: AllSettings; raw
       <Card>
         <CardHeader>
           <CardTitle>加工工艺选项</CardTitle>
-          <CardDescription>工艺操作下拉框，下单时选用对应操作码</CardDescription>
+          <CardDescription>工艺操作下拉框，下单时选用对应操作码；单价（元/支）用于工序计价——加工费 = Σ勾选工序价</CardDescription>
         </CardHeader>
         <CardContent>
           <OptionList
@@ -249,6 +249,7 @@ export function SettingsForm({ initial, rawSeries }: { initial: AllSettings; raw
             setItems={setProcessingOperations}
             onSave={() => save("processingOperations", processingOperations)}
             status={status.processingOperations}
+            withPrice
           />
         </CardContent>
       </Card>
@@ -396,11 +397,11 @@ export function SettingsForm({ initial, rawSeries }: { initial: AllSettings; raw
 }
 
 function OptionList({
-  title, codePlaceholder, items, setItems, onSave, status,
+  title, codePlaceholder, items, setItems, onSave, status, withPrice,
 }: {
   title: string; codePlaceholder: string;
   items: Option[]; setItems: (o: Option[]) => void;
-  onSave: () => void; status?: string;
+  onSave: () => void; status?: string; withPrice?: boolean;
 }) {
   return (
     <div className="space-y-2">
@@ -411,11 +412,16 @@ function OptionList({
             onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, code: e.target.value.toUpperCase() } : x)))} />
           <Input placeholder="显示名称" value={it.label}
             onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, label: e.target.value } : x)))} />
+          {withPrice && (
+            <Input className="w-24" type="number" step="0.1" min="0" placeholder="元/支"
+              value={it.unitPrice ?? ""}
+              onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, unitPrice: parseFloat(e.target.value) || 0 } : x)))} />
+          )}
           <Button variant="outline" size="sm" onClick={() => setItems(items.filter((_, i) => i !== idx))}>删除</Button>
         </div>
       ))}
       <div className="flex items-center gap-3 pt-2">
-        <Button variant="outline" size="sm" onClick={() => setItems([...items, { code: "", label: "" }])}>+ 添加</Button>
+        <Button variant="outline" size="sm" onClick={() => setItems([...items, { code: "", label: "", ...(withPrice ? { unitPrice: 0 } : {}) } as Option])}>+ 添加</Button>
         <Button size="sm" onClick={onSave}>保存</Button>
         {status && <span className="text-sm text-emerald-300">{status}</span>}
       </div>

@@ -112,12 +112,16 @@ export async function POST(req: NextRequest) {
   // Pricing uses the admin-configured discount rates (falls back to built-in defaults).
   const settings = await loadSettings();
   const pricingConfig = pricingFieldsToConfig(settings.pricingFields);
+  // 工序码 → 单价（settings 工序表 D2 计价）
+  const opPriceMap = (ops: { code: string; unitPrice?: number }[] | undefined) =>
+    Object.fromEntries((ops ?? []).filter((o) => o.unitPrice != null).map((o) => [o.code, o.unitPrice!]));
 
   // 行级服务端权威解析（计价/原料校验/成本快照冻结），业务错误按 4xx 返回
   let resolvedLines: any[] = [];
   try {
     resolvedLines = await resolveOrderLines(prisma, {
       lines: data.lines, dealer, pricingConfig, discountRates: settings.discountRates as Record<string, number>,
+      opPrices: opPriceMap(settings.processingOperations),
     });
   } catch (e: any) {
     if (e instanceof OrderCreateError) return fail(e.message);

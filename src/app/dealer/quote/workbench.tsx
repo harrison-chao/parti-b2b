@@ -256,11 +256,12 @@ export function QuoteWorkbench({
   async function recalcProfile(id: string, lengthMm: number, rawProductIdOverride?: string) {
     patchRow<ProfileRow>(id, { loading: true, error: undefined });
     try {
-      // 带原料 SKU 级口径计价（米重/良率/每米价三级回退），与下单服务端同引擎
+      // 带原料 SKU 级口径计价（米重/良率/每米价三级回退），与下单服务端同引擎；工序码带 D2/D3 计价
       const matched = rows.find((row) => row.id === id);
       const raw = matched && "rawProductId" in matched ? matched : undefined;
       const rid = rawProductIdOverride ?? raw?.rawProductId;
-      const qs = rid ? `&rawProductId=${rid}` : "";
+      const opCodes = raw && Array.isArray(raw.processCodes) ? ["L", ...raw.processCodes] : ["L"];
+      const qs = `${rid ? `&rawProductId=${rid}` : ""}&processCodes=${encodeURIComponent(opCodes.join(","))}`;
       const r = await fetch(`/api/pricing/calculate?lengthMm=${lengthMm}${qs}`);
       const j = await r.json();
       if (j.code !== 0) {

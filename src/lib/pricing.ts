@@ -1,15 +1,26 @@
 export const PRICING_CONFIG = {
   meterWeight: 0.65,
   utilization: 0.92,
+  // 行情三件套：素材价 =（铝锭 + 挤压加工）/1000 ×（1 + 进项税），缺行情时回退 materialPrice 常数
+  ingotPrice: 24600,
+  extrusionFee: 1300,
+  inputTaxRate: 0.09,
   materialPrice: 28,
   processingFee: 3,
-  surfacePricePerKg: 5,
+  surfacePricePerKg: 5.5,
   connectorFee: 10,
+  assemblyFee: 0.35,
   grossMarginRate: 0.65,
   level1Rate: 0.5,
   level2Rate: 0.6,
   taxRate: 1.1,
 } as const;
+
+/**
+ * 工序计价（D2/D3）：codes 传入时加工费 = Σ勾选工序单价，连接件+组装仅在勾 EM 时计收；
+ * codes 不传时回退旧行为（固定加工费 + 每行连接件费），兼容存量调用。
+ */
+export type OpPricing = { codes?: string[]; prices?: Record<string, number> };
 
 export type PriceTier = "A" | "B" | "C";
 export const PRICE_TIERS: PriceTier[] = ["A", "B", "C"];
@@ -72,6 +83,7 @@ export function calcPricing(
   config: { [K in keyof typeof PRICING_CONFIG]: number } = PRICING_CONFIG,
   discountRates: Record<"A" | "B" | "C" | "D" | "E", number> = LEVEL_DISCOUNT,
   raw?: RawPricingBasis,
+  ops?: OpPricing,
 ): PricingResult {
   const c = config;
   const meterWeight = raw?.meterWeight ?? c.meterWeight;
@@ -87,13 +99,19 @@ export function calcPricing(
     perMeterPrice = round4(raw.perMeterPrice);
     costSource = raw.costSource ?? "AVG";
     material = ((lengthMm / 1000) / yieldRate) * perMeterPrice;
-    surface = 0;
+    // 口径更新 2026-10-08：素材价（采购/均价）为裸管口径，表面处理独立按重量计价
+    surface = actual * c.surfacePricePerKg;
   } else {
     material = actual * c.materialPrice;
     surface = actual * c.surfacePricePerKg;
   }
-  const processing = c.processingFee;
-  const connector = c.connectorFee;
+  const codes = ops?.codes;
+  const processing = codes
+    ? codes.reduce((sum, cd) => sum + (ops?.prices?.[cd] ?? 0), 0)
+    : c.processingFee;
+  const connector = codes
+    ? (codes.includes("EM") ? c.connectorFee + c.assemblyFee : 0)
+    : c.connectorFee;
   const totalCost = material + surface + processing + connector;
   const retail = totalCost / (1 - c.grossMarginRate);
   const retailTax = retail * c.taxRate;

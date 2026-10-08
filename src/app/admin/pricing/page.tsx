@@ -18,52 +18,103 @@ type Full = {
   totalCost: number;
   retailPrice: number;
   retailPriceTax: number;
-  level1Price: number;
-  level2Price: number;
   dealerPrice: number;
   priceLevel: string;
   discountPercent: number;
+  costSource: string;
+  perMeterPrice: number | null;
 };
 
+type Op = { code: string; label: string; unitPrice?: number };
+type RawProduct = { id: string; sku: string; productName: string; weightPerMeter?: string | number | null; yieldRate?: string | number | null };
+
 const LEVELS = ["A", "B", "C"] as const;
+const STD_INCH = [8, 10, 11, 13, 16, 20, 24, 28, 30];
 
 export default function OpsPricingPage() {
-  const [lengthMm, setLengthMm] = useState(600);
+  const [inch, setInch] = useState(8);
+  const [lengthMm, setLengthMm] = useState(203.2);
   const [level, setLevel] = useState<"A" | "B" | "C">("C");
+  const [rawId, setRawId] = useState<string>("");
+  const [ops, setOps] = useState<string[]>(["L", "EM"]);
   const [data, setData] = useState<Full | null>(null);
   const [loading, setLoading] = useState(false);
-  // 报价参数来自设置，label 里的数值随设置动态显示（评审 B12：写死 28 元/kg 会误导）
   const [params, setParams] = useState<Record<string, number>>({});
+  const [operations, setOperations] = useState<Op[]>([]);
+  const [raws, setRaws] = useState<RawProduct[]>([]);
+
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => r.json())
       .then((j) => {
-        if (j.code === 0 && Array.isArray(j.data?.pricingFields)) {
-          setParams(Object.fromEntries(j.data.pricingFields.map((f: { key: string; value: number }) => [f.key, f.value])));
+        if (j.code === 0) {
+          if (Array.isArray(j.data?.pricingFields)) {
+            setParams(Object.fromEntries(j.data.pricingFields.map((f: { key: string; value: number }) => [f.key, f.value])));
+          }
+          if (Array.isArray(j.data?.processingOperations)) setOperations(j.data.processingOperations);
+        }
+      })
+      .catch(() => {});
+    fetch("/api/products?category=PROFILE&activeOnly=1")
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.code === 0 && Array.isArray(j.data)) {
+          const list = (j.data as RawProduct[]).filter((p) => (p as any).isRawMaterial);
+          setRaws(list);
+          if (list[0]) setRawId((cur) => cur || list[0].id);
         }
       })
       .catch(() => {});
   }, []);
   const p = (k: string) => (params[k] != null ? params[k] : null);
+  const opPrice = (code: string) => operations.find((o) => o.code === code)?.unitPrice ?? null;
 
-  async function calc(mm: number, lv: string) {
+  // 素材价：行情公式优先，无行情显示回退值
+  const materialPerKg =
+    p("ingotPrice") != null && (p("ingotPrice") ?? 0) > 0
+      ? Math.round(((p("ingotPrice")! + (p("extrusionFee") ?? 0)) / 1000) * (1 + (p("inputTaxRate") ?? 0)) * 10000) / 10000
+      : p("materialPrice");
+
+  async function calc(mm: number, lv: string, rid: string, opCodes: string[]) {
     if (!mm || mm <= 0) return;
     setLoading(true);
     try {
-      const r = await fetch(`/api/pricing/calculate?lengthMm=${mm}&level=${lv}`);
+      const qs = new URLSearchParams({ lengthMm: String(mm), level: lv, processCodes: opCodes.join(",") });
+      if (rid) qs.set("rawProductId", rid);
+      const r = await fetch(`/api/pricing/calculate?${qs.toString()}`);
       const j = await r.json();
       if (j.code === 0) setData(j.data);
     } finally {
       setLoading(false);
     }
   }
-  useEffect(() => { calc(lengthMm, level); /* eslint-disable-next-line */ }, []);
+
+  // 任一输入变化即重算
+  useEffect(() => { void calc(lengthMm, level, rawId, ops); /* eslint-disable-next-line */ }, [lengthMm, level, rawId, ops]);
+
+  const setLenFromInch = (v: number) => {
+    setInch(v);
+    setLengthMm(+(v * 25.4).toFixed(1));
+  };
+  const setLenFromMm = (v: number) => {
+    setLengthMm(v);
+    setInch(+(v / 25.4).toFixed(2));
+  };
+  const toggleOp = (code: string) => {
+    setOps((cur) => (cur.includes(code) ? cur.filter((c) => c !== code) : [...cur, code]));
+  };
+
+  const opsDetail = ops
+    .map((c) => `${operations.find((o) => o.code === c)?.label ?? c}${opPrice(c) != null ? ` ${opPrice(c)}` : ""}`)
+    .join(" + ");
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">报价成本分析</h1>
-        <p className="text-muted-foreground text-sm">管理员专用 · 完整成本构成与多级定价预览</p>
+        <p className="text-muted-foreground text-sm">
+          管理员专用 · 与对外报价计算器同口径（素材=铝锭公式价，工序计价，勾 EM 才收连接件+组装）
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -71,17 +122,47 @@ export default function OpsPricingPage() {
           <CardHeader><CardTitle>参数</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>长度 (mm)</Label>
+              <Label>切长（英寸 ⇄ mm 自动换算）</Label>
               <div className="flex gap-2">
-                <Input type="number" value={lengthMm} onChange={(e) => setLengthMm(parseFloat(e.target.value) || 0)} />
-                <Button onClick={() => calc(lengthMm, level)} disabled={loading}>{loading ? "..." : "计算"}</Button>
+                <Input type="number" step="0.01" value={inch} onChange={(e) => setLenFromInch(parseFloat(e.target.value) || 0)} />
+                <Input type="number" step="0.1" value={lengthMm} onChange={(e) => setLenFromMm(parseFloat(e.target.value) || 0)} />
+              </div>
+              <div className="flex flex-wrap gap-1 pt-1">
+                {STD_INCH.map((n) => (
+                  <Button key={n} variant={inch === n ? "default" : "outline"} size="sm" className="h-7 px-2 text-xs"
+                    onClick={() => setLenFromInch(n)}>{n}寸</Button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>原料 SKU（米重/良率/每米价基准）</Label>
+              <select className="border rounded px-2 py-2 text-sm w-full bg-background"
+                value={rawId} onChange={(e) => setRawId(e.target.value)}>
+                <option value="">不指定（全局常数）</option>
+                {raws.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.sku}{r.weightPerMeter ? `（${Number(r.weightPerMeter)}kg/m）` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>加工工序（勾 EM 才收连接件+组装）</Label>
+              <div className="flex flex-wrap gap-1">
+                {operations.map((o) => (
+                  <Button key={o.code} variant={ops.includes(o.code) ? "default" : "outline"} size="sm" className="h-7 px-2 text-xs"
+                    onClick={() => toggleOp(o.code)}>
+                    {o.label}{o.unitPrice != null ? ` ${o.unitPrice}元` : ""}
+                  </Button>
+                ))}
               </div>
             </div>
             <div className="space-y-2">
               <Label>经销商等级</Label>
-              <div className="grid grid-cols-5 gap-1">
+              <div className="grid grid-cols-3 gap-1">
                 {LEVELS.map((lv) => (
-                  <Button key={lv} variant={level === lv ? "default" : "outline"} size="sm" onClick={() => { setLevel(lv); calc(lengthMm, lv); }}>{lv}</Button>
+                  <Button key={lv} variant={level === lv ? "default" : "outline"} size="sm"
+                    onClick={() => setLevel(lv)}>{lv}</Button>
                 ))}
               </div>
             </div>
@@ -91,19 +172,21 @@ export default function OpsPricingPage() {
         {data && (
           <>
             <Card>
-              <CardHeader><CardTitle>成本分解</CardTitle></CardHeader>
+              <CardHeader><CardTitle>成本分解{loading ? "…" : ""}</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-sm">
+                <Row k="计价口径" v={data.costSource === "AVG" ? "AVG 车间均价" : data.costSource === "PURCHASE" ? "PURCHASE 采购价折算" : "SETTINGS 全局常数"} />
+                {data.perMeterPrice != null && <Row k="每米价" v={`${data.perMeterPrice} 元/m`} />}
                 <Row k="理论重量" v={`${data.theoreticalWeight} kg`} />
                 <Row k="损耗重量" v={`${data.wasteWeight} kg`} />
                 <Row k="实际重量" v={`${data.actualWeight} kg`} />
                 <div className="border-t my-2"></div>
-                <Row k={`素材成本${p("materialPrice") != null ? `（${p("materialPrice")}元/kg）` : ""}`} v={formatMoney(data.materialCost)} />
+                <Row k={`素材成本（${materialPerKg != null ? materialPerKg + "元/kg" : "行情公式"}）`} v={formatMoney(data.materialCost)} />
                 <Row k={`表面处理${p("surfacePricePerKg") != null ? `（${p("surfacePricePerKg")}元/kg）` : ""}`} v={formatMoney(data.surfaceCost)} />
-                <Row k={`加工费${p("processingFee") != null ? `（${p("processingFee")}元/支）` : ""}`} v={formatMoney(data.processingCost)} />
-                <Row k={`连接件${p("connectorFee") != null ? `（${p("connectorFee")}元/支）` : ""}`} v={formatMoney(data.connectorCost)} />
+                <Row k={`加工费（${opsDetail || "未勾工序"}）`} v={formatMoney(data.processingCost)} />
+                <Row k={`连接件+组装${ops.includes("EM") ? "" : "（未勾 EM 免收）"}`} v={formatMoney(data.connectorCost)} />
                 <div className="border-t my-2"></div>
                 <Row k="总成本" v={formatMoney(data.totalCost)} bold />
-                <Row k="毛利率" v={p("grossMarginRate") != null ? `${Math.round(p("grossMarginRate")! * 100)}%` : "-"} />
+                <Row k="毛利率" v={p("grossMarginRate") != null ? `${Math.round(p("grossMarginRate")! * 100)}%（报价加成口径）` : "-"} />
               </CardContent>
             </Card>
 
@@ -111,12 +194,12 @@ export default function OpsPricingPage() {
               <CardHeader><CardTitle>各级定价</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <Price label="零售价（不含税）" value={data.retailPrice} />
-                <Price label="零售价（含税 10%）" value={data.retailPriceTax} tone="muted" />
+                <Price label={`零售价（含税 ${p("taxRate") != null ? Math.round((p("taxRate")! - 1) * 100) : 10}%）`} value={data.retailPriceTax} tone="muted" />
                 <div className="border-t my-2"></div>
-                <Price label={`一级代理${p("level1Rate") != null ? `（${Math.round(p("level1Rate")! * 100)}%）` : ""}`} value={data.level1Price} tone="blue" />
-                <Price label={`二级代理${p("level2Rate") != null ? `（${Math.round(p("level2Rate")! * 100)}%）` : ""}`} value={data.level2Price} tone="blue" />
-                <div className="border-t my-2"></div>
-                <Price label={`等级 ${data.priceLevel}（${data.discountPercent}%）`} value={data.dealerPrice} tone="green" big />
+                <Price label={`等级 ${data.priceLevel}（零售 ×${data.discountPercent}%）`} value={data.dealerPrice} tone="green" big />
+                <p className="text-xs text-muted-foreground pt-1">
+                  新四档参考：共创先锋 ×85% {formatMoney(data.retailPrice * 0.85)} · 区域代理 ×65% {formatMoney(data.retailPrice * 0.65)} · 战略合伙人 ×50% {formatMoney(data.retailPrice * 0.5)}
+                </p>
               </CardContent>
             </Card>
           </>

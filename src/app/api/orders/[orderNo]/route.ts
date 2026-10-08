@@ -37,11 +37,15 @@ export async function PUT(req: NextRequest, { params }: { params: { orderNo: str
   if (!dealer || dealer.status !== "ACTIVE") return fail("客户已停用");
   const settings = await loadSettings();
   const pricingConfig = pricingFieldsToConfig(settings.pricingFields);
+  // 工序码 → 单价（settings 工序表 D2 计价）
+  const opPriceMap = (ops: { code: string; unitPrice?: number }[] | undefined) =>
+    Object.fromEntries((ops ?? []).filter((o) => o.unitPrice != null).map((o) => [o.code, o.unitPrice!]));
 
   let resolvedLines: any[];
   try {
     resolvedLines = await resolveOrderLines(prisma, {
       lines: data.lines, dealer, pricingConfig, discountRates: settings.discountRates as Record<string, number>,
+      opPrices: opPriceMap(settings.processingOperations),
     });
   } catch (e: any) {
     if (e instanceof OrderCreateError) return fail(e.message);

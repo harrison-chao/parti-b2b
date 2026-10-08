@@ -28,9 +28,10 @@ export async function resolveOrderLines(
     dealer: Dealer;
     pricingConfig: Parameters<typeof calcPricing>[2];
     discountRates: NonNullable<Parameters<typeof calcPricing>[3]>;
+    opPrices?: Record<string, number>;
   },
 ): Promise<any[]> {
-  const { lines, dealer, pricingConfig, discountRates } = opts;
+  const { lines, dealer, pricingConfig, discountRates, opPrices } = opts;
   const discount = discountRates[dealer.priceLevel as keyof typeof discountRates] ?? (LEVEL_DISCOUNT as Record<string, number>)[dealer.priceLevel];
 
   const hardwareIds = lines.filter((l) => l.lineType === "HARDWARE" && l.productId).map((l) => l.productId!);
@@ -71,7 +72,9 @@ export async function resolveOrderLines(
       const length = l.cutLengthMm ?? l.lengthMm;
       if (!length || length <= 0) throw new OrderCreateError("PROFILE 行缺有效切长");
       const basis = basisMap.get(l.rawProductId);
-      const pricing = calcPricing(length, dealer.priceLevel as "A" | "B" | "C", pricingConfig, discountRates, basis);
+      // D2/D3：按行工序码计价（加工费=Σ工序价，连接件+组装仅勾 EM 才收）；无工序码回退固定费
+      const codes: string[] | undefined = Array.isArray(l.processCodes) && l.processCodes.length > 0 ? l.processCodes : undefined;
+      const pricing = calcPricing(length, dealer.priceLevel as "A" | "B" | "C", pricingConfig, discountRates, basis, codes ? { codes, prices: opPrices ?? {} } : undefined);
       // 口径切换：下单冻结成本构成，利润页不再随参数/批次价漂移
       const costSnapshot = JSON.stringify({
         source: pricing.costSource,
@@ -80,6 +83,9 @@ export async function resolveOrderLines(
         yieldRate: pricing.yieldRate,
         unitCost: pricing.totalCost,
         cutLengthMm: length,
+        processCodes: codes ?? [],
+        processingCost: pricing.processingCost,
+        connectorCost: pricing.connectorCost,
         pricedAt: new Date().toISOString(),
       });
       return { ...l, unitPrice: pricing.dealerPrice, costSnapshot };
