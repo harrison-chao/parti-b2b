@@ -201,14 +201,82 @@ async function moveWorkOrderTo(
   }, TX_OPTIONS);
 }
 
-async function main() {
-  const suffix = `${Date.now()}`;
+/** 生产守卫:smoke 会写入大量测试数据,禁止直连生产库(直连域名与 pooler 用户名都含项目 ref) */
+function assertNotProductionDb() {
+  const url = process.env.DATABASE_URL ?? "";
+  const PROD_DB_REFS = ["pkawyjawbvhfcumaiisj"];
+  if (PROD_DB_REFS.some((ref) => url.includes(ref)) && process.env.SMOKE_ALLOW_PROD !== "1") {
+    console.error("[阻断] DATABASE_URL 指向生产 Supabase,禁止跑 smoke(会写入测试数据)。确要跑: SMOKE_ALLOW_PROD=1,跑后必须核查零残留");
+    process.exit(1);
+  }
+  const host = /@([^:/?]+)/.exec(url)?.[1] ?? url;
+  if (!/^(localhost|127\.0\.0\.1|\[::1\])/.test(host)) {
+    console.warn(`[警告] smoke 跑在非本地库(${host});结束后按 suffix 自动清理本次数据`);
+  }
+}
+
+/** 按 suffix 清理本次运行写入的全部数据(外键从子到父;Phase H/K 已各自就地清理);失败只告警不中断 */
+async function cleanupSmokeRun(suffix: string): Promise<number> {
+  const orderNos = [`SO-SMOKE-${suffix}`, `SOF-SMOKE-${suffix}`];
+  const poNo = `PO-SMOKE-${suffix}`;
+  const countNo = `SC-SMOKE-${suffix}`;
+  let removed = 0;
+  try {
+    const workshop = await prisma.workshop.findUnique({ where: { code: `SMW-${suffix}` } });
+    const dealer = await prisma.dealer.findUnique({ where: { dealerNo: `SMD-${suffix}` } });
+    const supplier = await prisma.supplier.findUnique({ where: { supplierNo: `SMS-${suffix}` } });
+    const shipmentIds = [
+      ...new Set(
+        (await prisma.shipmentLine.findMany({ where: { orderNo: { in: orderNos } }, select: { shipmentId: true } }))
+          .map((l) => l.shipmentId),
+      ),
+    ];
+    const del = async (op: Prisma.PrismaPromise<{ count: number }>) => {
+      removed += (await op).count;
+    };
+    await del(prisma.shipmentLine.deleteMany({ where: { orderNo: { in: orderNos } } }));
+    await del(prisma.shipment.deleteMany({ where: { id: { in: shipmentIds } } }));
+    await del(prisma.workOrder.deleteMany({ where: { orderNo: { in: orderNos } } }));
+    await del(prisma.salesOrderLine.deleteMany({ where: { orderNo: { in: orderNos } } }));
+    await del(prisma.dealerPaymentAllocation.deleteMany({ where: { orderNo: { in: orderNos } } }));
+    await del(prisma.supplierPaymentAllocation.deleteMany({ where: { poNo } }));
+    if (dealer) await del(prisma.dealerPayment.deleteMany({ where: { dealerId: dealer.id } }));
+    if (supplier) await del(prisma.supplierPayment.deleteMany({ where: { supplierId: supplier.id } }));
+    await del(prisma.stockCountLine.deleteMany({ where: { countNo } }));
+    await del(prisma.stockCount.deleteMany({ where: { countNo } }));
+    if (workshop) {
+      await del(prisma.stockMovement.deleteMany({ where: { workshopId: workshop.id } }));
+      await del(prisma.workshopInventory.deleteMany({ where: { workshopId: workshop.id } }));
+    }
+    await del(prisma.salesOrder.deleteMany({ where: { orderNo: { in: orderNos } } }));
+    await del(prisma.purchaseOrderLine.deleteMany({ where: { poNo } }));
+    await del(prisma.purchaseOrder.deleteMany({ where: { poNo } }));
+    await del(prisma.product.deleteMany({ where: { sku: { in: [`RAW-${suffix}`, `HW-${suffix}`] } } }));
+    await del(
+      prisma.user.deleteMany({
+        where: { email: { in: [`admin-${suffix}@smoke.local`, `workshop-${suffix}@smoke.local`, `dealer-${suffix}@smoke.local`] } },
+      }),
+    );
+    if (workshop) await del(prisma.workshop.deleteMany({ where: { id: workshop.id } }));
+    if (dealer) await del(prisma.dealer.deleteMany({ where: { id: dealer.id } }));
+    if (supplier) await del(prisma.supplier.deleteMany({ where: { id: supplier.id } }));
+    await del(
+      prisma.auditLog.deleteMany({
+        where: { OR: [{ actorEmail: { endsWith: `-${suffix}@smoke.local` } }, { summary: { contains: `SMOKE-${suffix}` } }] },
+      }),
+    );
+  } catch (error) {
+    console.warn(`[清理] suffix ${suffix} 清理不完整(测试库可整体重建,生产禁入由守卫保证):`, error instanceof Error ? error.message : error);
+  }
+  return removed;
+}
+
+async function runSmokePhases(suffix: string) {
   const now = new Date();
   const targetDeliveryDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const adminName = `Smoke Admin ${suffix}`;
   const workshopName = `Smoke Workshop ${suffix}`;
 
-  console.log(`Smoke E2E run suffix: ${suffix}`);
 
   const workshop = await prisma.workshop.create({
     data: {
@@ -872,12 +940,17 @@ async function main() {
 
   // ---------- Phase H: 批次计价第 1 步（SKU 级口径 + 三级回退 + 成本快照） ----------
   {
-    // H1 SKU 级口径：材料=切长÷良率×每米价；2026-10-08 口径更新：素材价为裸管口径，表面独立按重量计价
-    const p1 = calcPricing(1000, "C", undefined, undefined, { perMeterPrice: 20, yieldRate: 0.95, meterWeight: 0.72, costSource: "AVG" });
-    check("H1 per-meter material = (1m/0.95)×20 = 21.05", Math.abs(p1.materialCost - 21.05) < 0.01, `material=${p1.materialCost}`);
-    check("H1 surface billed by weight (裸管口径, 5.5元/kg)", Math.abs(p1.surfaceCost - (0.72 / 0.95) * 5.5) < 0.01, `surface=${p1.surfaceCost}`);
+    // H1 SKU 级口径（2026-10-08b 含表面全成本）：材料+表面合计 = 切长÷良率×每米价，表面仅按重量拆分展示、不重复加计
+    const p1 = calcPricing(1000, "C", undefined, undefined, { perMeterPrice: 20, yieldRate: 0.95, meterWeight: 0.72, costSource: "AVG", surfaceIncluded: true });
+    check("H1 material+surface total = 切长÷良率×每米价（含表面不双计）", Math.abs(p1.materialCost + p1.surfaceCost - (1 / 0.95) * 20) < 0.01, `m+s=${p1.materialCost}+${p1.surfaceCost}`);
+    check("H1 surface split by weight (5.5元/kg, 仅展示)", Math.abs(p1.surfaceCost - (0.72 / 0.95) * 5.5) < 0.01, `surface=${p1.surfaceCost}`);
+    check("H1 裸管 SKU (surfaceIncluded=false) 表面不拆不加", calcPricing(1000, "C", undefined, undefined, { perMeterPrice: 20, yieldRate: 0.95, meterWeight: 0.72, costSource: "PURCHASE", surfaceIncluded: false }).surfaceCost === 0);
     check("H1 costSource propagates", p1.costSource === "AVG");
     check("H1 yield sourced from Product (0.95 not global 0.92)", Math.abs(p1.theoreticalWeight - 0.72) < 0.001 && Math.abs(p1.actualWeight - 0.72 / 0.95) < 0.001, `actual=${p1.actualWeight}`);
+    // H1b 分支切换报价零变化：PURCHASE（含表面每米价=米重×(素材+表面)）与 SETTINGS 兜底同参数总额逐分一致
+    const pb = calcPricing(1000, "C", undefined, undefined, { perMeterPrice: 0.63 * 33.5, yieldRate: 0.92, meterWeight: 0.63, costSource: "PURCHASE", surfaceIncluded: true });
+    const sb = calcPricing(1000, "C", undefined, undefined, { meterWeight: 0.63, yieldRate: 0.92 });
+    check("H1b PURCHASE(含表面) vs SETTINGS 总额逐分一致", Math.abs(pb.totalCost - sb.totalCost) < 0.005, `${pb.totalCost} vs ${sb.totalCost}`);
 
     // D2/D3 工序计价(2026-10-08 r3):EM 隐含截断+铣孔(1+1+1=3);连接件 10 无组装;包材 0.3 必收
     {
@@ -1124,7 +1197,19 @@ async function main() {
     }
   }
 
-  console.log(`\nSmoke E2E passed: ${results.length} assertions`);
+}
+
+async function main() {
+  assertNotProductionDb();
+  const suffix = `${Date.now()}`;
+  console.log(`Smoke E2E run suffix: ${suffix}`);
+  try {
+    await runSmokePhases(suffix);
+    console.log(`\nSmoke E2E passed: ${results.length} assertions`);
+  } finally {
+    const removed = await cleanupSmokeRun(suffix);
+    console.log(`Smoke cleanup: removed ${removed} rows for suffix ${suffix}`);
+  }
 }
 
 main()
