@@ -10,7 +10,7 @@ export const PRICING_CONFIG = {
   surfacePricePerKg: 5.5,
   connectorFee: 10,
   assemblyFee: 0.35,
-  grossMarginRate: 0.65,
+  grossMarginRate: 0.6,
   level1Rate: 0.5,
   level2Rate: 0.6,
   taxRate: 1.1,
