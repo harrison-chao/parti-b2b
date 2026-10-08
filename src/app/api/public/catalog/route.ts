@@ -38,7 +38,7 @@ export async function GET() {
 
   const margin = 1 - cfg.grossMarginRate;
   const perMeterRetail = (mw / yl) * (cfg.materialPrice + cfg.surfacePricePerKg) / margin;
-  const fixedPerPcRetail = (opPrice("L") + opPrice("EM") + cfg.connectorFee + cfg.assemblyFee) / margin;
+  const fixedPerPcRetail = (opPrice("L") + opPrice("D") + opPrice("EM") + cfg.connectorFee + cfg.packagingFee) / margin;
   const round2 = (n: number) => Math.round(n * 100) / 100;
 
   return ok({

@@ -40,9 +40,9 @@ export const DEFAULT_SURFACE_COLORS: Option[] = [
 // W1: 新增 EM 预埋连接件（Base 实证：77% 铝管行需要，与 D 钻/铣销子孔 82% 并列为默认工序）
 // D2 工序计价：unitPrice = 该工序单价（元/支），加工费 = Σ勾选工序价；单价先上估计值，外协价到位后修订
 export const DEFAULT_PROCESSING_OPERATIONS: Option[] = [
-  { code: "L", label: "截断", unitPrice: 1.5 },
-  { code: "D", label: "铣销子孔", unitPrice: 2 },
-  { code: "EM", label: "预埋连接件", unitPrice: 3 },
+  { code: "L", label: "截断", unitPrice: 1 },
+  { code: "D", label: "铣销子孔", unitPrice: 1 },
+  { code: "EM", label: "预埋连接件", unitPrice: 1 },
   { code: "T", label: "攻丝", unitPrice: 1 },
   { code: "CH", label: "倒角", unitPrice: 0.5 },
 ];
@@ -60,7 +60,7 @@ export const DEFAULT_PRICING_FIELDS: PricingField[] = [
   { key: "processingFee", label: "加工费 (元/支)·无工序时回退", value: PRICING_CONFIG.processingFee, builtin: true },
   { key: "surfacePricePerKg", label: "表面处理费 (元/kg)", value: PRICING_CONFIG.surfacePricePerKg, builtin: true },
   { key: "connectorFee", label: "连接件费 (元/支)", value: PRICING_CONFIG.connectorFee, builtin: true },
-  { key: "assemblyFee", label: "组装费 (元/支)", value: PRICING_CONFIG.assemblyFee, builtin: true },
+  { key: "packagingFee", label: "包材包装 (元/支)", value: PRICING_CONFIG.packagingFee, builtin: true },
   { key: "grossMarginRate", label: "毛利率（报价加成口径，非财务毛利）", value: PRICING_CONFIG.grossMarginRate, builtin: true },
   { key: "level1Rate", label: "一级代理折扣", value: PRICING_CONFIG.level1Rate, builtin: true },
   { key: "level2Rate", label: "二级代理折扣", value: PRICING_CONFIG.level2Rate, builtin: true },

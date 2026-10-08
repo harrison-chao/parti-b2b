@@ -879,15 +879,16 @@ async function main() {
     check("H1 costSource propagates", p1.costSource === "AVG");
     check("H1 yield sourced from Product (0.95 not global 0.92)", Math.abs(p1.theoreticalWeight - 0.72) < 0.001 && Math.abs(p1.actualWeight - 0.72 / 0.95) < 0.001, `actual=${p1.actualWeight}`);
 
-    // D2/D3 工序计价（2026-10-08）：加工费=Σ勾选工序价；连接件+组装仅勾 EM 才收；无工序码回退固定费
+    // D2/D3 工序计价(2026-10-08 r3):EM 隐含截断+铣孔(1+1+1=3);连接件 10 无组装;包材 0.3 必收
     {
-      const p3 = calcPricing(1000, "C", undefined, undefined, undefined, { codes: ["L", "EM"], prices: { L: 1.5, EM: 3 } });
-      check("D2 processing = Σ工序价 (1.5+3)", Math.abs(p3.processingCost - 4.5) < 0.001, `processing=${p3.processingCost}`);
-      check("D3 connector+assembly 仅 EM (10+0.35)", Math.abs(p3.connectorCost - 10.35) < 0.001, `connector=${p3.connectorCost}`);
-      const p4 = calcPricing(1000, "C", undefined, undefined, undefined, { codes: ["L"], prices: { L: 1.5 } });
-      check("D3 纯切长免连接件", p4.connectorCost === 0 && Math.abs(p4.processingCost - 1.5) < 0.001, `connector=${p4.connectorCost}, processing=${p4.processingCost}`);
+      const p3 = calcPricing(1000, "C", undefined, undefined, undefined, { codes: ["EM"], prices: { L: 1, D: 1, EM: 1 } });
+      check("D2 EM 隐含 L+D,加工费=1+1+1=3", Math.abs(p3.processingCost - 3) < 0.001, `processing=${p3.processingCost}`);
+      check("D3 连接件=10(无组装)", Math.abs(p3.connectorCost - 10) < 0.001, `connector=${p3.connectorCost}`);
+      check("D3 包材包装=0.3 必收", Math.abs(p3.packagingCost - 0.3) < 0.001, `packaging=${p3.packagingCost}`);
+      const p4 = calcPricing(1000, "C", undefined, undefined, undefined, { codes: ["L"], prices: { L: 1 } });
+      check("D3 纯切长免连接件", p4.connectorCost === 0 && Math.abs(p4.processingCost - 1) < 0.001, `connector=${p4.connectorCost}, processing=${p4.processingCost}`);
       const p5 = calcPricing(1000, "C");
-      check("D2/D3 无工序码回退旧行为 (固定3+每行10)", Math.abs(p5.processingCost - 3) < 0.001 && Math.abs(p5.connectorCost - 10) < 0.001);
+      check("D2/D3 无工序码回退旧行为 (固定3+每行10+包材0.3)", Math.abs(p5.processingCost - 3) < 0.001 && Math.abs(p5.connectorCost - 10) < 0.001 && Math.abs(p5.packagingCost - 0.3) < 0.001);
     }
 
     // H2 全局常数回退（无基数）：旧公式不变

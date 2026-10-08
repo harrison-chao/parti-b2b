@@ -9,7 +9,7 @@ export const PRICING_CONFIG = {
   processingFee: 3,
   surfacePricePerKg: 5.5,
   connectorFee: 10,
-  assemblyFee: 0.35,
+  packagingFee: 0.3,
   grossMarginRate: 0.6,
   level1Rate: 0.5,
   level2Rate: 0.6,
@@ -47,6 +47,7 @@ export type PricingResult = {
   processingCost: number;
   surfaceCost: number;
   connectorCost: number;
+  packagingCost: number;
   totalCost: number;
   retailPrice: number;
   retailPriceTax: number;
@@ -105,14 +106,17 @@ export function calcPricing(
     material = actual * c.materialPrice;
     surface = actual * c.surfacePricePerKg;
   }
-  const codes = ops?.codes;
+  const codes0 = ops?.codes;
+  // EM(预埋连接件)默认已含截断与铣销子孔——计价时自动并入 L/D,无需重复勾选
+  const codes = codes0?.includes("EM") ? Array.from(new Set([...codes0, "L", "D"])) : codes0;
   const processing = codes
     ? codes.reduce((sum, cd) => sum + (ops?.prices?.[cd] ?? 0), 0)
     : c.processingFee;
   const connector = codes
-    ? (codes.includes("EM") ? c.connectorFee + c.assemblyFee : 0)
+    ? (codes.includes("EM") ? c.connectorFee : 0)
     : c.connectorFee;
-  const totalCost = material + surface + processing + connector;
+  const packaging = c.packagingFee;
+  const totalCost = material + surface + processing + connector + packaging;
   const retail = totalCost / (1 - c.grossMarginRate);
   const retailTax = retail * c.taxRate;
   const level1 = retail * c.level1Rate;
@@ -128,6 +132,7 @@ export function calcPricing(
     processingCost: round2(processing),
     surfaceCost: round2(surface),
     connectorCost: round2(connector),
+    packagingCost: round2(packaging),
     totalCost: round2(totalCost),
     retailPrice: round2(retail),
     retailPriceTax: round2(retailTax),

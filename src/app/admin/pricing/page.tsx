@@ -15,6 +15,7 @@ type Full = {
   processingCost: number;
   surfaceCost: number;
   connectorCost: number;
+  packagingCost: number;
   totalCost: number;
   retailPrice: number;
   retailPriceTax: number;
@@ -36,7 +37,7 @@ export default function OpsPricingPage() {
   const [lengthMm, setLengthMm] = useState(203.2);
   const [level, setLevel] = useState<"A" | "B" | "C">("C");
   const [rawId, setRawId] = useState<string>("");
-  const [ops, setOps] = useState<string[]>(["L", "EM"]);
+  const [ops, setOps] = useState<string[]>(["L", "D", "EM"]);
   const [data, setData] = useState<Full | null>(null);
   const [loading, setLoading] = useState(false);
   const [params, setParams] = useState<Record<string, number>>({});
@@ -100,8 +101,16 @@ export default function OpsPricingPage() {
     setLengthMm(v);
     setInch(+(v / 25.4).toFixed(2));
   };
+  // EM(预埋连接件)隐含截断+铣销子孔:勾 EM 自动带上 L/D;勾着 EM 时取消 L/D 视为也不要 EM
   const toggleOp = (code: string) => {
-    setOps((cur) => (cur.includes(code) ? cur.filter((c) => c !== code) : [...cur, code]));
+    setOps((cur) => {
+      if (cur.includes(code)) {
+        const next = cur.filter((c) => c !== code);
+        return code === "L" || code === "D" ? next.filter((c) => c !== "EM") : next;
+      }
+      const next = code === "EM" ? Array.from(new Set([...cur, "L", "D"])) : [...cur, code];
+      return next;
+    });
   };
 
   const opsDetail = ops
@@ -113,7 +122,7 @@ export default function OpsPricingPage() {
       <div>
         <h1 className="text-2xl font-bold">报价成本分析</h1>
         <p className="text-muted-foreground text-sm">
-          管理员专用 · 与对外报价计算器同口径（素材=铝锭公式价，工序计价，勾 EM 才收连接件+组装）
+          管理员专用 · 与对外报价计算器同口径（素材=铝锭公式价，工序计价，EM 已含截断+铣孔，勾 EM 才收连接件）
         </p>
       </div>
 
@@ -147,7 +156,7 @@ export default function OpsPricingPage() {
               </select>
             </div>
             <div className="space-y-2">
-              <Label>加工工序（勾 EM 才收连接件+组装）</Label>
+              <Label>加工工序（EM 已含截断+铣销子孔）</Label>
               <div className="flex flex-wrap gap-1">
                 {operations.map((o) => (
                   <Button key={o.code} variant={ops.includes(o.code) ? "default" : "outline"} size="sm" className="h-7 px-2 text-xs"
@@ -182,8 +191,9 @@ export default function OpsPricingPage() {
                 <div className="border-t my-2"></div>
                 <Row k={`素材成本（${materialPerKg != null ? materialPerKg + "元/kg" : "行情公式"}）`} v={formatMoney(data.materialCost)} />
                 <Row k={`表面处理${p("surfacePricePerKg") != null ? `（${p("surfacePricePerKg")}元/kg）` : ""}`} v={formatMoney(data.surfaceCost)} />
-                <Row k={`加工费（${opsDetail || "未勾工序"}）`} v={formatMoney(data.processingCost)} />
-                <Row k={`连接件+组装${ops.includes("EM") ? "" : "（未勾 EM 免收）"}`} v={formatMoney(data.connectorCost)} />
+                <Row k={`加工费（${opsDetail || "未勾工序"};EM 已含截断+铣孔）`} v={formatMoney(data.processingCost)} />
+                <Row k={`连接件${ops.includes("EM") ? "" : "（未勾 EM 免收）"}`} v={formatMoney(data.connectorCost)} />
+                <Row k={`包材包装${p("packagingFee") != null ? `（${p("packagingFee")}元/支）` : ""}`} v={formatMoney(data.packagingCost)} />
                 <div className="border-t my-2"></div>
                 <Row k="总成本" v={formatMoney(data.totalCost)} bold />
                 <Row k="毛利率" v={p("grossMarginRate") != null ? `${Math.round(p("grossMarginRate")! * 100)}%（报价加成口径）` : "-"} />
