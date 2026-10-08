@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -76,6 +76,9 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
   const [tab, setTab] = useState<"HARDWARE" | "PROFILE">("HARDWARE");
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<P | null>(null);
+  // 新增/编辑表单渲染在页面顶部表格上方；从长列表深处点「编辑」时必须滚动定位，否则看起来像点击没反应
+  const formCardRef = useRef<HTMLDivElement>(null);
+  const scrollToForm = () => setTimeout(() => formCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   const [bulkRows, setBulkRows] = useState<ProductRow[]>([emptyRow("HARDWARE"), emptyRow("HARDWARE"), emptyRow("HARDWARE")]);
   const [form, setForm] = useState({
     sku: "",
@@ -116,7 +119,10 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
     resetForm();
     setBulkRows([emptyRow(tab), emptyRow(tab), emptyRow(tab)]);
     setStatus("");
-    setCreating((v) => !v);
+    setCreating((v) => {
+      if (!v) scrollToForm();
+      return !v;
+    });
   }
 
   function patchBulkRow(index: number, patch: Partial<ProductRow>) {
@@ -237,6 +243,7 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
     setCreating(false);
     setEditing(product);
     setStatus("");
+    scrollToForm();
     setForm({
       sku: product.sku,
       productName: product.productName,
@@ -372,6 +379,7 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
       </div>
 
       {creating && !editing && (
+        <div ref={formCardRef}>
         <Card>
           <CardHeader>
             <CardTitle>批量新增 {PRODUCT_CATEGORY_LABEL[tab]} SKU</CardTitle>
@@ -455,9 +463,11 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
             </div>
           </CardContent>
         </Card>
+        </div>
       )}
 
       {editing && (
+        <div ref={formCardRef}>
         <Card>
           <CardHeader><CardTitle>编辑 {PRODUCT_CATEGORY_LABEL[editing.category as "HARDWARE" | "PROFILE"]} SKU</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -530,6 +540,7 @@ export function ProductManager({ products, surfaceProcessOptions, surfaceColorOp
             </div>
           </CardContent>
         </Card>
+        </div>
       )}
 
       <Card>
