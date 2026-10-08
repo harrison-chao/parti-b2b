@@ -63,7 +63,8 @@ export type PricingResult = {
 
 /**
  * 型材行的 SKU 级成本基数（由 resolveRawBasis 解析后传入）：
- *  - perMeterPrice 有值（AVG/PURCHASE）：材料成本 = 切长÷良率 × 每米价，表面费不单列（原料已含表面处理）
+ *  - perMeterPrice 有值（AVG/PURCHASE）：每米价按成品棒口径天然含表面处理费，材料+表面合计 = 切长÷良率×每米价；
+ *    表面费行仅为构成拆分展示、不额外加计（裸管 SKU surfaceIncluded=false 时不拆不加）
  *  - perMeterPrice 为 null（SETTINGS）：回退全局常数 重量×素材价+表面费（旧行为）
  *  - 良率单源：Product.yieldRate 优先，缺省才用全局 utilization
  */
@@ -72,6 +73,8 @@ export type RawPricingBasis = {
   yieldRate?: number | null;
   perMeterPrice?: number | null;
   costSource?: "AVG" | "PURCHASE" | "SETTINGS";
+  /** 每米价是否含表面处理费（成品棒默认 true）；false=裸管（无表面工艺），表面不拆不加 */
+  surfaceIncluded?: boolean;
 };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -99,9 +102,11 @@ export function calcPricing(
   if (raw?.perMeterPrice != null && raw.perMeterPrice > 0) {
     perMeterPrice = round4(raw.perMeterPrice);
     costSource = raw.costSource ?? "AVG";
-    material = ((lengthMm / 1000) / yieldRate) * perMeterPrice;
-    // 口径更新 2026-10-08：素材价（采购/均价）为裸管口径，表面处理独立按重量计价
-    surface = actual * c.surfacePricePerKg;
+    // 口径更新 2026-10-08b：每米价（采购价/均价）按成品棒口径含表面处理费，材料+表面合计 = 切长÷良率×每米价；
+    // 表面费仅拆分展示、不额外加计——保证 SETTINGS→PURCHASE/AVG 切换时报价总额逐分不变（估值端可放心录含表面采购价）
+    const basisTotal = ((lengthMm / 1000) / yieldRate) * perMeterPrice;
+    surface = raw.surfaceIncluded === false ? 0 : actual * c.surfacePricePerKg;
+    material = basisTotal - surface;
   } else {
     material = actual * c.materialPrice;
     surface = actual * c.surfacePricePerKg;

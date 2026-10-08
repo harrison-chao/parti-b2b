@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   if (rawProductId) {
     const raw = await prisma.product.findUnique({
       where: { id: rawProductId },
-      select: { sku: true, weightPerMeter: true, yieldRate: true, purchasePrice: true, lengthMm: true, isRawMaterial: true },
+      select: { sku: true, weightPerMeter: true, yieldRate: true, purchasePrice: true, lengthMm: true, isRawMaterial: true, surfaceProcessCode: true },
     });
     if (raw && raw.isRawMaterial) basis = await resolveRawBasis(raw);
   }
