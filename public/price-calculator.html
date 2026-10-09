@@ -426,7 +426,7 @@
         + ' 元/' + it.unit + ' × ' + it.qty + ' ＝ ' + fmt(it.price * it.qty) + ' 元</span></div>';
     });
     if(ok || sub > 0){
-      rows += '<div class="r"><span class="k">零售合计</span><span class="v">' + fmt(list) + ' 元</span></div>';
+      rows += '<div class="r"><span class="k">合计</span><span class="v">' + fmt(list) + ' 元</span></div>';
       $("final").textContent = fmt(final);
       $("subline").textContent = "含税合计 " + fmt(final * 1.1) + " 元（×1.1）"
         + (ok ? " · 型材单价 " + fmt(profilePrice(v.mm)) + " 元/支" : "");
