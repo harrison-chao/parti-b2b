@@ -264,14 +264,14 @@
       $("hwList").appendChild(dv);
     }
     var el = document.createElement("div");
-    el.className = "hw" + (h.price === null ? " off" : "");
+    el.className = "hw" + (h.price === null ? " off" : "") + (h.qty > 0 ? " sel" : "");
     el.innerHTML =
       '<div class="info"><b>' + h.name + (h.price === null ? '<span class="badge">未定价</span>' : '')
       + '</b><span>' + h.sku + ' · ' + h.spec + '</span></div>'
       + (h.price === null
         ? '<div class="pr">目录价待定</div>'
         : '<div class="pr">' + fmt(h.price) + ' 元/' + h.unit + '</div>'
-          + '<div class="stepper"><button data-d="-1">−</button><div class="q">0</div><button data-d="1">＋</button></div>');
+          + '<div class="stepper"><button data-d="-1">−</button><div class="q">' + (h.qty || 0) + '</div><button data-d="1">＋</button></div>');
     if(h.price !== null){
       h.qty = 0;
       el.querySelectorAll("button").forEach(function(b){
@@ -316,6 +316,14 @@
     var code = this.value.trim();
     codeTimer = setTimeout(function(){ applyCode(code); }, 500);
   });
+
+  function removeHw(sku){
+    var h = HW.find(function(x){ return x.sku === sku; });
+    if(!h) return;
+    h.qty = 0;
+    buildHwList();          // 同步五金区步进器显示
+    calc();                 // calc 内部会 renderSheet()
+  }
 
   /* ---------- 算价 ---------- */
   function inputs(){
@@ -398,7 +406,9 @@
       el.className = "line";
       el.innerHTML = '<div class="nm"><b>' + h.name + '</b><span>' + h.sku + ' · '
         + h.spec + ' · ' + fmt(h.price) + ' 元/' + h.unit + '</span></div>'
-        + '<div class="amt">×' + h.qty + '<br>' + fmt(h.price * h.qty) + ' 元</div>';
+        + '<div class="amt">×' + h.qty + '<br>' + fmt(h.price * h.qty) + ' 元</div>'
+        + '<button class="del" title="移除">✕</button>';
+      el.querySelector(".del").onclick = function(){ removeHw(h.sku); };
       box.appendChild(el);
     });
     $("sheetWrap").classList.remove("hidden");
