@@ -7,7 +7,7 @@
 <style>
   :root{
     --bg:#f4f6f9; --card:#ffffff; --ink:#1a2333; --sub:#6b7686;
-    --accent:#2b5cff; --accent-soft:#eef2ff; --line:#e6eaf1;
+    --accent:#111111; --accent-soft:#f2f2f2; --line:#e6eaf1;
     --chip:#f1f4f9; --radius:14px; --ease:cubic-bezier(.22,1,.36,1);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
@@ -37,7 +37,7 @@
     font-size:16px; background:#fbfcfe; color:var(--ink); outline:none;
     transition:border-color .15s var(--ease), background .15s var(--ease), box-shadow .15s var(--ease);
   }
-  input:focus, select:focus{border-color:var(--accent); background:#fff; box-shadow:0 0 0 3px rgba(43,92,255,.10);}
+  input:focus, select:focus{border-color:var(--accent); background:#fff; box-shadow:0 0 0 3px rgba(0,0,0,.08);}
   .hint{font-size:11px; color:var(--sub); margin-top:8px;}
   .rows .r{display:flex; gap:4px 14px; align-items:baseline; padding:9px 0; border-bottom:1px dashed var(--line); font-size:14px;}
   .rows .r:last-child{border-bottom:none;}
@@ -211,6 +211,7 @@
     { key:"plugin", name:"插件", open:false, items:[
       { sku:"CLX-25",      name:"Core-Lox 连接件 25系列", spec:"16×14",    price:12.5, unit:"个", common:true },
       { sku:"HW-2610-004", name:"蝶形螺母",              spec:"—",        price:1.5,  unit:"个" },
+      { sku:"CLX-12",      name:"Core-Lox（12个装）",    spec:"—",        price:125,  unit:"盒" },
       { sku:"LY15",        name:"4寸层板托",             spec:"MR2525 用", price:4,    unit:"个", common:true },
       { sku:"P-EYENUT",    name:"吊环螺丝",              spec:"—",        price:8,    unit:"个" },
       { sku:"P-KNUCKLE",   name:"活结螺丝",              spec:"—",        price:4,    unit:"个" },
