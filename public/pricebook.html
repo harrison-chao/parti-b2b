@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PARTI 产品定价表</title>
+<style>
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0;}
+  body{
+    background:#fff; color:#111;
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    display:flex; justify-content:center;
+  }
+  .pb{width:100%; max-width:520px; padding:28px 20px 48px;}
+
+  /* 品牌头 */
+  .brand{border-bottom:3px solid #111; padding-bottom:14px; margin-bottom:18px;}
+  .brand-row{display:flex; align-items:baseline; gap:12px;}
+  .logo{font-size:15px; font-weight:800; letter-spacing:5px; background:#111; color:#fff; padding:3px 8px;}
+  .brand-title{font-size:22px; font-weight:800; letter-spacing:4px;}
+  .brand-meta{font-size:11px; color:#666; margin-top:8px; letter-spacing:.5px;}
+
+  /* 公式横幅 */
+  .formula{border:2px solid #111; padding:14px 16px; margin-bottom:26px;}
+  .f-row{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;}
+  .f-label{font-size:12px; font-weight:600; letter-spacing:2px;}
+  .f-sep{color:#999;}
+  .f-formula{font-size:20px; font-weight:800; letter-spacing:1px;}
+  .f-desc{font-size:12px; color:#444; line-height:1.7; margin-top:6px;}
+  .f-btn{
+    display:inline-block; margin-top:10px; font-size:13px; font-weight:600;
+    background:#111; color:#fff; padding:8px 16px; letter-spacing:1px; cursor:pointer;
+    text-decoration:none; transition:opacity .15s;
+  }
+  .f-btn:active{opacity:.8;}
+
+  /* 章节 */
+  .sec{margin-bottom:30px;}
+  .sec-head{
+    display:flex; align-items:baseline; gap:8px;
+    border-bottom:2px solid #111; padding-bottom:8px; margin-bottom:14px;
+  }
+  .sec-no{font-size:11px; font-weight:800; border:1.5px solid #111; padding:1px 6px;}
+  .sec-title{font-size:16px; font-weight:800; letter-spacing:3px;}
+  .sec-note{font-size:10px; color:#888; margin-left:auto; text-align:right;}
+
+  /* 模数表 */
+  .tbl{border:1.5px solid #111;}
+  .tbl-h{
+    display:flex; background:#111; color:#fff;
+    font-size:12px; font-weight:600; padding:8px 12px; letter-spacing:1px;
+  }
+  .tbl-r{display:flex; font-size:13px; padding:9px 12px; border-top:1px solid #d8d8d8;}
+  .tbl-h .c1,.tbl-r .c1{flex:1;}
+  .tbl-h .c2,.tbl-r .c2{flex:1.4;}
+  .tbl-h .c3,.tbl-r .c3{flex:1; text-align:right;}
+  .b{font-weight:700;}
+
+  /* 条形图 */
+  .chart{margin-top:14px;}
+  .chart-cap{font-size:10px; color:#666; text-align:center; margin-bottom:8px; letter-spacing:.5px;}
+  .bar-row{display:flex; align-items:center; gap:8px; padding:4px 0;}
+  .bar-lb{width:34px; font-size:11px; font-weight:600;}
+  .bar-track{flex:1; height:12px; background:#f0f0f0;}
+  .bar{height:100%; background:#111;}
+  .bar-v{width:30px; text-align:right; font-size:11px; font-weight:700;}
+
+  /* 方框价格卡 */
+  .cards{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .pcard{border:1.5px solid #111; padding:12px 14px;}
+  .pcard-name{font-size:14px; font-weight:700; letter-spacing:.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .pcard-foot{display:flex; align-items:baseline; justify-content:space-between; margin-top:8px;}
+  .pcard-desc{font-size:10px; color:#777;}
+  .pcard-price{font-size:17px; font-weight:800;}
+  .per{font-size:10px; color:#777; font-weight:400;}
+  .full{grid-column:1 / -1;}
+
+  /* 插件列表 */
+  .pgroup{border:1.5px solid #111; padding:12px 14px; margin-bottom:10px;}
+  .pgroup-title{
+    font-size:12px; font-weight:700; letter-spacing:4px;
+    border-bottom:1px solid #111; padding-bottom:6px; margin-bottom:4px;
+  }
+  .pitem{display:flex; justify-content:space-between; font-size:13px; padding:7px 0; border-bottom:1px dashed #ccc;}
+  .pitem:last-child{border-bottom:none;}
+  .pending{color:#aaa;}
+
+  /* 页脚 */
+  .pb-footer{
+    margin-top:14px; padding-top:14px; border-top:2px solid #111;
+    font-size:10px; color:#888; text-align:center; letter-spacing:1.5px; line-height:1.8;
+  }
+  .switch{font-size:12px; text-align:center; margin-top:18px;}
+  .switch a{color:#111; font-weight:600;}
+</style>
+</head>
+<body>
+<div class="pb">
+  <div class="brand">
+    <div class="brand-row"><span class="logo">PARTI</span><span class="brand-title">产品定价表</span></div>
+    <div class="brand-meta">数据版本：2026-10-05 ｜ 货币单位：人民币元 ｜ MR2525 规格系列</div>
+  </div>
+
+  <div class="formula">
+    <div class="f-row"><span class="f-label">型材定制公式</span><span class="f-sep">｜</span><span class="f-formula">P = 2 × L + 30</span></div>
+    <div class="f-desc">P＝单根型材价格（元），L＝型材长度（英寸），任意长度均可定制。示例：30″ → 2 × 30 + 30 = ¥90 / 根；已含 Core-lox 两端预埋。</div>
+    <a class="f-btn" href="/price-calculator.html">启用计算器辅助 →</a>
+  </div>
+
+  <div class="sec">
+    <div class="sec-head"><span class="sec-no">01</span><span class="sec-title">MR2525 型 材</span><span class="sec-note">常用模数单根价 · 支持任意长度定制</span></div>
+    <div class="tbl">
+      <div class="tbl-h"><span class="c1">模数</span><span class="c2">约合长度</span><span class="c3">单根价</span></div>
+      <div class="tbl-r"><span class="c1 b">6″</span><span class="c2">152 mm</span><span class="c3">¥42</span></div>
+      <div class="tbl-r"><span class="c1 b">13″</span><span class="c2">330 mm</span><span class="c3">¥56</span></div>
+      <div class="tbl-r"><span class="c1 b">20″</span><span class="c2">508 mm</span><span class="c3">¥70</span></div>
+      <div class="tbl-r"><span class="c1 b">27″</span><span class="c2">686 mm</span><span class="c3">¥84</span></div>
+      <div class="tbl-r"><span class="c1 b">34″</span><span class="c2">864 mm</span><span class="c3">¥98</span></div>
+      <div class="tbl-r"><span class="c1 b">41″</span><span class="c2">1041 mm</span><span class="c3">¥112</span></div>
+      <div class="tbl-r"><span class="c1 b">48″</span><span class="c2">1219 mm</span><span class="c3">¥126</span></div>
+    </div>
+    <div class="chart">
+      <div class="chart-cap">价格 — 长度线性关系（斜率 = 2 元 / 英寸 · 无档位溢价）</div>
+      <div class="bar-row"><span class="bar-lb">6″</span><div class="bar-track"><div class="bar" style="width:31%"></div></div><span class="bar-v">42</span></div>
+      <div class="bar-row"><span class="bar-lb">13″</span><div class="bar-track"><div class="bar" style="width:41%"></div></div><span class="bar-v">56</span></div>
+      <div class="bar-row"><span class="bar-lb">20″</span><div class="bar-track"><div class="bar" style="width:52%"></div></div><span class="bar-v">70</span></div>
+      <div class="bar-row"><span class="bar-lb">27″</span><div class="bar-track"><div class="bar" style="width:62%"></div></div><span class="bar-v">84</span></div>
+      <div class="bar-row"><span class="bar-lb">34″</span><div class="bar-track"><div class="bar" style="width:72%"></div></div><span class="bar-v">98</span></div>
+      <div class="bar-row"><span class="bar-lb">41″</span><div class="bar-track"><div class="bar" style="width:82%"></div></div><span class="bar-v">112</span></div>
+      <div class="bar-row"><span class="bar-lb">48″</span><div class="bar-track"><div class="bar" style="width:93%"></div></div><span class="bar-v">126</span></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-head"><span class="sec-no">02</span><span class="sec-title">OmniLOX 六 通</span><span class="sec-note">标准连接节点 · 单件价</span></div>
+    <div class="cards">
+      <div class="pcard"><div class="pcard-name">OL2525</div><div class="pcard-foot"><span class="pcard-desc">标准六通 · 25 系</span><span class="pcard-price">¥13</span></div></div>
+      <div class="pcard"><div class="pcard-name">OL2550</div><div class="pcard-foot"><span class="pcard-desc">加长六通 · 25→50 系</span><span class="pcard-price">¥26</span></div></div>
+      <div class="pcard"><div class="pcard-name">OL7575X</div><div class="pcard-foot"><span class="pcard-desc">重型六通 · 75 系</span><span class="pcard-price">¥65</span></div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-head"><span class="sec-no">03</span><span class="sec-title">插 件 系 统</span><span class="sec-note">六通插件 / 型材插件 / 功能插件</span></div>
+    <div class="pgroup">
+      <div class="pgroup-title">六通插件</div>
+      <div class="pitem"><span>吊环螺丝</span><span>¥8</span></div>
+      <div class="pitem"><span>活结螺丝</span><span>¥4</span></div>
+      <div class="pitem"><span>钢丝绳套件</span><span>¥20</span></div>
+      <div class="pitem"><span>斜撑杆</span><span>¥40</span></div>
+      <div class="pitem"><span>脚轮</span><span>¥40</span></div>
+      <div class="pitem"><span>地脚</span><span>¥10</span></div>
+      <div class="pitem"><span>转向合页</span><span>¥8</span></div>
+    </div>
+    <div class="pgroup">
+      <div class="pgroup-title">型材插件</div>
+      <div class="pitem"><span>三角扣</span><span>¥2.5</span></div>
+      <div class="pitem"><span>层板托</span><span>¥4</span></div>
+      <div class="pitem"><span>T型吊码</span><span>¥10</span></div>
+      <div class="pitem"><span>T型螺母</span><span>¥4</span></div>
+      <div class="pitem"><span class="pending">合页</span><span class="pending">待定</span></div>
+      <div class="pitem"><span class="pending">走线胶条</span><span class="pending">待定</span></div>
+    </div>
+    <div class="pgroup">
+      <div class="pgroup-title">功能插件</div>
+      <div class="pitem"><span>瓦楞纸抽屉</span><span>¥50</span></div>
+      <div class="pitem"><span>模块化灯条 13″</span><span>¥50</span></div>
+      <div class="pitem"><span>模块化灯条 20″</span><span>¥60</span></div>
+      <div class="pitem"><span>模块化灯条 27″</span><span>¥70</span></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-head"><span class="sec-no">04</span><span class="sec-title">面 板 板 材</span><span class="sec-note">皮肤系统 · 每平方米报价</span></div>
+    <div class="cards">
+      <div class="pcard"><div class="pcard-name">透明亚克力</div><div class="pcard-foot"><span class="pcard-desc"> </span><span class="pcard-price">¥500 <span class="per">/ ㎡</span></span></div></div>
+      <div class="pcard"><div class="pcard-name">磨砂亚克力</div><div class="pcard-foot"><span class="pcard-desc"> </span><span class="pcard-price">¥500 <span class="per">/ ㎡</span></span></div></div>
+      <div class="pcard"><div class="pcard-name">9厘免漆板</div><div class="pcard-foot"><span class="pcard-desc"> </span><span class="pcard-price">¥350 <span class="per">/ ㎡</span></span></div></div>
+      <div class="pcard"><div class="pcard-name">18厘免漆板</div><div class="pcard-foot"><span class="pcard-desc"> </span><span class="pcard-price">¥450 <span class="per">/ ㎡</span></span></div></div>
+      <div class="pcard"><div class="pcard-name">9厘碳晶板</div><div class="pcard-foot"><span class="pcard-desc"> </span><span class="pcard-price">¥200 <span class="per">/ ㎡</span></span></div></div>
+      <div class="pcard"><div class="pcard-name">9厘饰面海洋板</div><div class="pcard-foot"><span class="pcard-desc"> </span><span class="pcard-price">¥350 <span class="per">/ ㎡</span></span></div></div>
+      <div class="pcard"><div class="pcard-name">12厘饰面海洋板</div><div class="pcard-foot"><span class="pcard-desc"> </span><span class="pcard-price">¥400 <span class="per">/ ㎡</span></span></div></div>
+      <div class="pcard"><div class="pcard-name">18厘饰面海洋板</div><div class="pcard-foot"><span class="pcard-desc"> </span><span class="pcard-price">¥450 <span class="per">/ ㎡</span></span></div></div>
+      <div class="pcard"><div class="pcard-name">9厘阻燃毛毡板</div><div class="pcard-foot"><span class="pcard-desc"> </span><span class="pcard-price">¥150 <span class="per">/ ㎡</span></span></div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-head"><span class="sec-no">05</span><span class="sec-title">工 具 与 套 装</span><span class="sec-note">上手交付必备</span></div>
+    <div class="cards">
+      <div class="pcard full"><div class="pcard-name">销售材料箱</div><div class="pcard-foot"><span class="pcard-desc">样品展示 · 销售随身套装</span><span class="pcard-price">¥599</span></div></div>
+      <div class="pcard full"><div class="pcard-name">安装工具包</div><div class="pcard-foot"><span class="pcard-desc">一把电钻完成组装 · 配套工具</span><span class="pcard-price">¥199</span></div></div>
+    </div>
+  </div>
+
+  <div class="pb-footer">EDGEWARE · PARTI ｜ PARTI-PRICE-20261005<br>本表价格仅供参考，成交价格以双方订单确认为准</div>
+  <div class="switch"><a href="/price-calculator.html">需要核算组合总价？打开报价计算器 →</a></div>
+</div>
+</body>
+</html>
