@@ -57,36 +57,62 @@
   .btn:active{transform:scale(.985); opacity:.9;}
   .btn.ghost{background:var(--accent-soft); color:var(--accent);}
   .btn:disabled{opacity:.45;}
-  .grp{border-bottom:1px dashed var(--line); padding:10px 0;}
-  .grp:last-of-type{border-bottom:none;}
-  .grp-t{
-    display:flex; align-items:center; justify-content:space-between;
-    font-size:13px; font-weight:600; cursor:pointer; padding:4px 0; user-select:none;
+  /* Tab 栏 */
+  .tabs{display:flex; gap:6px; overflow-x:auto; padding:2px 0 10px; scrollbar-width:none;}
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab{
+    flex:0 0 auto; padding:7px 14px; border-radius:999px; background:var(--chip);
+    color:var(--ink); font-size:13px; cursor:pointer; border:1px solid transparent;
+    user-select:none; transition:background .15s var(--ease), color .15s var(--ease);
   }
-  .grp-t .cnt{font-size:11px; color:var(--sub); font-weight:400;}
-  .grp-b{margin-top:8px;}
-  .hw{border-bottom:1px dashed var(--line); padding:10px 0; display:flex; align-items:center; gap:8px;}
-  .hw:last-child{border-bottom:none;}
-  .hw .info{flex:1; min-width:0;}
-  .hw .info b{font-size:14px; display:block;}
-  .hw .info span{font-size:11px; color:var(--sub);}
-  .hw .pr{font-size:13px; color:var(--sub); white-space:nowrap;}
-  .hw.sel .pr{color:var(--accent); font-weight:600;}
-  .stepper{display:flex; align-items:center; border:1px solid var(--line); border-radius:9px; overflow:hidden;}
+  .tab.on{background:var(--ink); color:#fff; font-weight:600;}
+  .tab .n{font-size:10px; opacity:.65; margin-left:3px;}
+  .catbar{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:12px; color:var(--sub); padding:10px 2px 8px; border-bottom:1px solid var(--line);
+  }
+  .catbar b{color:var(--ink); font-variant-numeric:tabular-nums;}
+  /* 双列卡片网格 */
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; padding-top:10px;}
+  .item{
+    position:relative; border:1px solid var(--line); border-radius:12px;
+    background:#fbfcfe; padding:10px 12px; cursor:pointer;
+    transition:border-color .15s var(--ease), background .15s var(--ease);
+  }
+  .item.sel{border-color:var(--accent); background:var(--accent-soft);}
+  .item .nm{
+    font-size:13px; font-weight:600; line-height:1.35;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:18px;
+  }
+  .item .spec{font-size:10px; color:var(--sub); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .item .pr{font-size:15px; font-weight:700; color:var(--ink); margin-top:6px; font-variant-numeric:tabular-nums;}
+  .item .pr small{font-size:10px; color:var(--sub); font-weight:400;}
+  .item.sel .pr{color:var(--accent);}
+  .item .qb{
+    position:absolute; top:8px; right:8px; min-width:18px; height:18px; line-height:18px;
+    border-radius:999px; background:var(--accent); color:#fff; font-size:11px;
+    text-align:center; padding:0 4px; display:none; font-variant-numeric:tabular-nums;
+  }
+  .item.sel .qb{display:block;}
+  .item .ctl{display:flex; justify-content:flex-end; margin-top:8px;}
+  .stepper{display:flex; align-items:center; border:1px solid var(--line); border-radius:9px; overflow:hidden; background:#fff;}
   .stepper button{
-    width:34px; height:34px; border:none; background:var(--chip); color:var(--ink);
-    font-size:18px; cursor:pointer; line-height:1;
+    width:30px; height:30px; border:none; background:var(--chip); color:var(--ink);
+    font-size:17px; cursor:pointer; line-height:1;
+    transition:background .15s var(--ease), color .15s var(--ease);
   }
   .stepper button:active{background:var(--accent-soft); color:var(--accent);}
   .stepper .q{
-    width:40px; text-align:center; font-size:14px; font-weight:600;
-    border-left:1px solid var(--line); border-right:1px solid var(--line); line-height:34px;
+    width:34px; text-align:center; font-size:13px; font-weight:600;
+    border-left:1px solid var(--line); border-right:1px solid var(--line); line-height:30px;
   }
+  .arearow{display:flex; align-items:center; gap:6px; margin-top:8px;}
   .areain{
-    width:76px; padding:7px 8px; border:1px solid var(--line); border-radius:9px;
-    font-size:14px; background:#fbfcfe; outline:none;
+    flex:1; min-width:0; padding:6px 8px; border:1px solid var(--line); border-radius:8px;
+    font-size:14px; background:#fff; outline:none; font-variant-numeric:tabular-nums;
   }
   .areain:focus{border-color:var(--accent); background:#fff;}
+  .arearow .u{font-size:11px; color:var(--sub); white-space:nowrap;}
   .cart .line{
     display:flex; align-items:center; gap:8px; padding:10px 0;
     border-bottom:1px dashed var(--line); font-size:13px;
@@ -142,9 +168,10 @@
 
   <!-- 配件目录 -->
   <div class="card">
-    <h2>配件与板材（点选加入询价单）</h2>
-    <div id="groups"></div>
-    <div class="hint">价格同步自 ERP 产品目录与价目表 PB-2026-10；板材按平方米计价。</div>
+    <div class="tabs" id="tabs"></div>
+    <div class="catbar"><span id="catName">常用</span><span>已选 <b id="catCount">0</b> 项 · 小计 <b id="catSub">¥0.00</b></span></div>
+    <div class="grid" id="grid"></div>
+    <div class="hint" style="margin-top:10px">板材按平方米计价；价格依据价目表 PB-2026-10。</div>
   </div>
 
   <!-- 询价单 -->
@@ -253,66 +280,94 @@
     syncing = false; calc();
   });
 
-  /* ---------- 目录渲染(常用置顶 + 分组折叠) ---------- */
-  function buildGroups(){
-    var box = $("groups"); box.innerHTML = "";
-    var common = ALL.filter(function(it){ return it.common; });
-    var mk = function(it){
-      var el = document.createElement("div");
-      el.className = "hw" + (it.qty > 0 ? " sel" : "");
-      if(it.area){
-        el.innerHTML = '<div class="info"><b>' + it.name + '</b><span>' + it.sku + ' · ' + fmt(it.price) + ' 元/㎡</span></div>'
-          + '<input type="number" class="areain" min="0" step="0.1" placeholder="㎡" value="' + (it.qty || "") + '">';
-        el.querySelector(".areain").addEventListener("input", function(){
-          it.qty = Math.max(0, parseFloat(this.value) || 0);
-          el.classList.toggle("sel", it.qty > 0);
-          calc();
-        });
-      } else {
-        el.innerHTML = '<div class="info"><b>' + it.name + '</b><span>' + it.sku + ' · ' + it.spec + ' · ' + fmt(it.price) + ' 元/' + it.unit + '</span></div>'
-          + '<div class="pr">' + fmt(it.price) + ' 元/' + it.unit + '</div>'
-          + '<div class="stepper"><button data-d="-1">−</button><div class="q">' + (it.qty || 0) + '</div><button data-d="1">＋</button></div>';
-        el.querySelectorAll("button").forEach(function(b){
-          b.addEventListener("click", function(){
-            it.qty = Math.max(0, (it.qty || 0) + parseInt(b.getAttribute("data-d"), 10));
-            el.querySelector(".q").textContent = it.qty;
-            el.classList.toggle("sel", it.qty > 0);
-            calc();
-          });
-        });
-      }
-      return el;
-    };
-    if(common.length){
-      var cwrap = document.createElement("div");
-      cwrap.className = "grp";
-      cwrap.innerHTML = '<div class="grp-t">常用<span class="cnt">' + common.length + ' 项</span></div>';
-      var cbody = document.createElement("div"); cbody.className = "grp-b";
-      common.forEach(function(it){ cbody.appendChild(mk(it)); });
-      cwrap.appendChild(cbody);
-      box.appendChild(cwrap);
-    }
-    GROUPS.forEach(function(g){
-      var wrap = document.createElement("div");
-      wrap.className = "grp";
-      var head = document.createElement("div");
-      head.className = "grp-t";
-      head.innerHTML = g.name + '<span class="cnt">' + g.items.length + ' 项 · ' + (g.open ? "收起 ▴" : "展开 ▾") + '</span>';
-      var body = document.createElement("div"); body.className = "grp-b";
-      if(g.open) g.items.forEach(function(it){ body.appendChild(mk(it)); });
-      head.addEventListener("click", function(){
-        g.open = !g.open;
-        body.innerHTML = "";
-        if(g.open) g.items.forEach(function(it){ body.appendChild(mk(it)); });
-        head.querySelector(".cnt").textContent = g.items.length + ' 项 · ' + (g.open ? "收起 ▴" : "展开 ▾");
-      });
-      wrap.appendChild(head); wrap.appendChild(body);
-      box.appendChild(wrap);
-    });
-  }
-  buildGroups();
   var picked = function(){ return ALL.filter(function(it){ return it.qty > 0; }); };
   var pickedSub = function(){ return picked().reduce(function(a, it){ return a + it.price * it.qty; }, 0); };
+
+  /* ---------- 目录渲染(Tab + 双列卡片) ---------- */
+  var TABS = [{ key: "_common", name: "常用" }].concat(
+    GROUPS.map(function(g){ return { key: g.key, name: g.name }; })
+  );
+  var activeTab = "_common";
+  function itemsOfTab(key){
+    if(key === "_common") return ALL.filter(function(it){ return it.common; });
+    var g = GROUPS.find(function(x){ return x.key === key; });
+    return g ? g.items : [];
+  }
+  function itemCard(it){
+    var el = document.createElement("div");
+    el.className = "item" + (it.qty > 0 ? " sel" : "");
+    el.setAttribute("data-sku", it.sku);
+    var specLine = it.area ? it.sku : (it.sku + " · " + it.spec);
+    el.innerHTML = '<div class="qb">' + (it.qty || 0) + '</div>'
+      + '<div class="nm">' + it.name + '</div>'
+      + '<div class="spec">' + specLine + '</div>'
+      + '<div class="pr">¥' + fmt(it.price) + '<small> /' + it.unit + '</small></div>'
+      + (it.area
+        ? '<div class="arearow"><input type="number" class="areain" min="0" step="0.1" placeholder="数量" value="' + (it.qty || "") + '"><span class="u">㎡</span></div>'
+        : '<div class="ctl"><div class="stepper"><button data-d="-1">−</button><div class="q">' + (it.qty || 0) + '</div><button data-d="1">＋</button></div></div>');
+    if(it.area){
+      el.querySelector(".areain").addEventListener("input", function(e){
+        e.stopPropagation();
+        it.qty = Math.max(0, parseFloat(this.value) || 0);
+        refreshItem(el, it);
+        calc();
+      });
+    } else {
+      el.querySelectorAll("button").forEach(function(b){
+        b.addEventListener("click", function(e){
+          e.stopPropagation();
+          it.qty = Math.max(0, (it.qty || 0) + parseInt(b.getAttribute("data-d"), 10));
+          refreshItem(el, it);
+          calc();
+        });
+      });
+    }
+    return el;
+  }
+  function refreshItem(el, it){
+    el.classList.toggle("sel", it.qty > 0);
+    var q = el.querySelector(".q"); if(q) q.textContent = it.qty || 0;
+    var qb = el.querySelector(".qb"); qb.textContent = it.qty || 0;
+    var ai = el.querySelector(".areain");
+    if(ai && document.activeElement !== ai) ai.value = it.qty || "";
+  }
+  function renderTabs(){
+    var box = $("tabs"); box.innerHTML = "";
+    TABS.forEach(function(t){
+      var n = itemsOfTab(t.key).filter(function(it){ return it.qty > 0; }).length;
+      var el = document.createElement("div");
+      el.className = "tab" + (t.key === activeTab ? " on" : "");
+      el.innerHTML = t.name + (n ? '<span class="n">' + n + '</span>' : "");
+      el.addEventListener("click", function(){
+        activeTab = t.key;
+        renderTabs(); renderGrid();
+      });
+      box.appendChild(el);
+    });
+  }
+  function renderGrid(){
+    var grid = $("grid"); grid.innerHTML = "";
+    itemsOfTab(activeTab).forEach(function(it){ grid.appendChild(itemCard(it)); });
+    var pk = picked();
+    $("catName").textContent = TABS.find(function(t){ return t.key === activeTab; }).name;
+    $("catCount").textContent = pk.length;
+    $("catSub").textContent = "¥" + fmt(pk.reduce(function(a, it){ return a + it.price * it.qty; }, 0));
+  }
+  renderTabs(); renderGrid();
+  /* 数量变化后的轻量刷新:tab 计数 + 汇总条 + 当前网格卡片状态(不重建 DOM,保输入焦点) */
+  function softRefresh(){
+    renderTabs();
+    var pk = picked();
+    $("catName").textContent = TABS.find(function(t){ return t.key === activeTab; }).name;
+    $("catCount").textContent = pk.length;
+    $("catSub").textContent = "¥" + fmt(pk.reduce(function(a, it){ return a + it.price * it.qty; }, 0));
+    document.querySelectorAll("#grid .item").forEach(function(el){
+      var it = ALL.find(function(x){ return x.sku === el.getAttribute("data-sku"); });
+      if(it) refreshItem(el, it);
+    });
+  }
+  var _calc = calc;
+  calc = function(){ softRefresh(); _calc(); };
 
   /* ---------- 客户编码 → 专属折扣 ---------- */
   var appliedDisc = 1, codeTimer = null;
@@ -398,7 +453,7 @@
     var it = ALL.find(function(x){ return x.sku === sku; });
     if(!it) return;
     it.qty = 0;
-    buildGroups();
+    renderTabs(); renderGrid();
     calc();
   }
 
