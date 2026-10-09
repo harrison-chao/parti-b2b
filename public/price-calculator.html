@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>MR2525 报价计算器（含 Core-lox）</title>
+<title>MR2525 报价计算器</title>
 <style>
   :root{
     --bg:#f4f6f9; --card:#ffffff; --ink:#1a2333; --sub:#6b7686;
@@ -35,43 +35,10 @@
   input[type=number], input[type=text], select{
     width:100%; padding:10px; border:1px solid var(--line); border-radius:9px;
     font-size:16px; background:#fbfcfe; color:var(--ink); outline:none;
+    transition:border-color .15s var(--ease), background .15s var(--ease), box-shadow .15s var(--ease);
   }
-  input:focus, select:focus{border-color:var(--accent); background:#fff;}
-  .hint{font-size:11px; color:var(--sub); margin-top:-4px; margin-bottom:8px;}
-  table.pricelist{width:100%; border-collapse:collapse; font-size:13px;}
-  table.pricelist th{
-    text-align:left; color:var(--sub); font-weight:500; padding:6px 4px;
-    border-bottom:1px solid var(--line);
-  }
-  table.pricelist th.p, table.pricelist td.p{text-align:right;}
-  table.pricelist td{padding:8px 4px; border-bottom:1px dashed var(--line);}
-  table.pricelist tr:last-child td{border-bottom:none;}
-  table.pricelist tbody tr{cursor:pointer;}
-  table.pricelist tbody tr:active{background:var(--accent-soft);}
-  table.pricelist td.p{font-weight:600;}
-  .hw{border-bottom:1px dashed var(--line); padding:10px 0; display:flex; align-items:center; gap:8px;}
-  .hw:last-child{border-bottom:none;}
-  .hw .info{flex:1; min-width:0;}
-  .hw .info b{font-size:14px; display:block;}
-  .hw .info span{font-size:11px; color:var(--sub);}
-  .hw .pr{font-size:13px; color:var(--sub); white-space:nowrap;}
-  .stepper{display:flex; align-items:center; border:1px solid var(--line); border-radius:9px; overflow:hidden;}
-  .stepper button{
-    width:34px; height:34px; border:none; background:var(--chip); color:var(--ink);
-    font-size:18px; cursor:pointer; line-height:1;
-  }
-  .stepper button:active{background:var(--accent-soft); color:var(--accent);}
-  .stepper .q{
-    width:40px; text-align:center; font-size:14px; font-weight:600;
-    border-left:1px solid var(--line); border-right:1px solid var(--line); line-height:34px;
-  }
-  .hw.sel .pr{color:var(--accent); font-weight:600;}
-  .hw.off{opacity:.45;}
-  .hw.off .pr{font-size:11px;}
-  .badge{
-    font-size:10px; color:#b45309; background:#fffbeb; border:1px solid #fde68a;
-    border-radius:999px; padding:1px 6px; margin-left:6px; vertical-align:1px;
-  }
+  input:focus, select:focus{border-color:var(--accent); background:#fff; box-shadow:0 0 0 3px rgba(43,92,255,.10);}
+  .hint{font-size:11px; color:var(--sub); margin-top:8px;}
   .rows .r{display:flex; gap:4px 14px; align-items:baseline; padding:9px 0; border-bottom:1px dashed var(--line); font-size:14px;}
   .rows .r:last-child{border-bottom:none;}
   .rows .r .k{flex:1; min-width:0; color:var(--sub); line-height:1.45;}
@@ -85,12 +52,41 @@
     display:block; width:100%; padding:12px; margin-top:12px;
     border:none; border-radius:10px; background:var(--accent); color:#fff;
     font-size:15px; font-weight:600; cursor:pointer;
-    transition:transform .12s var(--ease), opacity .15s var(--ease), box-shadow .15s var(--ease);
+    transition:transform .12s var(--ease), opacity .15s var(--ease);
   }
   .btn:active{transform:scale(.985); opacity:.9;}
-  .btn.ghost{transition:transform .12s var(--ease), background .15s var(--ease);}
   .btn.ghost{background:var(--accent-soft); color:var(--accent);}
   .btn:disabled{opacity:.45;}
+  .grp{border-bottom:1px dashed var(--line); padding:10px 0;}
+  .grp:last-of-type{border-bottom:none;}
+  .grp-t{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:13px; font-weight:600; cursor:pointer; padding:4px 0; user-select:none;
+  }
+  .grp-t .cnt{font-size:11px; color:var(--sub); font-weight:400;}
+  .grp-b{margin-top:8px;}
+  .hw{border-bottom:1px dashed var(--line); padding:10px 0; display:flex; align-items:center; gap:8px;}
+  .hw:last-child{border-bottom:none;}
+  .hw .info{flex:1; min-width:0;}
+  .hw .info b{font-size:14px; display:block;}
+  .hw .info span{font-size:11px; color:var(--sub);}
+  .hw .pr{font-size:13px; color:var(--sub); white-space:nowrap;}
+  .hw.sel .pr{color:var(--accent); font-weight:600;}
+  .stepper{display:flex; align-items:center; border:1px solid var(--line); border-radius:9px; overflow:hidden;}
+  .stepper button{
+    width:34px; height:34px; border:none; background:var(--chip); color:var(--ink);
+    font-size:18px; cursor:pointer; line-height:1;
+  }
+  .stepper button:active{background:var(--accent-soft); color:var(--accent);}
+  .stepper .q{
+    width:40px; text-align:center; font-size:14px; font-weight:600;
+    border-left:1px solid var(--line); border-right:1px solid var(--line); line-height:34px;
+  }
+  .areain{
+    width:76px; padding:7px 8px; border:1px solid var(--line); border-radius:9px;
+    font-size:14px; background:#fbfcfe; outline:none;
+  }
+  .areain:focus{border-color:var(--accent); background:#fff;}
   .cart .line{
     display:flex; align-items:center; gap:8px; padding:10px 0;
     border-bottom:1px dashed var(--line); font-size:13px;
@@ -104,32 +100,30 @@
   #sheetWrap{margin-top:12px; border:1px solid var(--line); border-radius:10px; overflow:hidden;}
   #sheet{display:block; width:100%; height:auto;}
   footer{font-size:11px; color:var(--sub); text-align:center; line-height:1.7; padding:0 10px;}
-  .warn{font-size:11px; color:#b45309; margin-top:6px;}
-  .divider{font-size:11px; color:var(--sub); padding:10px 0 4px; letter-spacing:1px;}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1>MR2525 报价计算器</h1>
-    <div class="ver" id="verLine">含 Core-lox · 五金同步 ERP 目录 · 参数版本 2026-10-08</div>
+    <div class="ver" id="verLine">价目表版本 PB-2026-10 · 型材公式 P = 2×L + 30（含 Core-lox）</div>
   </header>
 
   <!-- 客户编码 -->
   <div class="card">
     <h2>客户编码（选填）</h2>
     <input type="text" id="custCode" placeholder="有专属编码请输入，自动按折扣计价" autocomplete="off">
-    <div class="hint" id="codeHint" style="margin-top:8px">无可留空，默认按零售价计</div>
+    <div class="hint" id="codeHint">无可留空，默认按零售价计</div>
   </div>
 
   <!-- 型材算价 -->
   <div class="card" id="calcCard">
-    <h2>型材算价（英寸 / 毫米自动换算）</h2>
+    <h2>型材算价（英寸 / 毫米自动换算 · 任意长度定制）</h2>
     <div class="row">
       <label class="field"><span>切长（英寸）</span><input type="number" id="inch" value="8" min="0.1" step="0.01"></label>
       <label class="field"><span>切长（mm）</span><input type="number" id="mm" value="203.2" min="1" step="0.1"></label>
     </div>
-    <div class="hint">输入任一单位自动换算（1 英寸 = 25.4 mm）</div>
+    <div class="hint" style="margin-top:-4px; margin-bottom:10px">输入任一单位自动换算（1 英寸 = 25.4 mm）；价格按英寸向上取整到元</div>
     <div class="row">
       <label class="field"><span>表面工艺</span><select id="proc"></select></label>
       <label class="field"><span>颜色</span><select id="color"></select></label>
@@ -146,11 +140,11 @@
     <button class="btn" id="addBtn">＋ 型材加入询价单</button>
   </div>
 
-  <!-- 五金库 -->
+  <!-- 配件目录 -->
   <div class="card">
-    <h2>五金配件（ERP 目录同步）</h2>
-    <div id="hwList"></div>
-    <div class="warn">五金价格同步自 ERP 产品目录（2026-10-08）；标「未定价」的目录项暂不可选。</div>
+    <h2>配件与板材（点选加入询价单）</h2>
+    <div id="groups"></div>
+    <div class="hint">价格同步自 ERP 产品目录与价目表 PB-2026-10；板材按平方米计价。</div>
   </div>
 
   <!-- 询价单 -->
@@ -160,13 +154,13 @@
       <label class="field"><span>联系人（选填）</span><input type="text" id="cname" placeholder="姓名"></label>
       <label class="field"><span>电话（选填）</span><input type="text" id="cphone" placeholder="手机/微信"></label>
     </div>
-    <div class="cart" id="cart"><div class="empty">型材算价后点「加入询价单」；五金选了数量会自动带出</div></div>
+    <div class="cart" id="cart"><div class="empty">型材算价后点「加入询价单」；配件选了数量会自动带出</div></div>
     <div id="sheetWrap" class="hidden"><canvas id="sheet"></canvas></div>
     <button class="btn ghost hidden" id="exportBtn">一键导出图片</button>
   </div>
 
   <footer>
-    价格按当前参数快照实时计算，仅供参考，不构成要约；成交价格以双方订单确认为准。
+    价格按价目表 PB-2026-10 计算，仅供参考，不构成要约；成交价格以双方订单确认为准。
   </footer>
 </div>
 
@@ -174,43 +168,64 @@
 (function(){
   "use strict";
 
-  /* ========== 参数 ========== */
-  var P = {
-    version: "2026-10-08-r4",
-    perMeter: 63.91,     // 型材零售 元/m（不含税，毛利65%）
-    fixedPerPc: 38.0,   // 每支固定零售（截断+预埋 Core-lox 工料，毛利65%）
-    taxOut: 1.1
-  };
-  /* 表面处理：工艺 × 颜色（与 ERP 系统设置同源；颜色为生产库现行 14 色） */
-  var PROCESSES = [
-    ["A","硬质阳极氧化"],["P","静电喷粉"],["W","水性漆喷涂"],["T","热转印"],
-    ["MP","磁力抛光"],["CR","镀铬"],["NP","本色/无处理"]
+  /* ========== 价目表 PB-2026-10（对外）· 与内部成本核算分离 ========== */
+  var PROFILE = { slope: 2, base: 30 };  // P = 2L + 30, L=英寸, 已含 Core-lox 两端预埋
+  var PROCESSES = ["硬质阳极氧化","静电喷粉","水性漆喷涂","热转印","磁力抛光","镀铬","本色/无处理"];
+  var COLORS = ["太空银","太空灰","太空黑","午夜蓝","曜石黑","活力橙","玫瑰金","古铜金","中东金","白橡木色","黑胡桃色","冰川蓝","珍珠白","翡翠绿"];
+
+  /* 分组目录:qty 类型 int(步进) / area(㎡, 手输) */
+  var GROUPS = [
+    { key:"six", name:"六通", open:true, items:[
+      { sku:"OL2525",    name:"六通 OL2525",        spec:"25×25",         price:13,  unit:"个", common:true },
+      { sku:"OL2550",    name:"六通 OL2550",        spec:"25×50",         price:26,  unit:"个", common:true },
+      { sku:"OL-CUSTOM", name:"定制六通(需图纸)",    spec:"按图纸",         price:200, unit:"个" }
+    ]},
+    { key:"plugin", name:"插件", open:false, items:[
+      { sku:"CLX-25",      name:"Core-Lox 连接件 25系列", spec:"16×14",    price:12.5, unit:"个", common:true },
+      { sku:"HW-2610-004", name:"蝶形螺母",              spec:"—",        price:1.5,  unit:"个" },
+      { sku:"LY15",        name:"4寸层板托",             spec:"MR2525 用", price:4,    unit:"个", common:true },
+      { sku:"P-EYENUT",    name:"吊环螺丝",              spec:"—",        price:8,    unit:"个" },
+      { sku:"P-KNUCKLE",   name:"活结螺丝",              spec:"—",        price:4,    unit:"个" },
+      { sku:"P-WIREROPE",  name:"钢丝绳套件",            spec:"—",        price:20,   unit:"套" },
+      { sku:"P-BRACE",     name:"斜撑杆",                spec:"—",        price:40,   unit:"根" },
+      { sku:"P-CASTER",    name:"脚轮",                  spec:"—",        price:40,   unit:"个" },
+      { sku:"P-FOOT",      name:"地脚",                  spec:"—",        price:10,   unit:"个" },
+      { sku:"P-HINGE-S",   name:"转向合页",              spec:"—",        price:8,    unit:"个" },
+      { sku:"P-TRI",       name:"三角扣",                spec:"—",        price:2.5,  unit:"个" },
+      { sku:"P-TCLIP",     name:"T型吊码",               spec:"—",        price:10,   unit:"个" },
+      { sku:"P-TNUT",      name:"T型螺母",               spec:"—",        price:4,    unit:"个" },
+      { sku:"P-DRAWER",    name:"瓦楞纸抽屉",            spec:"—",        price:50,   unit:"个" },
+      { sku:"P-LED13",     name:"模块化灯条 13″",        spec:"—",        price:50,   unit:"条" },
+      { sku:"P-LED20",     name:"模块化灯条 20″",        spec:"—",        price:60,   unit:"条" },
+      { sku:"P-LED27",     name:"模块化灯条 27″",        spec:"—",        price:70,   unit:"条" }
+    ]},
+    { key:"panel", name:"面板板材", open:false, area:true, items:[
+      { sku:"BD-PMMMA",   name:"透明亚克力",      price:500, unit:"㎡" },
+      { sku:"BD-FMMMA",   name:"磨砂亚克力",      price:500, unit:"㎡" },
+      { sku:"BD-9MQI",    name:"9厘免漆板",       price:350, unit:"㎡" },
+      { sku:"BD-18MQI",   name:"18厘免漆板",      price:450, unit:"㎡" },
+      { sku:"BD-9TANJ",   name:"9厘碳晶板",       price:200, unit:"㎡" },
+      { sku:"BD-9HY",     name:"9厘饰面海洋板",   price:350, unit:"㎡" },
+      { sku:"BD-12HY",    name:"12厘饰面海洋板",  price:400, unit:"㎡" },
+      { sku:"BD-18HY",    name:"18厘饰面海洋板",  price:450, unit:"㎡" },
+      { sku:"BD-9MZ",     name:"9厘阻燃毛毡板",   price:150, unit:"㎡" }
+    ]},
+    { key:"kit", name:"工具与套装", open:false, items:[
+      { sku:"KIT-SALES", name:"销售材料箱", spec:"样品展示 · 随身套装", price:599, unit:"套" },
+      { sku:"KIT-TOOL",  name:"安装工具包", spec:"一把电钻完成组装",     price:199, unit:"套" }
+    ]}
   ];
-  var COLORS = [
-    ["SV","太空银"],["GY","太空灰"],["BK","太空黑"],["NB","午夜蓝"],["OB","曜石黑"],
-    ["OR","活力橙"],["RG","玫瑰金"],["AG","古铜金"],["MG","中东金"],["WO","白橡木色"],
-    ["BW","黑胡桃色"],["IB","冰川蓝"],["PW","珍珠白"],["JG","翡翠绿"]
-  ];
-  /* 五金库：同步 ERP 产品目录 HARDWARE 类（2026-10-08 快照） */
-  var HW = [
-    { sku:"OL2525",     name:"六通 OL2525",       spec:"25×25",       unit:"根", price:45 },
-    { sku:"OL2032",     name:"六通 OL2032",       spec:"20×32",       unit:"根", price:48 },
-    { sku:"OL2550",     name:"六通 OL2550",       spec:"25×50",       unit:"根", price:55 },
-    { sku:"OL5050/C",   name:"六通 OL5050/C",     spec:"50×50 · C 型", unit:"根", price:78 },
-    { sku:"OL5050/C2",  name:"六通 OL5050/C²",    spec:"50×50 · C² 型",unit:"根", price:88 },
-    { sku:"OL7575/X",   name:"六通 OL7575/X",     spec:"75×75 · X 型", unit:"根", price:120 },
-    { sku:"OL7575/X2",  name:"六通 OL7575/X²",    spec:"75×75 · X² 型",unit:"根", price:135 },
-    { sku:"LY15-MR2525",name:"层板托 LY15",       spec:"MR2525 用",   unit:"根", price:18 },
-    { sku:"OL-CUSTOM",  name:"定制六通（需图纸）", spec:"按图纸",       unit:"根", price:200 },
-    /* 以下目录项 ERP 零售价为 0，未定价暂不可选 */
-    { sku:"HW-2610-001",name:"滚花梢 5×18",       spec:"5×18",        unit:"件", price:null },
-    { sku:"HW-2610-002",name:"滚花梢 5×22",       spec:"5×22",        unit:"件", price:null },
-    { sku:"HW-2610-003",name:"连接件",            spec:"—",           unit:"件", price:null },
-    { sku:"HW-2610-004",name:"蝶形螺母",          spec:"—",           unit:"件", price:null }
-  ];
+  /* 平铺索引 */
+  var ALL = [];
+  GROUPS.forEach(function(g){ g.items.forEach(function(it){ it.group = g.name; it.area = !!g.area; it.qty = 0; ALL.push(it); }); });
+
   var $ = function(id){ return document.getElementById(id); };
   var fmt = function(n){ return n.toFixed(2); };
-  var unitPrice = function(mm){ return (mm / 1000) * P.perMeter + P.fixedPerPc; };
+  var profilePrice = function(mm){
+    var p = PROFILE.slope * (mm / 25.4) + PROFILE.base;
+    return Math.ceil(+p.toFixed(6));   // 向上取整到元(先消浮点噪声,防 48.00000001→127)
+  };
+
   var cart = [];
   var sheetNo = "INQ-" + (function(){
     var d = new Date(), p = function(n){ return n < 10 ? "0" + n : "" + n; };
@@ -218,77 +233,86 @@
       Math.random().toString(36).slice(2, 6).toUpperCase();
   })();
 
+  /* ---------- 表面选择 ---------- */
+  PROCESSES.forEach(function(o, i){ $("proc").appendChild(new Option(o, o, false, i === 0)); });
+  COLORS.forEach(function(o, i){ $("color").appendChild(new Option(o, o, false, i === 0)); });
+  var surfaceText = function(){ return $("proc").value + " · " + $("color").value; };
+
   /* ---------- 英寸/mm 双向换算 ---------- */
   var syncing = false;
   $("inch").addEventListener("input", function(){
     if(syncing) return; syncing = true;
     var v = parseFloat(this.value);
-    if(v > 0) $("mm").value = +(v * 25.4).toFixed(1);
+    if(v > 0) $("mm").value = (v * 25.4).toFixed(1);
     syncing = false; calc();
   });
   $("mm").addEventListener("input", function(){
     if(syncing) return; syncing = true;
     var v = parseFloat(this.value);
-    if(v > 0) $("inch").value = +(v / 25.4).toFixed(2);
+    if(v > 0) $("inch").value = (v / 25.4).toFixed(2);
     syncing = false; calc();
   });
 
-  /* ---------- 表面处理选择 ---------- */
-  function buildSurfaceSelects(){
-    $("proc").innerHTML = ""; $("color").innerHTML = "";
-    PROCESSES.forEach(function(o, i){
-      $("proc").appendChild(new Option(o[1], o[0], false, i === 0));
-    });
-    COLORS.forEach(function(o, i){
-      $("color").appendChild(new Option(o[1], o[0], false, i === 0));
-    });
-  }
-  buildSurfaceSelects();
-  var surfaceText = function(){
-    var pl = PROCESSES.filter(function(o){ return o[0] === $("proc").value; })[0];
-    var cl = COLORS.filter(function(o){ return o[0] === $("color").value; })[0];
-    return (pl ? pl[1] : "") + " · " + (cl ? cl[1] : "");
-  };
-  ["proc","color"].forEach(function(id){ $(id).addEventListener("change", calc); });
-
-  /* ---------- 五金库 ---------- */
-  function buildHwList(){
-    $("hwList").innerHTML = "";
-    var shownOff = false;
-  HW.forEach(function(h){
-    if(h.price === null && !shownOff){
-      shownOff = true;
-      var dv = document.createElement("div");
-      dv.className = "divider";
-      dv.textContent = "以下目录项未定价，暂不可选";
-      $("hwList").appendChild(dv);
-    }
-    var el = document.createElement("div");
-    el.className = "hw" + (h.price === null ? " off" : "") + (h.qty > 0 ? " sel" : "");
-    el.innerHTML =
-      '<div class="info"><b>' + h.name + (h.price === null ? '<span class="badge">未定价</span>' : '')
-      + '</b><span>' + h.sku + ' · ' + h.spec + '</span></div>'
-      + (h.price === null
-        ? '<div class="pr">目录价待定</div>'
-        : '<div class="pr">' + fmt(h.price) + ' 元/' + h.unit + '</div>'
-          + '<div class="stepper"><button data-d="-1">−</button><div class="q">' + (h.qty || 0) + '</div><button data-d="1">＋</button></div>');
-    if(h.price !== null){
-      h.qty = 0;
-      el.querySelectorAll("button").forEach(function(b){
-        b.addEventListener("click", function(){
-          h.qty = Math.max(0, h.qty + parseInt(b.getAttribute("data-d"), 10));
-          el.querySelector(".q").textContent = h.qty;
-          el.classList.toggle("sel", h.qty > 0);
+  /* ---------- 目录渲染(常用置顶 + 分组折叠) ---------- */
+  function buildGroups(){
+    var box = $("groups"); box.innerHTML = "";
+    var common = ALL.filter(function(it){ return it.common; });
+    var mk = function(it){
+      var el = document.createElement("div");
+      el.className = "hw" + (it.qty > 0 ? " sel" : "");
+      if(it.area){
+        el.innerHTML = '<div class="info"><b>' + it.name + '</b><span>' + it.sku + ' · ' + fmt(it.price) + ' 元/㎡</span></div>'
+          + '<input type="number" class="areain" min="0" step="0.1" placeholder="㎡" value="' + (it.qty || "") + '">';
+        el.querySelector(".areain").addEventListener("input", function(){
+          it.qty = Math.max(0, parseFloat(this.value) || 0);
+          el.classList.toggle("sel", it.qty > 0);
           calc();
         });
-      });
+      } else {
+        el.innerHTML = '<div class="info"><b>' + it.name + '</b><span>' + it.sku + ' · ' + it.spec + ' · ' + fmt(it.price) + ' 元/' + it.unit + '</span></div>'
+          + '<div class="pr">' + fmt(it.price) + ' 元/' + it.unit + '</div>'
+          + '<div class="stepper"><button data-d="-1">−</button><div class="q">' + (it.qty || 0) + '</div><button data-d="1">＋</button></div>';
+        el.querySelectorAll("button").forEach(function(b){
+          b.addEventListener("click", function(){
+            it.qty = Math.max(0, (it.qty || 0) + parseInt(b.getAttribute("data-d"), 10));
+            el.querySelector(".q").textContent = it.qty;
+            el.classList.toggle("sel", it.qty > 0);
+            calc();
+          });
+        });
+      }
+      return el;
+    };
+    if(common.length){
+      var cwrap = document.createElement("div");
+      cwrap.className = "grp";
+      cwrap.innerHTML = '<div class="grp-t">常用<span class="cnt">' + common.length + ' 项</span></div>';
+      var cbody = document.createElement("div"); cbody.className = "grp-b";
+      common.forEach(function(it){ cbody.appendChild(mk(it)); });
+      cwrap.appendChild(cbody);
+      box.appendChild(cwrap);
     }
-    $("hwList").appendChild(el);
-  });
+    GROUPS.forEach(function(g){
+      var wrap = document.createElement("div");
+      wrap.className = "grp";
+      var head = document.createElement("div");
+      head.className = "grp-t";
+      head.innerHTML = g.name + '<span class="cnt">' + g.items.length + ' 项 · ' + (g.open ? "收起 ▴" : "展开 ▾") + '</span>';
+      var body = document.createElement("div"); body.className = "grp-b";
+      if(g.open) g.items.forEach(function(it){ body.appendChild(mk(it)); });
+      head.addEventListener("click", function(){
+        g.open = !g.open;
+        body.innerHTML = "";
+        if(g.open) g.items.forEach(function(it){ body.appendChild(mk(it)); });
+        head.querySelector(".cnt").textContent = g.items.length + ' 项 · ' + (g.open ? "收起 ▴" : "展开 ▾");
+      });
+      wrap.appendChild(head); wrap.appendChild(body);
+      box.appendChild(wrap);
+    });
   }
-  buildHwList();
-  var hwLines = function(){ return HW.filter(function(h){ return h.qty > 0; }); };
-  var hwSub = function(){ return hwLines().reduce(function(a, h){ return a + h.price * h.qty; }, 0); };
+  buildGroups();
+  var picked = function(){ return ALL.filter(function(it){ return it.qty > 0; }); };
+  var pickedSub = function(){ return picked().reduce(function(a, it){ return a + it.price * it.qty; }, 0); };
 
   /* ---------- 客户编码 → 专属折扣 ---------- */
   var appliedDisc = 1, codeTimer = null;
@@ -317,14 +341,6 @@
     codeTimer = setTimeout(function(){ applyCode(code); }, 500);
   });
 
-  function removeHw(sku){
-    var h = HW.find(function(x){ return x.sku === sku; });
-    if(!h) return;
-    h.qty = 0;
-    buildHwList();          // 同步五金区步进器显示
-    calc();                 // calc 内部会 renderSheet()
-  }
-
   /* ---------- 算价 ---------- */
   function inputs(){
     return {
@@ -336,29 +352,27 @@
   }
   function calc(){
     var v = inputs();
-    var hw = hwSub();
+    var sub = pickedSub();
     var ok = v.mm > 0 && v.qty > 0;
     $("addBtn").disabled = !ok;
 
     var rows = "", list = 0, final = 0;
     if(ok){
-      var unit = unitPrice(v.mm), sub = unit * v.qty;
-      list = sub + hw; final = list * v.disc;
+      var unit = profilePrice(v.mm), line = unit * v.qty;
+      list = line + sub; final = list * v.disc;
       rows += '<div class="r"><span class="k">型材（含 Core-lox · ' + surfaceText() + '）</span><span class="v">'
-        + fmt(unit) + ' 元/支 × ' + v.qty + ' 支 ＝ ' + fmt(sub) + ' 元</span></div>';
+        + unit + ' 元/支 × ' + v.qty + ' 支 ＝ ' + fmt(line) + ' 元</span></div>';
     }
-    if(hw > 0){
-      rows += hwLines().map(function(h){
-        return '<div class="r"><span class="k">' + h.name + '</span><span class="v">' + fmt(h.price)
-          + ' 元/' + h.unit + ' × ' + h.qty + ' ＝ ' + fmt(h.price * h.qty) + ' 元</span></div>';
-      }).join("");
-    }
-    if(ok || hw > 0){
+    picked().forEach(function(it){
+      rows += '<div class="r"><span class="k">' + it.name + '</span><span class="v">' + fmt(it.price)
+        + ' 元/' + it.unit + ' × ' + it.qty + ' ＝ ' + fmt(it.price * it.qty) + ' 元</span></div>';
+    });
+    if(ok || sub > 0){
       rows += '<div class="r"><span class="k">零售合计</span><span class="v">' + fmt(list) + ' 元</span></div>';
       $("final").textContent = fmt(final);
-      $("subline").textContent = "含税合计 " + fmt(final * P.taxOut) + " 元（×" + P.taxOut + "）"
-        + (ok ? " · 型材折后 " + fmt(unitPrice(v.mm) * v.disc) + " 元/支" : "");
-    }else{
+      $("subline").textContent = "含税合计 " + fmt(final * 1.1) + " 元（×1.1）"
+        + (ok ? " · 型材折后 " + fmt(profilePrice(v.mm) * v.disc) + " 元/支" : "");
+    } else {
       $("final").textContent = "--"; $("subline").textContent = "";
     }
     $("rows").innerHTML = rows;
@@ -373,21 +387,28 @@
     var inchStr = (v.inch % 1 === 0 ? v.inch + "寸" : v.inch.toFixed(2) + "寸");
     cart.push({
       name: "MR2525 定尺件 · " + inchStr + "（" + v.mm.toFixed(1) + " mm）",
-      sub: "含 Core-lox · 表面 " + surfaceText() + " · " + fmt(unitPrice(v.mm)) + " 元/支",
-      qty: v.qty, unit: unitPrice(v.mm)
+      sub: "含 Core-lox · 表面 " + surfaceText() + " · " + profilePrice(v.mm) + " 元/支",
+      qty: v.qty, unit: profilePrice(v.mm), unitLabel: "支"
     });
     renderSheet();
     $("inqCard").scrollIntoView({ behavior: "smooth" });
   });
   ["cname","cphone"].forEach(function(id){ $(id).addEventListener("input", renderSheet); });
+  function removeHw(sku){
+    var it = ALL.find(function(x){ return x.sku === sku; });
+    if(!it) return;
+    it.qty = 0;
+    buildGroups();
+    calc();
+  }
 
   function renderSheet(){
     var box = $("cart");
-    var hw = hwLines();
+    var hw = picked();
     var hasLines = cart.length > 0 || hw.length > 0;
     box.innerHTML = "";
     if(!hasLines){
-      box.innerHTML = '<div class="empty">型材算价后点「加入询价单」；五金选了数量会自动带出</div>';
+      box.innerHTML = '<div class="empty">型材算价后点「加入询价单」；配件选了数量会自动带出</div>';
       $("sheetWrap").classList.add("hidden");
       $("exportBtn").classList.add("hidden");
       return;
@@ -401,14 +422,14 @@
       el.querySelector(".del").onclick = function(){ cart.splice(i, 1); renderSheet(); };
       box.appendChild(el);
     });
-    hw.forEach(function(h){
+    hw.forEach(function(it){
       var el = document.createElement("div");
       el.className = "line";
-      el.innerHTML = '<div class="nm"><b>' + h.name + '</b><span>' + h.sku + ' · '
-        + h.spec + ' · ' + fmt(h.price) + ' 元/' + h.unit + '</span></div>'
-        + '<div class="amt">×' + h.qty + '<br>' + fmt(h.price * h.qty) + ' 元</div>'
+      el.innerHTML = '<div class="nm"><b>' + it.name + '</b><span>' + it.sku + ' · '
+        + fmt(it.price) + ' 元/' + it.unit + '</span></div>'
+        + '<div class="amt">×' + it.qty + '<br>' + fmt(it.price * it.qty) + ' 元</div>'
         + '<button class="del" title="移除">✕</button>';
-      el.querySelector(".del").onclick = function(){ removeHw(h.sku); };
+      el.querySelector(".del").onclick = function(){ removeHw(it.sku); };
       box.appendChild(el);
     });
     $("sheetWrap").classList.remove("hidden");
@@ -419,14 +440,14 @@
   /* ---------- 询价单绘制 ---------- */
   function drawSheet(){
     var v = inputs();
-    var hw = hwLines();
+    var hw = picked();
     if(cart.length === 0 && hw.length === 0) return;
 
     var S = 2, W = 750, m = 48, rowH = 42, headH = 40;
-    var lines = cart.map(function(it){ return { name: it.name, sub: it.sub, qty: it.qty, unit: it.unit, unitLabel: "支" }; })
-      .concat(hw.map(function(h){
-        return { name: h.name, sub: h.sku + " · " + h.spec + " · " + fmt(h.price) + " 元/" + h.unit,
-                 qty: h.qty, unit: h.price, unitLabel: h.unit };
+    var lines = cart.map(function(it){ return { name: it.name, sub: it.sub, qty: it.qty, unit: it.unit, unitLabel: it.unitLabel }; })
+      .concat(hw.map(function(it){
+        return { name: it.name, sub: it.sku + " · " + fmt(it.price) + " 元/" + it.unit,
+                 qty: it.qty, unit: it.price, unitLabel: it.unit };
       }));
 
     var list = lines.reduce(function(a, it){ return a + it.unit * it.qty; }, 0);
@@ -465,12 +486,13 @@
     ty += headH;
     lines.forEach(function(it, i){
       var cy = ty + rowH / 2 + i * rowH;
+      var qtyTxt = it.qty + " " + it.unitLabel;
       x.textAlign = "left";
       F(14); x.fillText(String(i + 1), m + 12, cy - 8);
       F(14, "600"); x.fillText(it.name, m + 46, cy - 8);
       F(11, "", "#6b7686"); x.fillText(it.sub, m + 46, cy + 11);
       x.textAlign = "right";
-      F(14); x.fillText(it.qty + " " + it.unitLabel, W - m - 258, cy - 8);
+      F(14); x.fillText(qtyTxt, W - m - 258, cy - 8);
       x.fillText(fmt(it.unit), W - m - 168, cy - 8);
       F(14, "600"); x.fillText(fmt(it.unit * it.qty), W - m - 12, cy - 8);
       x.strokeStyle = "#eef0f5"; x.beginPath(); x.moveTo(m, ty + (i + 1) * rowH); x.lineTo(W - m, ty + (i + 1) * rowH); x.stroke();
@@ -481,7 +503,7 @@
       ["零售合计", fmt(list) + " 元", false],
       ["折扣率", Math.round(v.disc * 100) + " %", false],
       ["折后合计（不含税）", fmt(final) + " 元", true],
-      ["含税合计（×" + P.taxOut + "）", fmt(final * P.taxOut) + " 元", false]
+      ["含税合计（×1.1）", fmt(final * 1.1) + " 元", false]
     ];
     totals.forEach(function(t, i){
       var cy = ty + 14 + i * 28;
@@ -494,7 +516,7 @@
 
     x.textAlign = "center"; F(11, "", "#9aa3b2");
     x.fillText("本询价单由报价计算器生成 · 价格以订单确认为准", W / 2, H - 36);
-    x.fillText("MR2525 铝型材（含 Core-lox）· 五金价同步 ERP 目录 " + P.version, W / 2, H - 18);
+    x.fillText("价目表版本 PB-2026-10 · 型材公式 P=2L+30（含 Core-lox）", W / 2, H - 18);
   }
 
   /* ---------- 导出图片 ---------- */
@@ -510,27 +532,6 @@
   });
 
   calc();
-
-  /* ---------- 目录实时同步(挂到 ptp.design 同源时生效;本地文件回落内置快照) ---------- */
-  fetch("/api/public/catalog", { cache: "no-store" })
-    .then(function(r){ return r.ok ? r.json() : null; })
-    .then(function(j){
-      if(!j || j.code !== 0 || !j.data) return;
-      var d = j.data;
-      P.version = d.version;
-      P.perMeter = d.profile.perMeterRetail;
-      P.fixedPerPc = d.profile.fixedPerPcRetail;
-      P.taxOut = d.profile.taxOut;
-      HW.length = 0;
-      (d.hardware || []).forEach(function(h){
-        HW.push({ sku: h.sku, name: h.name, spec: h.spec || "—", unit: h.unit, price: h.price, qty: 0 });
-      });
-      PROCESSES.length = 0; (d.surfaceProcesses || []).forEach(function(o){ PROCESSES.push([o.code, o.label]); });
-      COLORS.length = 0; (d.surfaceColors || []).forEach(function(o){ COLORS.push([o.code, o.label]); });
-      $("verLine").textContent = "含 Core-lox · 目录实时同步 " + d.version;
-      buildSurfaceSelects(); buildHwList(); calc();
-    })
-    .catch(function(){});
 })();
 </script>
 </body>
