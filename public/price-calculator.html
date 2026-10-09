@@ -138,8 +138,8 @@
   <!-- 客户编码 -->
   <div class="card">
     <h2>客户编码（选填）</h2>
-    <input type="text" id="custCode" placeholder="有专属编码请输入，自动按折扣计价" autocomplete="off">
-    <div class="hint" id="codeHint">无可留空，默认按零售价计</div>
+    <input type="text" id="custCode" placeholder="请输入客户编码" autocomplete="off">
+    <div class="hint" id="codeHint" style="display:none"></div>
   </div>
 
   <!-- 型材算价 -->
@@ -159,7 +159,7 @@
     </div>
     <div class="rows" id="rows" style="margin-top:6px"></div>
     <div class="hero">
-      <div class="cap">折后合计（零售 · 不含税）</div>
+      <div class="cap">合计（不含税）</div>
       <div class="big"><span id="final">--</span><small> 元</small></div>
       <div class="sub" id="subline"></div>
     </div>
@@ -376,18 +376,18 @@
   var appliedDisc = 1, codeTimer = null;
   function applyCode(code){
     var hint = $("codeHint");
-    if(!code){ appliedDisc = 1; hint.textContent = "无可留空，默认按零售价计"; hint.style.color = ""; calc(); return; }
+    if(!code){ appliedDisc = 1; hint.textContent = ""; hint.style.color = ""; hint.style.display = "none"; calc(); return; }
     fetch("/api/public/price-code?code=" + encodeURIComponent(code))
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){
         if(j && j.code === 0 && j.data && j.data.valid){
           appliedDisc = j.data.discount;
-          hint.textContent = "✓ 专属折扣 " + j.data.discountPercent + "% 已应用";
-          hint.style.color = "var(--ok, #0e9f6e)";
+          hint.textContent = "✓ 已启用您的专属价格";
+          hint.style.color = "#0e9f6e"; hint.style.display = "";
         } else {
           appliedDisc = 1;
-          hint.textContent = "编码无效，按零售价计（如有疑问请联系客服）";
-          hint.style.color = "#dc2626";
+          hint.textContent = "编码未识别";
+          hint.style.color = "#dc2626"; hint.style.display = "";
         }
         calc();
       })
@@ -429,7 +429,7 @@
       rows += '<div class="r"><span class="k">零售合计</span><span class="v">' + fmt(list) + ' 元</span></div>';
       $("final").textContent = fmt(final);
       $("subline").textContent = "含税合计 " + fmt(final * 1.1) + " 元（×1.1）"
-        + (ok ? " · 型材折后 " + fmt(profilePrice(v.mm) * v.disc) + " 元/支" : "");
+        + (ok ? " · 型材单价 " + fmt(profilePrice(v.mm)) + " 元/支" : "");
     } else {
       $("final").textContent = "--"; $("subline").textContent = "";
     }
@@ -558,11 +558,11 @@
     ty += lines.length * rowH + 18;
 
     var totals = [
-      ["零售合计", fmt(list) + " 元", false],
-      ["折扣率", Math.round(v.disc * 100) + " %", false],
-      ["折后合计（不含税）", fmt(final) + " 元", true],
-      ["含税合计（×1.1）", fmt(final * 1.1) + " 元", false]
+      ["合计", fmt(list) + " 元", false]
     ];
+    if(v.disc < 1) totals.push(["专属价格", Math.round(v.disc * 100) + " %", false]);
+    totals.push(["应付合计（不含税）", fmt(final) + " 元", true]);
+    totals.push(["含税合计（×1.1）", fmt(final * 1.1) + " 元", false]);
     totals.forEach(function(t, i){
       var cy = ty + 14 + i * 28;
       x.textAlign = "right";
